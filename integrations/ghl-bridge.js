@@ -59,6 +59,21 @@
  *     bui-address-select's { description, placeId, place }).
  *     options.write is passed through to writeField as its `options`.
  *
+ *   BUI.ghl.submitNative(selector)
+ *     Finds GHL's own native submit control by `selector` and clicks it.
+ *     GHL's Survey/Form submit button is not a real <button type="submit">
+ *     in a <form> — it's a JS-bound element (observed as a
+ *     role="button" div with its own click handler), so a real form
+ *     submit event never fires and .requestSubmit() has nothing to call.
+ *     .click() is the only reliable way to invoke GHL's own submission
+ *     logic from outside code. Returns true if an element matched,
+ *     false otherwise (nothing was clicked).
+ *     Note: this only fires GHL's submission — it does not confirm the
+ *     record has been created/persisted server-side by the time it
+ *     returns. Anything that depends on the record existing (e.g. an
+ *     n8n search-by-unique-field immediately afterward) needs its own
+ *     buffer delay after calling this.
+ *
  * USAGE — replacing a native select with <bui-select>:
  *   BUI.ghl.whenFieldReady('Rcyi4EKdLtvUZWmEsKM4', function (native) {
  *     BUI.ghl.hideNative(native);
@@ -184,10 +199,21 @@
     });
   }
 
+  function submitNative(selector) {
+    var el = window.BUI.dom.qs(selector);
+    if (!el) {
+      console.error('[bui-ghl-bridge] submitNative: no element matched "' + selector + '".');
+      return false;
+    }
+    el.click();
+    return true;
+  }
+
   window.BUI.ghl = {
     hideNative: hideNative,
     writeField: writeField,
     whenFieldReady: whenFieldReady,
-    bindField: bindField
+    bindField: bindField,
+    submitNative: submitNative
   };
 })();

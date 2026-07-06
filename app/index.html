@@ -27,6 +27,13 @@
   Everything else loads from this kit's public GitHub repo via jsDelivr,
   pinned to @main. Component files are self-contained and additive — see
   the root README for the include-pattern rules.
+
+  REQUIRED GHL SURVEY SETTING: "Action After Submit" must be set to stay
+  on the page (a message/no-op), not a redirect. This app calls GHL's own
+  native submit control mid-assessment (see CONFIG.GHL_SUBMIT_SELECTOR
+  below) to create the Contact-linked Property record n8n's pipeline
+  searches for — a redirect at that point navigates away and kills this
+  app before it can call the scoring webhook or show results at all.
 -->
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
@@ -321,6 +328,24 @@
       estimatedMonthlyFee: 'REPLACE_ghl_field__estimated_monthly_fee'
     },
 
+    // This page's native GHL Survey submit control. n8n's pipeline only
+    // ever searches for a Property record by googlePlaceId and updates it
+    // — it never creates one, because a record created via direct API call
+    // has no linked Contact (see integrations/ghl-bridge.js submitNative
+    // doc). Only GHL's own native Survey submission creates that link, so
+    // this app has to trigger the real submission itself, at the point the
+    // driver questions finish, before it calls WEBHOOK_URL — otherwise the
+    // record n8n searches for doesn't exist yet and the update silently
+    // no-ops. Observed selector for GHL's submit control on this survey;
+    // update if GHL changes its markup.
+    GHL_SUBMIT_SELECTOR: '.ghl-submit-btn',
+
+    // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
+    // it doesn't confirm the record has actually been persisted server-side
+    // by the time control returns. This is a buffer before calling
+    // WEBHOOK_URL so n8n's search-by-googlePlaceId has a real record to find.
+    GHL_SUBMIT_SETTLE_MS: 900,
+
     // The Fee Calculation flow's request schema also expects these add-on
     // toggles (see power-automate-build-spec.md). This funnel's 8 steps
     // don't collect them, so if another page/step in this GHL funnel does,
@@ -564,9 +589,23 @@
       driverStepIndex++;
       renderDriverStep();
     } else {
-      runAssessment();
+      driverContinue.setAttribute('disabled', ''); // guard against a second click firing a second native submit
+      submitNativeThenAssess();
     }
   });
+
+  // Fires GHL's own native Survey submission — creating the Contact-linked
+  // Property record n8n will search for — then waits GHL_SUBMIT_SETTLE_MS
+  // for it to actually persist before calling WEBHOOK_URL. See
+  // GHL_SUBMIT_SELECTOR above for why this can't happen any earlier or
+  // any later than right here.
+  function submitNativeThenAssess() {
+    var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
+    if (!submitted) {
+      console.warn('[brichaus-assessment] Native GHL submit control not found (' + CONFIG.GHL_SUBMIT_SELECTOR + ') — the Property record was not created via GHL submission before scoring.');
+    }
+    setTimeout(runAssessment, submitted ? CONFIG.GHL_SUBMIT_SETTLE_MS : 0);
+  }
 
   /* =====================================================================
    * Step 7: Finalizing — webhook call happens here
@@ -724,6 +763,22 @@
       console.warn('[brichaus-assessment] GHL field names still placeholders, hidden-field sync is skipped for: ' + unset.join(', '));
     }
   })();
+
+  // The native GHL Survey fields this app mirrors values into (see
+  // syncGhlField) are real visible fields on the survey page — this app
+  // replaces them visually with its own bui-* steps, so each native
+  // original needs to be hidden the same way address-input.js's own
+  // native counterpart would be, per ghl-bridge.js's hideNative doc.
+  // "for Surveys, hide with CSS rather than a builder toggle" — a
+  // builder-level hide is what an earlier gotcha this session showed
+  // doesn't reliably survive submission the way this does.
+  Object.keys(CONFIG.GHL_FIELDS).forEach(function (key) {
+    var fieldName = CONFIG.GHL_FIELDS[key];
+    if (!fieldName || fieldName.indexOf('REPLACE_') === 0) return;
+    window.BUI.ghl.whenFieldReady(fieldName, function (el) {
+      window.BUI.ghl.hideNative(el);
+    });
+  });
 
   showStep('location');
 })();
