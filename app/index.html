@@ -156,6 +156,17 @@
     opacity: 0 !important;
     pointer-events: none !important;
   }
+
+  /* Draws attention to GHL's real, unhidden consent checkbox (see
+     CONFIG.GHL_TERMS_FIELD) when the "Get Your Report" step scrolls it
+     into view — it's likely rendered well outside #brichaus-assessment's
+     own layout, so a visible marker is the only way to connect it to
+     this step's Continue button. */
+  .bui-ghl-highlight-pulse {
+    outline: 3px solid var(--bui-color-accent) !important;
+    outline-offset: 4px !important;
+    border-radius: 4px !important;
+  }
 </style>
 </head>
 <body>
@@ -235,11 +246,35 @@
     </bui-card>
   </section>
 
+  <!-- ============ STEP: contact capture (creates the linked Contact + Property record) ============ -->
+  <section data-step="contact" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="7. Get Your Report" id="contact-header-progress" value="80"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Where should we send your report?</h2>
+        <p>We're finishing your operational demand score and recommended fee — just need to know where to send it.</p>
+        <div class="field-row">
+          <bui-input id="contact-name-input" label="First Name"></bui-input>
+          <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
+        </div>
+        <p id="contact-terms-hint" style="margin-top: var(--bui-space-3); font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted);">
+          Please check the consent box below (scroll down if you don't see it highlighted) to continue.
+        </p>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="driver">Back</bui-button>
+        <bui-button id="contact-continue" variant="primary" disabled>Get My Report</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
   <!-- ============ STEP: finalizing (webhook call happens here) ============ -->
   <section data-step="loading" class="hidden">
     <bui-card variant="elevated" class="loading-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="7. Finalizing Your Report" value="85"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="8. Finalizing Your Report" value="90"></bui-progress-bar>
       </div>
       <div style="padding: var(--bui-space-5);">
         <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
@@ -264,7 +299,7 @@
   <section data-step="results" class="hidden">
     <bui-card variant="elevated" class="results-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="8. Your Results" value="100"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="9. Your Results" value="100"></bui-progress-bar>
       </div>
       <div style="padding: var(--bui-space-5);">
         <div id="demo-banner" class="demo-banner hidden">
@@ -338,22 +373,39 @@
       turnoverScore: 'Rcyi4EKdLtvUZWmEsKM4-1',
       maintenanceScore: 'a7ZUr1kGMgMl3DZQiNZg-3',
       complianceScore: 'JgmtFQbe1Xz5tiTbiFLx',
+      // Standard GHL Contact fields — collected on the "Get Your Report"
+      // step, right before the native submit fires. Required for the
+      // native submission to create a valid Contact at all; without a
+      // name/email captured somewhere first, that submission would either
+      // fail native validation or create an unusable, unidentifiable
+      // Contact record.
+      firstName: 'first_name',
+      email: 'email',
       // Not yet provided — still placeholders until these output fields exist in GHL.
       operationalDemandBand: 'REPLACE_ghl_field__operational_demand_band',
       recommendedFeePct: 'REPLACE_ghl_field__recommended_fee_pct',
       estimatedMonthlyFee: 'REPLACE_ghl_field__estimated_monthly_fee'
     },
 
+    // Required consent checkbox on this survey. Deliberately NOT in
+    // GHL_FIELDS/hidden like the other native fields above — its label is
+    // real, GHL-configured legal/consent copy that shouldn't be hidden,
+    // duplicated, or pre-checked on the visitor's behalf. The "Get Your
+    // Report" step scrolls to it and briefly highlights it, and gates its
+    // own Continue button on it being checked, but leaves the actual
+    // native checkbox+label exactly where GHL renders it.
+    GHL_TERMS_FIELD: 'terms_and_conditions_1_U6waNdJjVXiZPMuMy38n',
+
     // This page's native GHL Survey submit control. n8n's pipeline only
     // ever searches for a Property record by googlePlaceId and updates it
     // — it never creates one, because a record created via direct API call
     // has no linked Contact (see integrations/ghl-bridge.js submitNative
     // doc). Only GHL's own native Survey submission creates that link, so
-    // this app has to trigger the real submission itself, at the point the
-    // driver questions finish, before it calls WEBHOOK_URL — otherwise the
-    // record n8n searches for doesn't exist yet and the update silently
-    // no-ops. Observed selector for GHL's submit control on this survey;
-    // update if GHL changes its markup.
+    // this app has to trigger the real submission itself, once name/email/
+    // consent are captured on the "Get Your Report" step, before it calls
+    // WEBHOOK_URL — otherwise the record n8n searches for doesn't exist
+    // yet and the update silently no-ops. Observed selector for GHL's
+    // submit control on this survey; update if GHL changes its markup.
     GHL_SUBMIT_SELECTOR: '.ghl-submit-btn',
 
     // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
@@ -363,7 +415,7 @@
     GHL_SUBMIT_SETTLE_MS: 900,
 
     // The Fee Calculation flow's request schema also expects these add-on
-    // toggles (see power-automate-build-spec.md). This funnel's 8 steps
+    // toggles (see power-automate-build-spec.md). This funnel's 9 steps
     // don't collect them, so if another page/step in this GHL funnel does,
     // put that native field's `name` here and its live value is read at
     // submit time. Leave blank to always send the neutral default shown.
@@ -431,6 +483,7 @@
     unitCount: 1,
     rentPerUnit: 1650,
     drivers: { tenant: 'standard', turnover: 'standard', maintenance: 'standard', compliance: 'standard' },
+    contact: { firstName: '', email: '' },
     result: null // populated once the webhook responds (or demo fallback)
   };
 
@@ -450,6 +503,7 @@
     location: root.querySelector('[data-step="location"]'),
     snapshot: root.querySelector('[data-step="snapshot"]'),
     driver: root.querySelector('[data-step="driver"]'),
+    contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
     results: root.querySelector('[data-step="results"]')
   };
@@ -467,6 +521,11 @@
   var driverChoiceGroup = document.getElementById('driver-choice-group');
   var driverContinue = document.getElementById('driver-continue');
   var driverBack = document.getElementById('driver-back');
+
+  var contactNameInput = document.getElementById('contact-name-input');
+  var contactEmailInput = document.getElementById('contact-email-input');
+  var contactContinue = document.getElementById('contact-continue');
+  var termsFieldEl = null; // resolved once by whenFieldReady below, reused on each visit to the contact step
 
   var checklist = document.getElementById('checklist');
   var buildProgress = document.getElementById('build-progress');
@@ -573,7 +632,7 @@
     driverQuestion.textContent = step.question;
     driverSubProgress.setAttribute('label', step.title + ' Driver');
     driverSubProgress.setAttribute('value', String(driverStepIndex + 1));
-    driverHeaderProgress.setAttribute('value', String(43 + driverStepIndex * 10));
+    driverHeaderProgress.setAttribute('value', String(30 + driverStepIndex * 12));
 
     var current = state.drivers[step.key];
     driverChoiceGroup.value = current;
@@ -605,9 +664,64 @@
       driverStepIndex++;
       renderDriverStep();
     } else {
-      driverContinue.setAttribute('disabled', ''); // guard against a second click firing a second native submit
-      submitNativeThenAssess();
+      showStep('contact');
+      if (termsFieldEl) {
+        termsFieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        termsFieldEl.classList.add('bui-ghl-highlight-pulse');
+        setTimeout(function () { termsFieldEl.classList.remove('bui-ghl-highlight-pulse'); }, 2500);
+      }
     }
+  });
+
+  /* =====================================================================
+   * Step 7: Get Your Report — captures the name/email/consent this native
+   * submit needs to create a valid, Contact-linked record. Nothing before
+   * this step writes name/email anywhere, and nothing after it should —
+   * this is the one point in the flow where the native submit fires.
+   * =================================================================== */
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function refreshContactContinue() {
+    var termsOk = !!(termsFieldEl && termsFieldEl.checked);
+    var ready = !!state.contact.firstName && isValidEmail(state.contact.email) && termsOk;
+    contactContinue.toggleAttribute('disabled', !ready);
+  }
+
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    contactNameInput.addEventListener(eventName, function (evt) {
+      state.contact.firstName = (evt.detail.value || '').trim();
+      syncGhlField('firstName', state.contact.firstName);
+      refreshContactContinue();
+    });
+
+    contactEmailInput.addEventListener(eventName, function (evt) {
+      state.contact.email = (evt.detail.value || '').trim();
+      syncGhlField('email', state.contact.email);
+      refreshContactContinue();
+    });
+  });
+
+  // The consent checkbox carries real GHL-configured legal copy — left
+  // visible and untouched wherever GHL renders it (see CONFIG.GHL_TERMS_
+  // FIELD), just watched here so this step's Continue button reflects it.
+  window.BUI.ghl.whenFieldReady(CONFIG.GHL_TERMS_FIELD, function (el) {
+    termsFieldEl = el;
+    el.addEventListener('change', refreshContactContinue);
+    el.addEventListener('click', refreshContactContinue);
+  });
+
+  root.querySelector('[data-back="driver"]').addEventListener('bui-click', function () {
+    driverStepIndex = DRIVER_STEPS.length - 1;
+    renderDriverStep();
+    showStep('driver');
+  });
+
+  contactContinue.addEventListener('bui-click', function () {
+    if (contactContinue.hasAttribute('disabled')) return;
+    contactContinue.setAttribute('disabled', ''); // guard against a second click firing a second native submit
+    submitNativeThenAssess();
   });
 
   // Fires GHL's own native Survey submission — creating the Contact-linked
@@ -624,7 +738,7 @@
   }
 
   /* =====================================================================
-   * Step 7: Finalizing — webhook call happens here
+   * Step 8: Finalizing — webhook call happens here
    * =================================================================== */
   function buildWebhookPayload() {
     return {
@@ -693,7 +807,7 @@
   }
 
   /* =====================================================================
-   * Step 8: Results / Report Generator
+   * Step 9: Results / Report Generator
    * =================================================================== */
   function renderResults() {
     var result = state.result;
