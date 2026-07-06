@@ -631,8 +631,6 @@
     var grossMonthly = state.rentPerUnit * state.unitCount;
     var grossAnnual = grossMonthly * 12;
 
-    demoBanner.classList.toggle('hidden', !result.isDemo);
-
     resultGauge.setAttribute('value', String(DemandEngine.gaugePercent(result.demandScore)));
     resultGauge.setAttribute('readout', result.band.label);
     resultGauge.setAttribute('caption', result.band.caption);
@@ -642,19 +640,28 @@
     statGrossAnnual.textContent = currency(grossAnnual);
 
     var webhook = result.webhook;
-    var feePct, monthlyFee;
-    if (webhook && typeof webhook.fullyLoadedFee === 'number') {
-      monthlyFee = webhook.fullyLoadedFee;
-      feePct = grossMonthly > 0 ? (monthlyFee / grossMonthly) * 100 : 0;
+    // feeCalcResponse is a fee RATE (e.g. 0.06 for 6%), not a dollar amount —
+    // the pipeline's "Trigger Power Automate Fee Calc" step returns this raw,
+    // and "Assemble Prototype Output" passes it straight through. Convert to
+    // a percentage and multiply by gross monthly rent ourselves.
+    var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
+    var feePct, monthlyFee, isIllustrative;
+    if (!isNaN(feeRate)) {
+      feePct = feeRate * 100;
+      monthlyFee = grossMonthly * feeRate;
+      isIllustrative = false;
     } else {
-      // Demo-mode-only illustrative placeholder — NOT the real pricing
-      // formula, which lives in Power Automate/Dataverse (see
-      // power-automate-build-spec.md). Replaced automatically once
-      // CONFIG.WEBHOOK_URL is set and returns a real fullyLoadedFee.
+      // Illustrative placeholder — NOT the real pricing formula, which
+      // lives in Power Automate/Dataverse (see power-automate-build-spec.md).
+      // Used whenever CONFIG.WEBHOOK_URL is unset, the call failed, or the
+      // response didn't include a usable feeCalcResponse rate.
       var demoBandPct = { LOW: 5, MODERATE: 6, HIGH: 7.5, CRITICAL: 9 };
       feePct = demoBandPct[result.band.label] || 6;
       monthlyFee = grossMonthly * (feePct / 100);
+      isIllustrative = true;
     }
+
+    demoBanner.classList.toggle('hidden', !(result.isDemo || isIllustrative));
 
     statFeePct.textContent = feePct.toFixed(1) + '%';
     resultFeeSummary.textContent = currency(monthlyFee) + ' / month';
