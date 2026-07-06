@@ -140,6 +140,22 @@
   #brichaus-assessment .insights-list .title { font-weight: 700; font-size: 13.5px; }
   #brichaus-assessment .insights-list .desc { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
   #brichaus-assessment .hidden { display: none !important; }
+
+  /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
+     Kept in the DOM — BUI.ghl.submitNative() needs to .click() it — but
+     never shown to the visitor; this widget's own step flow is the only
+     visible continue/submit affordance on the page. A plain CSS rule
+     (not scoped to #brichaus-assessment, since GHL renders this control
+     outside this app's own container) so it's hidden immediately on
+     paint, with no dependency on this app's JS having run yet. */
+  .ghl-submit-btn {
+    position: absolute !important;
+    left: -99999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
 </style>
 </head>
 <body>
