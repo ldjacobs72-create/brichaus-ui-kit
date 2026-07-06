@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brichaus UI Kit — Funnel Example</title>
+
+<!--
+  Fuller demo of the "Property Intelligence Report" funnel step from the
+  second design reference. Opens directly in a browser — no build step.
+  Loads core.js plus exactly the components this page uses: button,
+  input, address-input, card, progress-bar, choice-card, dial-gauge, loading.
+
+  Note: opened as a local file with no Google Maps script/API key present,
+  the address field below will behave as a plain text input — that's the
+  graceful-degrade path address-input.js is built to take, not a bug. It
+  gets full suggestions once a real Maps script + key are on the page (see
+  the "Google Places in GHL" section of README.md).
+-->
+<script src="../core/core.js"></script>
+<script src="../components/button.js"></script>
+<script src="../components/input.js"></script>
+<script src="../components/address-input.js"></script>
+<script src="../components/card.js"></script>
+<script src="../components/progress-bar.js"></script>
+<script src="../components/choice-card.js"></script>
+<script src="../components/dial-gauge.js"></script>
+<script src="../components/loading.js"></script>
+
+<style>
+  body {
+    margin: 0;
+    font-family: var(--bui-font-family);
+    background: var(--bui-color-bg);
+    color: var(--bui-color-text);
+  }
+  .page {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: var(--bui-space-6) var(--bui-space-4);
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--bui-space-4);
+  }
+  .step-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--bui-space-4) var(--bui-space-5) var(--bui-space-5);
+  }
+  .loading-card, .results-card {
+    text-align: center;
+  }
+  .results-actions {
+    display: flex;
+    gap: var(--bui-space-3);
+    justify-content: center;
+    margin-top: var(--bui-space-4);
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ============ STEP: driver selection ============ -->
+    <section id="step-section">
+      <bui-card variant="elevated" padding="sm">
+        <div slot="header">
+          <bui-progress-bar tone="header" label="3–6. Operational Assessment" value="43"></bui-progress-bar>
+        </div>
+
+        <div style="padding: var(--bui-space-5) var(--bui-space-5) 0;">
+          <h2 style="margin: 0 0 4px; font-size: 1.375rem;">Tell us about your property</h2>
+          <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+            This helps us calculate your potential revenue and recommended management fee.
+          </p>
+
+          <bui-address-input
+            id="address-input"
+            label="Property Address"
+            region="us"
+            fields="formattedAddress,addressComponents,location"
+            hint="Start typing to search — works fully once a Maps script + API key are on the page.">
+          </bui-address-input>
+
+          <div class="field-row" style="margin-top: var(--bui-space-4);">
+            <bui-input id="rent-input" label="Average Monthly Rent per Unit" prefix="$" type="number" value="1650"></bui-input>
+            <bui-input id="units-input" label="Number of Units" type="number" value="24"></bui-input>
+          </div>
+
+          <div style="margin: var(--bui-space-5) 0 var(--bui-space-3);">
+            <bui-progress-bar variant="segmented" label="Maintenance Driver" value="1" max="1"></bui-progress-bar>
+          </div>
+
+          <p style="font-weight: 700; font-size: var(--bui-font-size-md); margin: 0 0 var(--bui-space-3);">
+            How would you describe the overall maintenance demands of your property?
+          </p>
+
+          <bui-choice-group id="driver-group" name="maintenance" value="active">
+            <bui-choice-card value="streamlined" label="Streamlined"
+              description="Minimal issues and low maintenance needs."
+              meta="0.5x" meta-tone="slate"></bui-choice-card>
+            <bui-choice-card value="standard" label="Standard"
+              description="Typical maintenance for a property like yours."
+              meta="1.0x" meta-tone="accent"></bui-choice-card>
+            <bui-choice-card value="active" label="Active"
+              description="Above-average maintenance activity and coordination."
+              meta="1.5x" meta-tone="warning"></bui-choice-card>
+            <bui-choice-card value="intensive" label="Intensive"
+              description="High maintenance volume or complex requirements."
+              meta="2.0x" meta-tone="danger"></bui-choice-card>
+          </bui-choice-group>
+        </div>
+
+        <div slot="footer" class="step-footer">
+          <bui-button id="continue-btn" variant="slate">Continue</bui-button>
+        </div>
+      </bui-card>
+    </section>
+
+    <!-- ============ LOADING: finalizing checklist ============ -->
+    <section id="loading-section" class="hidden">
+      <bui-card variant="elevated" class="loading-card">
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
+        <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          Crunching the numbers and preparing your recommendations.
+        </p>
+        <div style="max-width: 320px; margin: 0 auto; text-align: left;">
+          <bui-checklist
+            id="checklist"
+            items="Property located,Market data retrieved,Revenue potential calculated,Finalizing recommendations,Generating your report"
+            current="1">
+          </bui-checklist>
+          <div style="margin-top: var(--bui-space-5);">
+            <bui-progress-bar id="build-progress" label="Progress" value="0"></bui-progress-bar>
+          </div>
+        </div>
+      </bui-card>
+    </section>
+
+    <!-- ============ RESULTS ============ -->
+    <section id="results-section" class="hidden">
+      <bui-card variant="elevated" class="results-card">
+        <h2 style="margin: 0 0 4px; font-size: 1.4rem;">Here is your Property Intelligence Report</h2>
+        <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          Based on your property and operational assessment
+        </p>
+
+        <bui-dial-gauge id="result-gauge" eyebrow="Operational Demand" value="70" readout="HIGH" caption="High Operational Complexity"></bui-dial-gauge>
+
+        <div style="margin-top: var(--bui-space-4);">
+          <bui-card variant="tinted" padding="sm">
+            <strong>Primary Driver:</strong>
+            <span id="result-summary">Maintenance demand was the largest factor in this score.</span>
+          </bui-card>
+        </div>
+
+        <div class="results-actions">
+          <bui-button variant="secondary">Download Report</bui-button>
+          <bui-button variant="primary">Schedule Consultation</bui-button>
+        </div>
+      </bui-card>
+    </section>
+
+  </div>
+
+  <script>
+    // Plain DOM wiring — this is what a GHL page's inline <script> block
+    // looks like. No framework, no build step.
+    var DRIVER_META = {
+      streamlined: { value: 20, readout: 'LOW', caption: 'Low Operational Complexity' },
+      standard: { value: 45, readout: 'MODERATE', caption: 'Typical Operational Complexity' },
+      active: { value: 70, readout: 'HIGH', caption: 'High Operational Complexity' },
+      intensive: { value: 95, readout: 'CRITICAL', caption: 'Critical Operational Complexity' }
+    };
+
+    var stepSection = document.getElementById('step-section');
+    var loadingSection = document.getElementById('loading-section');
+    var resultsSection = document.getElementById('results-section');
+    var continueBtn = document.getElementById('continue-btn');
+    var driverGroup = document.getElementById('driver-group');
+    var checklist = document.getElementById('checklist');
+    var buildProgress = document.getElementById('build-progress');
+    var resultGauge = document.getElementById('result-gauge');
+    var resultSummary = document.getElementById('result-summary');
+    var addressInput = document.getElementById('address-input');
+
+    addressInput.addEventListener('bui-address-select', function (evt) {
+      // In a real GHL page, this is where you'd copy evt.detail.place
+      // fields into hidden form inputs for submission.
+      console.log('bui-address-select', evt.detail);
+    });
+
+    var CHECKLIST_STEPS = 5;
+
+    continueBtn.addEventListener('bui-click', function () {
+      stepSection.classList.add('hidden');
+      loadingSection.classList.remove('hidden');
+
+      checklist.current = 1;
+      buildProgress.setAttribute('value', '0');
+
+      var tick = 0;
+      var timer = setInterval(function () {
+        tick++;
+        checklist.current = tick + 1;
+        buildProgress.setAttribute('value', String(Math.min(100, Math.round((tick / CHECKLIST_STEPS) * 100))));
+
+        if (tick >= CHECKLIST_STEPS) {
+          clearInterval(timer);
+          setTimeout(showResults, 400);
+        }
+      }, 650);
+    });
+
+    function showResults() {
+      var driver = driverGroup.value || 'standard';
+      var meta = DRIVER_META[driver] || DRIVER_META.standard;
+
+      resultGauge.setAttribute('value', String(meta.value));
+      resultGauge.setAttribute('readout', meta.readout);
+      resultGauge.setAttribute('caption', meta.caption);
+      resultSummary.textContent = 'Maintenance demand ("' + driver + '") was the largest factor in this score.';
+
+      loadingSection.classList.add('hidden');
+      resultsSection.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
