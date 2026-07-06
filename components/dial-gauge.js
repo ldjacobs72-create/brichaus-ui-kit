@@ -42,12 +42,16 @@
     '.bui-dial__readout[data-tone="danger"] { color: var(--bui-color-danger); }',
     '.bui-dial__caption { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin: 2px 0 var(--bui-space-1); }',
     '.bui-dial__svg { display: block; margin: 0 auto; max-width: 240px; width: 100%; height: auto; }',
-    '.bui-dial__needle {',
-    '  transform-origin: 120px 120px;',
-    '}',
-    '@media (prefers-reduced-motion: no-preference) {',
-    '  .bui-dial__needle { transition: transform var(--bui-transition-base); }',
-    '}'
+    /* The needle's sweep is animated by directly interpolating the SVG
+     * `transform` attribute in JS (see _animateNeedle below), not via a CSS
+     * transition. A CSS transition on `transform` here would make the
+     * browser fold the SVG rotate(angle, cx, cy) attribute into the
+     * unified CSS transform box model, where a px transform-origin resolves
+     * against the element's own bounding box by default (or, even with
+     * transform-box: view-box forced, was still observed to reintroduce a
+     * mismatched coordinate space) — either way the needle ends up rotating
+     * around the wrong point and can swing far outside the visible dial.
+     * Driving the attribute directly in JS sidesteps that entirely. */
   ].join('\n'));
 
   var OBSERVED = ['value', 'readout', 'caption', 'eyebrow', 'readout-tone'];
@@ -169,8 +173,12 @@
       var value = Math.max(0, Math.min(100, parseFloat(this.getAttribute('value')) || 0));
       var pct = value / 100;
 
-      // Needle sweeps 180° (pointing left, value=0) to 0° (pointing right, value=100).
-      var angle = -180 + pct * 180;
+      // Needle sweeps from pointing left (value=0) through up (value=50) to
+      // pointing right (value=100). The needle's unrotated resting position
+      // (120,120)->(120,48)) points straight up, i.e. rotate(0) — so left is
+      // rotate(-90) and right is rotate(90), not -180/0 as a naive "180deg
+      // sweep starting at -180" might suggest.
+      var angle = -90 + pct * 180;
       this._needleGroup.setAttribute('transform', 'rotate(' + angle + ' 120 120)');
 
       this._eyebrow.textContent = this.getAttribute('eyebrow') || '';
