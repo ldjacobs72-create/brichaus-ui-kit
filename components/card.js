@@ -65,42 +65,52 @@
       if (this._buiRendered) return;
       this._buiRendered = true;
 
-      var children = Array.prototype.slice.call(this.children);
-      var headerNodes = children.filter(function (n) { return n.getAttribute('slot') === 'header'; });
-      var footerNodes = children.filter(function (n) { return n.getAttribute('slot') === 'footer'; });
-      var bodyNodes = children.filter(function (n) {
-        var slot = n.getAttribute('slot');
-        return slot !== 'header' && slot !== 'footer';
-      });
+      // Deferred until the initial parse finishes — see button.js for why a
+      // microtask isn't late enough. A card written directly in static HTML
+      // upgrades before the parser has appended its slot="header"/
+      // slot="footer" children, so reading this.children synchronously (or
+      // one microtask later) would see none of them and build three
+      // permanently empty header/body/footer divs.
+      var init = () => {
+        var children = Array.prototype.slice.call(this.children);
+        var headerNodes = children.filter(function (n) { return n.getAttribute('slot') === 'header'; });
+        var footerNodes = children.filter(function (n) { return n.getAttribute('slot') === 'footer'; });
+        var bodyNodes = children.filter(function (n) {
+          var slot = n.getAttribute('slot');
+          return slot !== 'header' && slot !== 'footer';
+        });
 
-      this.innerHTML = '';
+        this.innerHTML = '';
 
-      var card = document.createElement('div');
-      card.className = 'bui-card';
+        var card = document.createElement('div');
+        card.className = 'bui-card';
 
-      var header = document.createElement('div');
-      header.className = 'bui-card__header';
-      headerNodes.forEach(function (n) { header.appendChild(n); });
+        var header = document.createElement('div');
+        header.className = 'bui-card__header';
+        headerNodes.forEach(function (n) { header.appendChild(n); });
 
-      var body = document.createElement('div');
-      body.className = 'bui-card__body';
-      bodyNodes.forEach(function (n) { body.appendChild(n); });
+        var body = document.createElement('div');
+        body.className = 'bui-card__body';
+        bodyNodes.forEach(function (n) { body.appendChild(n); });
 
-      var footer = document.createElement('div');
-      footer.className = 'bui-card__footer';
-      footerNodes.forEach(function (n) { footer.appendChild(n); });
+        var footer = document.createElement('div');
+        footer.className = 'bui-card__footer';
+        footerNodes.forEach(function (n) { footer.appendChild(n); });
 
-      card.appendChild(header);
-      card.appendChild(body);
-      card.appendChild(footer);
-      this.appendChild(card);
+        card.appendChild(header);
+        card.appendChild(body);
+        card.appendChild(footer);
+        this.appendChild(card);
 
-      this._card = card;
-      this._syncAttrs();
+        this._card = card;
+        this._syncAttrs();
+      };
+      if (document.readyState === 'loading') setTimeout(init, 0);
+      else init();
     }
 
     attributeChangedCallback() {
-      if (this._buiRendered) this._syncAttrs();
+      if (this._card) this._syncAttrs();
     }
 
     _syncAttrs() {

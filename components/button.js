@@ -77,29 +77,44 @@
       if (this._buiRendered) return;
       this._buiRendered = true;
 
-      var label = this.textContent.trim();
-      this.textContent = '';
+      // Deferred until the initial parse finishes: for an element written
+      // directly in static HTML, the parser upgrades it (firing
+      // connectedCallback) the instant its start tag is inserted — before
+      // it has appended the element's text content as a child, and a
+      // microtask still runs too early (the parser checkpoints microtasks
+      // between tokens, mid-parse). Reading this.textContent synchronously
+      // (or one microtask later) would see it as empty for every button
+      // written as markup, leaving the label as a stray text node next to
+      // an empty <button>. Once the document has already finished loading
+      // (a button created and inserted dynamically after that point), its
+      // children are present immediately, so init runs synchronously.
+      var init = () => {
+        var label = this.textContent.trim();
+        this.textContent = '';
 
-      var btn = document.createElement('button');
-      btn.className = 'bui-btn';
-      btn.textContent = label;
-      this.appendChild(btn);
-      this._btn = btn;
+        var btn = document.createElement('button');
+        btn.className = 'bui-btn';
+        btn.textContent = label;
+        this.appendChild(btn);
+        this._btn = btn;
 
-      btn.addEventListener('click', (evt) => {
-        if (this.hasAttribute('disabled')) {
-          evt.stopImmediatePropagation();
-          evt.preventDefault();
-          return;
-        }
-        window.BUI.dispatch(this, 'bui-click', { originalEvent: evt });
-      });
+        btn.addEventListener('click', (evt) => {
+          if (this.hasAttribute('disabled')) {
+            evt.stopImmediatePropagation();
+            evt.preventDefault();
+            return;
+          }
+          window.BUI.dispatch(this, 'bui-click', { originalEvent: evt });
+        });
 
-      this._syncAttrs();
+        this._syncAttrs();
+      };
+      if (document.readyState === 'loading') setTimeout(init, 0);
+      else init();
     }
 
     attributeChangedCallback() {
-      if (this._buiRendered) this._syncAttrs();
+      if (this._btn) this._syncAttrs();
     }
 
     _syncAttrs() {

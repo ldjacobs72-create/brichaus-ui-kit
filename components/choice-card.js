@@ -212,14 +212,6 @@
       if (this._buiRendered) return;
       this._buiRendered = true;
 
-      var cards = Array.prototype.slice.call(this.children);
-      var grid = document.createElement('div');
-      grid.className = 'bui-choice-grid';
-      grid.setAttribute('role', 'radiogroup');
-      cards.forEach(function (c) { grid.appendChild(c); });
-      this.appendChild(grid);
-      this._grid = grid;
-
       this.addEventListener('bui-choice-select', (evt) => {
         evt.stopPropagation();
         this.value = evt.detail.value;
@@ -246,11 +238,29 @@
         nextCard.focusCard();
       });
 
-      this._syncSelection();
+      // Deferred until the initial parse finishes — see button.js for why a
+      // microtask isn't late enough. A group written directly in static
+      // HTML upgrades before the parser has appended its <bui-choice-card>
+      // children, so reading this.children synchronously (or one microtask
+      // later) would move zero cards into the grid, leaving them as flat
+      // siblings that stack instead of gridding.
+      var init = () => {
+        var cards = Array.prototype.slice.call(this.children);
+        var grid = document.createElement('div');
+        grid.className = 'bui-choice-grid';
+        grid.setAttribute('role', 'radiogroup');
+        cards.forEach(function (c) { grid.appendChild(c); });
+        this.appendChild(grid);
+        this._grid = grid;
+
+        this._syncSelection();
+      };
+      if (document.readyState === 'loading') setTimeout(init, 0);
+      else init();
     }
 
     attributeChangedCallback(name) {
-      if (!this._buiRendered) return;
+      if (!this._grid) return;
       if (name === 'value') this._syncSelection();
     }
 
