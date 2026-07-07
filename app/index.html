@@ -226,6 +226,69 @@
   }
   #brichaus-assessment .comparable-address { font-weight: 600; font-size: 13px; }
   #brichaus-assessment .comparable-meta { font-size: 12px; color: var(--bui-color-text-muted); margin-top: 2px; }
+  #brichaus-assessment .snapshot-preview-intro {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .report-summary {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+    border: 1px solid var(--bui-color-accent);
+    background: var(--bui-color-accent-bg);
+    border-radius: var(--bui-radius-md);
+    padding: var(--bui-space-4);
+  }
+  #brichaus-assessment .report-summary-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    margin-bottom: var(--bui-space-2);
+  }
+  #brichaus-assessment .report-summary-text {
+    margin: 0;
+    font-size: var(--bui-font-size-md);
+    line-height: 1.55;
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment .report-confidence {
+    margin: var(--bui-space-3) 0 0;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .op-profile {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+  }
+  #brichaus-assessment .op-profile-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    margin-bottom: var(--bui-space-3);
+  }
+  #brichaus-assessment .op-profile-row {
+    padding: var(--bui-space-3) 0;
+    border-top: 1px solid var(--bui-color-border);
+  }
+  #brichaus-assessment .op-profile-row:first-child { border-top: none; }
+  #brichaus-assessment .op-profile-head {
+    display: flex;
+    align-items: center;
+    gap: var(--bui-space-2);
+    margin-bottom: 3px;
+  }
+  #brichaus-assessment .op-cat-name { font-weight: 700; font-size: 13px; }
+  #brichaus-assessment .op-cat-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bui-color-bg);
+    color: var(--bui-color-text-muted);
+    border: 1px solid var(--bui-color-border);
+  }
+  #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
   #brichaus-assessment .hidden { display: none !important; }
 
   /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
@@ -321,6 +384,26 @@
           <bui-input id="units-input" label="Number of Units" type="number" value="1"></bui-input>
         </div>
         <div id="market-rent-hint" class="market-rent-hint hidden"></div>
+
+        <!-- Early RentCast preview: property type, unit configuration, and
+             nearby comps for the selected address. Fetched the moment the
+             address is picked (see fetchRentCastQuicklook), so it's usually
+             already here by the time the visitor lands on this step —
+             front-loading real data keeps them engaged well before the
+             final pipeline call. Each block self-hides until its data
+             arrives (or stays hidden if RentCast has nothing for the
+             address), so an empty/slow lookup never leaves a broken frame. -->
+        <div id="snapshot-preview-details" class="property-snapshot hidden">
+          <div class="snapshot-title">What we found for this address</div>
+          <div class="snapshot-grid" id="snapshot-preview-grid"></div>
+          <p id="snapshot-preview-mf-note" class="multifamily-note hidden">
+            This unit configuration reflects one unit on record — a multifamily property may have several different layouts.
+          </p>
+        </div>
+        <div id="snapshot-preview-comps" class="comparables-section hidden">
+          <div class="comparables-title">Nearby Comparable Rentals</div>
+          <div class="comparables-list" id="snapshot-preview-comps-list"></div>
+        </div>
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="location">Back</bui-button>
@@ -436,6 +519,12 @@
           </bui-card>
         </div>
 
+        <div id="report-summary" class="report-summary hidden">
+          <div class="report-summary-title">Market Summary</div>
+          <p class="report-summary-text" id="report-summary-text"></p>
+          <p class="report-confidence hidden" id="report-confidence"></p>
+        </div>
+
         <div id="property-snapshot" class="property-snapshot hidden">
           <div class="snapshot-title">Property Snapshot</div>
           <div class="snapshot-grid" id="snapshot-grid"></div>
@@ -447,6 +536,11 @@
         <div id="comparables-section" class="comparables-section hidden">
           <div class="comparables-title">Comparable Properties</div>
           <div class="comparables-list" id="comparables-list"></div>
+        </div>
+
+        <div id="op-profile" class="op-profile hidden">
+          <div class="op-profile-title">Operational Profile</div>
+          <div id="op-profile-list"></div>
         </div>
 
         <div class="insights-list" id="result-insights"></div>
@@ -638,7 +732,10 @@
     drivers: { tenant: 'standard', turnover: 'standard', maintenance: 'standard', compliance: 'standard' },
     contact: { firstName: '', email: '' },
     result: null, // populated once the webhook responds (or demo fallback)
-    rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null } // 'idle' | 'loading' | 'ready' | 'error'
+    // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
+    // comparables come from the enriched RentCast quicklook and feed the
+    // Snapshot-step preview; they stay null until the lookup returns.
+    rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] }
   };
 
   var DRIVER_STEPS = [
@@ -669,6 +766,11 @@
   var unitsInput = document.getElementById('units-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
   var marketRentHint = document.getElementById('market-rent-hint');
+  var snapshotPreviewDetails = document.getElementById('snapshot-preview-details');
+  var snapshotPreviewGrid = document.getElementById('snapshot-preview-grid');
+  var snapshotPreviewMfNote = document.getElementById('snapshot-preview-mf-note');
+  var snapshotPreviewComps = document.getElementById('snapshot-preview-comps');
+  var snapshotPreviewCompsList = document.getElementById('snapshot-preview-comps-list');
 
   var driverQuestion = document.getElementById('driver-question');
   var driverHeaderProgress = document.getElementById('driver-header-progress');
@@ -697,6 +799,11 @@
   var multifamilyNote = document.getElementById('multifamily-note');
   var comparablesSection = document.getElementById('comparables-section');
   var comparablesList = document.getElementById('comparables-list');
+  var reportSummary = document.getElementById('report-summary');
+  var reportSummaryText = document.getElementById('report-summary-text');
+  var reportConfidence = document.getElementById('report-confidence');
+  var opProfile = document.getElementById('op-profile');
+  var opProfileList = document.getElementById('op-profile-list');
   var downloadReportBtn = document.getElementById('download-report-btn');
   var scheduleBtn = document.getElementById('schedule-btn');
 
@@ -843,8 +950,9 @@
   function fetchRentCastQuicklook(address) {
     if (!address || !CONFIG.RENTCAST_QUICKLOOK_URL) return;
     var requestId = ++rentCastRequestId;
-    state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null };
+    state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
     renderMarketRentHint();
+    renderSnapshotPreview();
 
     fetch(CONFIG.RENTCAST_QUICKLOOK_URL, {
       method: 'POST',
@@ -858,23 +966,78 @@
       .then(function (data) {
         if (requestId !== rentCastRequestId) return; // superseded by a newer address selection
         if (data && typeof data.rent === 'number') {
-          state.rentCast = { status: 'ready', rent: data.rent, rentRangeLow: data.rentRangeLow, rentRangeHigh: data.rentRangeHigh };
+          state.rentCast = {
+            status: 'ready',
+            rent: data.rent,
+            rentRangeLow: data.rentRangeLow,
+            rentRangeHigh: data.rentRangeHigh,
+            propertyType: data.propertyType || '',
+            unitConfiguration: data.unitConfiguration || null,
+            comparables: Array.isArray(data.comparables) ? data.comparables : []
+          };
         } else {
-          state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null };
+          state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
         }
         renderMarketRentHint();
+        renderSnapshotPreview();
       })
       .catch(function (err) {
         if (requestId !== rentCastRequestId) return;
         console.warn('[brichaus-assessment] RentCast quicklook failed (non-blocking):', err);
-        state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null };
+        state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
         renderMarketRentHint();
+        renderSnapshotPreview();
       });
+  }
+
+  // Renders the Snapshot-step RentCast preview from state.rentCast. Reuses
+  // the same buildStatBlock/buildComparableRow helpers and .property-snapshot
+  // /.comparables-section styling as the final report, so the preview and
+  // the report read as one system. Each block hides itself when it has no
+  // data (lookup still loading, errored, or RentCast simply has nothing for
+  // this address), so a partial/failed lookup never leaves an empty frame.
+  // The multifamily caveat keys off the unit count entered on THIS step, so
+  // it re-evaluates as the visitor edits the field (see the units listener).
+  function renderSnapshotPreview() {
+    var rc = state.rentCast;
+    var config = rc.unitConfiguration;
+    var rows = [];
+    if (rc.propertyType) rows.push(['Property Type', rc.propertyType]);
+    if (config) {
+      if (config.bedrooms != null) rows.push(['Bedrooms', String(config.bedrooms)]);
+      if (config.bathrooms != null) rows.push(['Bathrooms', String(config.bathrooms)]);
+      if (config.squareFootage != null) rows.push(['Square Footage', Number(config.squareFootage).toLocaleString() + ' sq ft']);
+    }
+
+    snapshotPreviewDetails.classList.toggle('hidden', !rows.length);
+    if (rows.length) {
+      snapshotPreviewGrid.innerHTML = '';
+      rows.forEach(function (pair) { snapshotPreviewGrid.appendChild(buildStatBlock(pair[0], pair[1])); });
+      var units = parseInt(unitsInput.value, 10) || 1;
+      snapshotPreviewMfNote.classList.toggle('hidden', !(units > 1));
+    }
+
+    var comps = rc.comparables || [];
+    snapshotPreviewComps.classList.toggle('hidden', !comps.length);
+    if (comps.length) {
+      snapshotPreviewCompsList.innerHTML = '';
+      comps.slice(0, 5).forEach(function (comp) { snapshotPreviewCompsList.appendChild(buildComparableRow(comp)); });
+    }
   }
 
   locationContinue.addEventListener('bui-click', function () {
     if (locationContinue.hasAttribute('disabled')) return;
     showStep('snapshot');
+    // Re-render in case the quicklook resolved while the visitor was still
+    // on the Location step (its render targets live on this step, hidden
+    // until now) and to set the multifamily note against the current units.
+    renderSnapshotPreview();
+  });
+
+  // The multifamily caveat on the preview depends on the unit count entered
+  // here, so keep it in sync as the visitor edits the field.
+  ['bui-input', 'bui-change'].forEach(function (evtName) {
+    unitsInput.addEventListener(evtName, renderSnapshotPreview);
   });
 
   /* =====================================================================
@@ -1059,22 +1222,31 @@
     var band = DemandEngine.band(demandScore);
 
     var CHECKLIST_STEPS = 5;
-    var tick = 0;
+    // The real wait here is the pipeline's own response time (RentCast + AI
+    // report + Power Automate fee calc), which ranges from a few seconds to
+    // ~30s. The old pacing marched the checklist to 100% in a flat 2.5s, so
+    // the final item ("Generating your report") then sat spinning alone for
+    // the entire real wait — which reads as "stuck". Instead, ease a fake
+    // progress value asymptotically toward ~92% (never reaching it on its
+    // own) and derive the checklist stage from that value, so progress is
+    // always visibly creeping no matter how long the pipeline takes and no
+    // single stage dominates. The actual webhook response snaps it to 100%
+    // and reveals the report.
+    var progress = 0;
+    var settled = false;
     var timer = setInterval(function () {
-      tick++;
-      checklist.current = Math.min(tick + 1, CHECKLIST_STEPS);
-      buildProgress.setAttribute('value', String(Math.min(100, Math.round((tick / CHECKLIST_STEPS) * 100))));
-      if (tick >= CHECKLIST_STEPS) clearInterval(timer);
-    }, 500);
+      if (settled) return;
+      progress += (92 - progress) * 0.045; // closes ~4.5% of the remaining gap each tick
+      buildProgress.setAttribute('value', String(Math.round(progress)));
+      checklist.current = progress < 18 ? 1 : progress < 38 ? 2 : progress < 58 ? 3 : progress < 78 ? 4 : 5;
+    }, 220);
 
     var finish = function (webhookResult, isDemo) {
+      settled = true;
       clearInterval(timer);
       checklist.current = CHECKLIST_STEPS + 1;
       buildProgress.setAttribute('value', '100');
       state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
-      // Was a flat 400ms pause here for no functional reason — n8n's own
-      // response time is already the real wait; nothing needs padding
-      // once it's actually back.
       renderResults();
       showStep('results');
     };
@@ -1148,8 +1320,10 @@
     // to the Property record directly after search+update (see GHL_FIELDS
     // doc); this page's own copy above is display-only.
 
+    renderReportSummary(webhook);
     renderPropertySnapshot(webhook);
     renderComparables(webhook);
+    renderOperationalProfile(webhook);
 
     resultInsights.innerHTML = '';
     DRIVER_STEPS.forEach(function (step) {
@@ -1244,6 +1418,64 @@
     comparablesList.innerHTML = '';
     comps.slice(0, 5).forEach(function (comp) {
       comparablesList.appendChild(buildComparableRow(comp));
+    });
+  }
+
+  // report.clientSummary + report.confidenceNote are the AI-written narrative
+  // from the pipeline's "Generate Property Report" agent (absent in demo mode
+  // or if the webhook failed / returned no report). clientSummary is the
+  // headline recap; the confidence note is a one-liner on data quality shown
+  // smaller beneath it.
+  function renderReportSummary(webhook) {
+    var report = (webhook && webhook.report) || null;
+    var summary = report && report.clientSummary;
+    reportSummary.classList.toggle('hidden', !summary);
+    if (!summary) return;
+    reportSummaryText.textContent = summary;
+    var note = report.confidenceNote;
+    reportConfidence.textContent = note || '';
+    reportConfidence.classList.toggle('hidden', !note);
+  }
+
+  // report.operationalProfile.categories is the AI's per-driver narrative
+  // (Tenant Friction, Turnover Pressure, Maintenance Burden, Compliance
+  // Burden), each with a human label and a sentence of reasoning — the
+  // qualitative counterpart to the mechanical driver-weight rows below it.
+  // Assembled by "Assemble Prototype Output" from the OIA scoring
+  // sub-workflow; absent in demo mode or a failed webhook.
+  function renderOperationalProfile(webhook) {
+    var profile = webhook && webhook.report && webhook.report.operationalProfile;
+    var cats = (profile && profile.categories) || [];
+    var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
+    opProfile.classList.toggle('hidden', !withText.length);
+    if (!withText.length) return;
+
+    opProfileList.innerHTML = '';
+    withText.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'op-profile-row';
+
+      var head = document.createElement('div');
+      head.className = 'op-profile-head';
+      var name = document.createElement('span');
+      name.className = 'op-cat-name';
+      name.textContent = c.category || '';
+      head.appendChild(name);
+      if (c.label) {
+        var label = document.createElement('span');
+        label.className = 'op-cat-label';
+        label.textContent = c.label;
+        head.appendChild(label);
+      }
+      row.appendChild(head);
+
+      if (c.summary) {
+        var sum = document.createElement('div');
+        sum.className = 'op-cat-summary';
+        sum.textContent = c.summary;
+        row.appendChild(sum);
+      }
+      opProfileList.appendChild(row);
     });
   }
 
