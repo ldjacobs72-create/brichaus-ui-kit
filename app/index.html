@@ -207,6 +207,26 @@
     opacity: 0 !important;
     pointer-events: none !important;
   }
+
+  /* The Survey's own outer wrapper — found by computing the common
+     ancestor of every native field this page reads/writes, via a live
+     DOM dump. Safe to hide wholesale now that the one thing worth
+     keeping visible (the consent checkbox + its label) has been
+     physically relocated out of it into the widget's own card — nothing
+     of value is left inside. Same off-screen technique as .ghl-submit-btn
+     above, not display:none, so BUI.ghl.submitNative() clicking the
+     submit button nested inside it keeps working reliably. `ghl-form-wrap`
+     reads as a generic GHL platform class (not scoped to this specific
+     Survey instance) — if this same funnel page ever gains a second,
+     unrelated native form/survey, this rule would hide that one too. */
+  .ghl-form-wrap {
+    position: absolute !important;
+    left: -99999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
 </style>
 </head>
 <body>
