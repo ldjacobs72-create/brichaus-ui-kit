@@ -664,9 +664,19 @@
   function syncGhlField(key, value) {
     var fieldName = CONFIG.GHL_FIELDS[key];
     if (!fieldName || fieldName.indexOf('REPLACE_') === 0) return;
+    var found = false;
     window.BUI.ghl.whenFieldReady(fieldName, function () {
+      found = true;
       window.BUI.ghl.writeField(fieldName, value);
     }, { maxAttempts: 10 });
+    // whenFieldReady fails silently by design (see ghl-bridge.js) — this
+    // is the one place that actually surfaces a timeout, since a value
+    // simply never reaching GHL is otherwise invisible until someone
+    // notices it missing in a GHL record days later. 300ms default
+    // interval * 10 maxAttempts above, plus a small buffer.
+    setTimeout(function () {
+      if (!found) console.warn('[brichaus-assessment] GHL field "' + fieldName + '" (' + key + ') was never found on the page — "' + value + '" was not written.');
+    }, 3100);
   }
 
   function readAddonField(key, fallback) {
@@ -715,27 +725,37 @@
     state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
     state.address.placeId = evt.detail.placeId || '';
     state.address.propertyName = computePropertyName(place, state.address.formattedAddress);
-    locationContinue.removeAttribute('disabled');
+    addressInput.setAttribute('error', '');
+    locationContinue.toggleAttribute('disabled', !state.address.placeId);
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
     fetchRentCastQuicklook(state.address.formattedAddress);
   });
 
-  // address-input.js degrades to a plain text field whenever Google Places
-  // hasn't loaded (no Maps script/key on the page yet, offline, etc — see
-  // README "Google Places in GHL"). In that case bui-address-select never
-  // fires, so also accept a manually-typed/committed address here with no
-  // placeId, rather than leaving Continue permanently disabled.
+  // Only a real Google Place selection may proceed past this step — a
+  // typed/committed address with no placeId used to be accepted as a
+  // fallback (for whenever Google Maps fails to load at all), but that
+  // silently sent an empty GooglePlaceID through the whole pipeline,
+  // breaking the GHL/Dataverse record match downstream (confirmed via a
+  // live execution). Typing now just invalidates whatever was previously
+  // selected and prompts the visitor to pick a suggestion instead;
+  // Continue stays disabled until they do. fromSelection guards against
+  // treating the bui-change this same component fires as a side effect of
+  // a real pick (before bui-address-select above resolves) as if it were
+  // manual typing — without it, every legitimate selection would flash
+  // this same "please pick a suggestion" state for a moment.
   addressInput.addEventListener('bui-change', function (evt) {
+    if (evt.detail.fromSelection) return;
     var typed = (evt.detail.value || '').trim();
-    if (state.address.formattedAddress === typed) return; // no-op, e.g. redundant event right after a real selection
+    if (state.address.formattedAddress === typed && !state.address.placeId) return; // no-op, e.g. redundant event
     state.address.formattedAddress = typed;
-    state.address.placeId = ''; // typed/edited manually, no longer tied to a specific Google place
-    state.address.propertyName = typed; // no place data available when typed manually
-    locationContinue.toggleAttribute('disabled', !typed);
-    syncGhlField('googlePlaceId', state.address.placeId);
-    syncGhlField('propertyName', state.address.propertyName);
-    fetchRentCastQuicklook(state.address.formattedAddress);
+    state.address.placeId = '';
+    state.address.propertyName = '';
+    locationContinue.setAttribute('disabled', '');
+    addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
+    syncGhlField('googlePlaceId', '');
+    syncGhlField('propertyName', '');
+    if (typed) fetchRentCastQuicklook(typed);
   });
 
   // Fired the moment an address is committed (selection or manual typed
@@ -937,6 +957,16 @@
     showStep('loading');
     checklist.current = 1;
     buildProgress.setAttribute('value', '0');
+
+    // Defensive re-write immediately before submitting — googlePlaceId and
+    // propertyName were first written back at the Location step, possibly
+    // minutes ago. GHL's Vue Survey has been observed remounting fields'
+    // DOM nodes on its own re-renders elsewhere on this project, which
+    // would silently lose an earlier .value write (a freshly mounted node
+    // starts blank). Re-syncing right here, right before the value is
+    // actually needed, closes that gap regardless of the exact cause.
+    syncGhlField('googlePlaceId', state.address.placeId);
+    syncGhlField('propertyName', state.address.propertyName);
 
     var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
     if (!submitted) {

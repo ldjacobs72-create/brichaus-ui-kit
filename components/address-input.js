@@ -45,7 +45,14 @@
  *
  * Events:
  *   bui-input          — every keystroke, detail: { value }
- *   bui-change         — change/blur commit, detail: { value }
+ *   bui-change         — change/blur commit, detail: { value, fromSelection }
+ *                        fromSelection is true when this fired because a
+ *                        suggestion was picked (it fires before
+ *                        bui-address-select below, since place details are
+ *                        fetched async afterward) — false/absent for a
+ *                        genuine manual edit. A consumer that needs to
+ *                        treat picks and typed edits differently should
+ *                        check this rather than guessing from event order.
  *   bui-address-select — a suggestion was chosen and its details fetched,
  *                        detail: { description, placeId, place } where
  *                        `place` holds whichever `fields` were requested
@@ -448,7 +455,13 @@
 
       this._input.value = description;
       this._closeListbox();
-      window.BUI.dispatch(this, 'bui-change', { value: description });
+      // fromSelection: true — this fires before bui-address-select (place
+      // details are fetched async, after this), so a consumer that needs
+      // to tell "the visitor picked a suggestion" apart from "the visitor
+      // typed/edited the text directly" can't rely on ordering or a
+      // string-equality guess against still-stale state. Existing
+      // consumers that only look at detail.value are unaffected.
+      window.BUI.dispatch(this, 'bui-change', { value: description, fromSelection: true });
 
       var fieldsAttr = this.getAttribute('fields') || 'formattedAddress,addressComponents,location';
       var fieldList = fieldsAttr.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
