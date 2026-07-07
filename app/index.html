@@ -412,8 +412,12 @@
     // duplicated, or pre-checked on the visitor's behalf. The "Get Your
     // Report" step scrolls to it and briefly highlights it, and gates its
     // own Continue button on it being checked, but leaves the actual
-    // native checkbox+label exactly where GHL renders it.
-    GHL_TERMS_FIELD: 'terms_and_conditions_1_B5rwZdJLPWVSoseEaMAX',
+    // native checkbox+label exactly where GHL renders it. This field's
+    // `name` is the stable value ("terms_and_conditions") — its `id`
+    // carries a Vue-generated render path (e.g. "..._1_v-0-0-2-0-0") that
+    // looks like a plausible field identifier but isn't one; confirmed via
+    // a live DOM dump after this got mixed up more than once.
+    GHL_TERMS_FIELD: 'terms_and_conditions',
 
     // This page's native GHL Survey submit control — back to the same
     // role="button" div with a ghl-btn/ghl-submit-btn class this Survey
