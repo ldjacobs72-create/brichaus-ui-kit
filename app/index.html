@@ -272,7 +272,8 @@
           <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
         </div>
         <p id="contact-terms-hint" style="margin-top: var(--bui-space-3); font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted);">
-          Please check the consent box below (scroll down if you don't see it highlighted) to continue.
+          One more thing — please check the consent box to continue.
+          <a href="#" id="contact-terms-jump" style="color: var(--bui-color-accent); font-weight: 600;">Take me there</a>
         </p>
       </div>
       <div slot="footer" class="step-footer">
@@ -608,20 +609,23 @@
     return match ? (match.longText || match.shortText || '') : '';
   }
 
-  // Google's Places API has no single "property name" field. Prefer the
-  // place's own displayName when Google returns one (e.g. a named
-  // apartment complex/business); otherwise build "<street number>
-  // <street name>" from addressComponents — reads better as a property
-  // name than the full formattedAddress (city/state/zip included).
-  // `fallback` covers both the no-addressComponents case and the manually
-  // -typed-address case (no place data at all).
+  // Google's Places API has no single "property name" field. Prefer
+  // building "<street number> <street name>" from addressComponents —
+  // reads better as a property name than the full formattedAddress
+  // (city/state/zip included). displayName is only a fallback for the
+  // rare place with no street_number/route components at all — Google
+  // returns displayName for plain street addresses too, but observed
+  // in practice to just repeat the full formatted address rather than a
+  // distinct short name, so it can't be trusted as the primary source.
+  // `fallback` covers both the no-addressComponents-at-all case and the
+  // manually-typed-address case (no place data at all).
   function computePropertyName(place, fallback) {
-    var displayName = place && (typeof place.displayName === 'string' ? place.displayName : (place.displayName && place.displayName.text));
-    if (displayName) return displayName;
-
     var streetNumber = extractAddressComponent(place && place.addressComponents, 'street_number');
     var streetName = extractAddressComponent(place && place.addressComponents, 'route');
     if (streetNumber && streetName) return streetNumber + ' ' + streetName;
+
+    var displayName = place && (typeof place.displayName === 'string' ? place.displayName : (place.displayName && place.displayName.text));
+    if (displayName) return displayName;
 
     return fallback || '';
   }
@@ -716,11 +720,7 @@
       renderDriverStep();
     } else {
       showStep('contact');
-      if (termsFieldEl) {
-        termsFieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        termsFieldEl.classList.add('bui-ghl-highlight-pulse');
-        setTimeout(function () { termsFieldEl.classList.remove('bui-ghl-highlight-pulse'); }, 2500);
-      }
+      revealTermsField();
     }
   });
 
@@ -734,10 +734,33 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
 
+  var termsHighlightTimer = null;
+
+  // The consent checkbox lives wherever GHL renders it on the page, not
+  // inside this step's own card (see GHL_TERMS_FIELD's doc — moving the
+  // real DOM node risks conflicting with GHL's own rendering). Scrolling
+  // to it and highlighting it is the only findability we control; keeps
+  // the highlight up until it's actually checked, not just a fixed delay,
+  // since "scroll down if you don't see it" isn't good enough on its own
+  // — the "Take me there" link re-triggers this on demand too.
+  function revealTermsField() {
+    if (!termsFieldEl) return;
+    termsFieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    termsFieldEl.classList.add('bui-ghl-highlight-pulse');
+    if (termsHighlightTimer) clearTimeout(termsHighlightTimer);
+    termsHighlightTimer = setTimeout(function () {
+      termsFieldEl.classList.remove('bui-ghl-highlight-pulse');
+    }, 8000);
+  }
+
   function refreshContactContinue() {
     var termsOk = !!(termsFieldEl && termsFieldEl.checked);
     var ready = !!state.contact.firstName && isValidEmail(state.contact.email) && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
+    if (termsOk && termsFieldEl) {
+      if (termsHighlightTimer) clearTimeout(termsHighlightTimer);
+      termsFieldEl.classList.remove('bui-ghl-highlight-pulse');
+    }
   }
 
   ['bui-input', 'bui-change'].forEach(function (eventName) {
@@ -761,6 +784,11 @@
     termsFieldEl = el;
     el.addEventListener('change', refreshContactContinue);
     el.addEventListener('click', refreshContactContinue);
+  });
+
+  document.getElementById('contact-terms-jump').addEventListener('click', function (evt) {
+    evt.preventDefault();
+    revealTermsField();
   });
 
   root.querySelector('[data-back="driver"]').addEventListener('bui-click', function () {
