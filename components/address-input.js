@@ -251,12 +251,30 @@
       this._lastRequestId = 0;
 
       input.addEventListener('input', () => {
+        // Any real keystroke means the visitor is editing past whatever
+        // was last picked — clears the flag below so a later blur is
+        // reported as a genuine edit, not folded back into the selection.
+        this._suppressNextChange = false;
         window.BUI.dispatch(this, 'bui-input', { value: input.value });
         this._scheduleSearch();
       });
 
       input.addEventListener('change', () => {
-        window.BUI.dispatch(this, 'bui-change', { value: input.value });
+        // Typing to search already dirtied the input relative to its
+        // focus-time value, so once _selectSuggestion() overwrites .value
+        // with the picked description (while focus stays put — the
+        // option's mousedown calls preventDefault to keep it there), the
+        // browser still owes this field a native 'change' of its own on
+        // the next blur. That can land well after the synchronous
+        // fromSelection:true dispatch _selectSuggestion() already sent.
+        // Without carrying the flag through, that later blur-triggered
+        // change read as a fresh manual edit and wiped out the very
+        // selection that produced it — confirmed live: pick a suggestion,
+        // then click Continue (which blurs this field), and the "choose
+        // from suggestions" error would reappear despite the selection.
+        var fromSelection = this._suppressNextChange;
+        this._suppressNextChange = false;
+        window.BUI.dispatch(this, 'bui-change', { value: input.value, fromSelection: fromSelection });
       });
 
       input.addEventListener('keydown', (evt) => this._onKeydown(evt));
@@ -454,6 +472,12 @@
       var description = extractText(prediction && prediction.text) || extractText(prediction);
 
       this._input.value = description;
+      // The native 'change' listener above will still fire on its own
+      // once this field blurs (setting .value while focused leaves the
+      // browser's own dirty-tracking primed) — mark that upcoming event
+      // as part of this same selection so it doesn't get read as a
+      // manual edit. See the comment on that listener for the full story.
+      this._suppressNextChange = true;
       this._closeListbox();
       // fromSelection: true — this fires before bui-address-select (place
       // details are fetched async, after this), so a consumer that needs
