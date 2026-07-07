@@ -98,6 +98,14 @@
     margin-top: var(--bui-space-4);
     flex-wrap: wrap;
   }
+  #brichaus-assessment .market-rent-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--bui-space-2);
+    margin-top: var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+  }
   #brichaus-assessment .demo-banner {
     background: var(--bui-color-warning-bg);
     color: var(--bui-color-warning);
@@ -221,6 +229,7 @@
           <bui-input id="rent-input" label="Average Monthly Rent per Unit" prefix="$" type="number" value="1650"></bui-input>
           <bui-input id="units-input" label="Number of Units" type="number" value="1"></bui-input>
         </div>
+        <div id="market-rent-hint" class="market-rent-hint hidden"></div>
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="location">Back</bui-button>
@@ -364,6 +373,16 @@
     // Power Automate fee calc -> assembled response). Leave blank to run
     // this page in demo mode with an illustrative, clearly-labeled fee.
     WEBHOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-scoring',
+
+    // Lightweight n8n webhook that does just the RentCast market-rent
+    // lookup (same RentCast credential/endpoint the main pipeline uses),
+    // with no scoring, AI report, Power Automate, or GHL/Dataverse writes
+    // attached — fired the moment an address is selected so the estimate
+    // is usually already back by the time the visitor reaches the
+    // Snapshot step, instead of waiting for the full pipeline at the end.
+    // Leave blank to skip this entirely (Snapshot step just won't show
+    // the market-rent hint).
+    RENTCAST_QUICKLOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-rentcast-quicklook',
 
     // Where "Schedule Consultation" sends the visitor (a GHL calendar page
     // or booking widget URL). Leave blank to no-op with a console warning
@@ -515,7 +534,8 @@
     rentPerUnit: 1650,
     drivers: { tenant: 'standard', turnover: 'standard', maintenance: 'standard', compliance: 'standard' },
     contact: { firstName: '', email: '' },
-    result: null // populated once the webhook responds (or demo fallback)
+    result: null, // populated once the webhook responds (or demo fallback)
+    rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null } // 'idle' | 'loading' | 'ready' | 'error'
   };
 
   var DRIVER_STEPS = [
@@ -545,6 +565,7 @@
   var rentInput = document.getElementById('rent-input');
   var unitsInput = document.getElementById('units-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
+  var marketRentHint = document.getElementById('market-rent-hint');
 
   var driverQuestion = document.getElementById('driver-question');
   var driverHeaderProgress = document.getElementById('driver-header-progress');
@@ -646,6 +667,7 @@
     locationContinue.removeAttribute('disabled');
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
+    fetchRentCastQuicklook(state.address.formattedAddress);
   });
 
   // address-input.js degrades to a plain text field whenever Google Places
@@ -662,7 +684,65 @@
     locationContinue.toggleAttribute('disabled', !typed);
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
+    fetchRentCastQuicklook(state.address.formattedAddress);
   });
+
+  // Fired the moment an address is committed (selection or manual typed
+  // entry) rather than waiting for the full n8n pipeline at the end of
+  // the assessment — by the time the visitor reaches the Snapshot step
+  // this is usually already back. Purely a UX preview: failure here is
+  // silent (see 'error' branch in renderMarketRentHint) and never blocks
+  // anything, unlike the real pipeline call.
+  var rentCastRequestId = 0;
+
+  function renderMarketRentHint() {
+    var rc = state.rentCast;
+    if (rc.status === 'idle' || rc.status === 'error') {
+      marketRentHint.classList.add('hidden');
+      return;
+    }
+    marketRentHint.classList.remove('hidden');
+    if (rc.status === 'loading') {
+      marketRentHint.innerHTML = '<bui-spinner size="sm"></bui-spinner> Checking market rent for this address…';
+    } else {
+      var rangeText = (rc.rentRangeLow && rc.rentRangeHigh)
+        ? ' (' + currency(rc.rentRangeLow) + '–' + currency(rc.rentRangeHigh) + ')'
+        : '';
+      marketRentHint.textContent = 'RentCast estimates market rent here around ' + currency(rc.rent) + '/mo' + rangeText + '.';
+    }
+  }
+
+  function fetchRentCastQuicklook(address) {
+    if (!address || !CONFIG.RENTCAST_QUICKLOOK_URL) return;
+    var requestId = ++rentCastRequestId;
+    state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null };
+    renderMarketRentHint();
+
+    fetch(CONFIG.RENTCAST_QUICKLOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ FormattedAddress: address })
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('RentCast quicklook responded with status ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (requestId !== rentCastRequestId) return; // superseded by a newer address selection
+        if (data && typeof data.rent === 'number') {
+          state.rentCast = { status: 'ready', rent: data.rent, rentRangeLow: data.rentRangeLow, rentRangeHigh: data.rentRangeHigh };
+        } else {
+          state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null };
+        }
+        renderMarketRentHint();
+      })
+      .catch(function (err) {
+        if (requestId !== rentCastRequestId) return;
+        console.warn('[brichaus-assessment] RentCast quicklook failed (non-blocking):', err);
+        state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null };
+        renderMarketRentHint();
+      });
+  }
 
   locationContinue.addEventListener('bui-click', function () {
     if (locationContinue.hasAttribute('disabled')) return;
