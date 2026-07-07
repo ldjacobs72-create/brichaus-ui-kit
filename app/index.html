@@ -373,8 +373,8 @@
     // field left as a placeholder is simply never found and silently
     // skipped — see ghl-bridge.js whenFieldReady.
     GHL_FIELDS: {
-      formattedAddress: 'REPLACE_ghl_field__formatted_address',
-      googlePlaceId: 'REPLACE_ghl_field__google_place_id',
+      formattedAddress: 'sLU7sWKXNocnZoX5lfzI',
+      googlePlaceId: 't95VHbmXxkZvHQ9O0bOH',
       // Standard GHL Contact fields — collected on the "Get Your Report"
       // step, right before the native submit fires. Required for the
       // native submission to create a valid Contact at all; without a
@@ -385,14 +385,14 @@
       email: 'email'
     },
 
-    // Required consent checkbox on this survey. Deliberately NOT in
+    // Required consent checkbox on this Form. Deliberately NOT in
     // GHL_FIELDS/hidden like the other native fields above — its label is
     // real, GHL-configured legal/consent copy that shouldn't be hidden,
     // duplicated, or pre-checked on the visitor's behalf. The "Get Your
     // Report" step scrolls to it and briefly highlights it, and gates its
     // own Continue button on it being checked, but leaves the actual
     // native checkbox+label exactly where GHL renders it.
-    GHL_TERMS_FIELD: 'terms_and_conditions_1_U6waNdJjVXiZPMuMy38n',
+    GHL_TERMS_FIELD: 'terms_and_conditions_1_6PYber8n3tg7YmbkfuDX',
 
     // This page's native GHL Survey submit control. n8n's pipeline only
     // ever searches for a Property record by googlePlaceId and updates it
