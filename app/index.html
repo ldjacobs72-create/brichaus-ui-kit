@@ -357,22 +357,24 @@
     // instead of opening a dead link.
     BOOKING_URL: '',
 
-    // Native GHL field `name` attributes this page mirrors computed values
-    // into via BUI.ghl (see ghl-bridge.js), so a later native form/webhook
-    // submission on this same funnel page carries the assessment data.
-    // Replace each placeholder with the real field name from this funnel's
-    // GHL builder. A field left as a placeholder is simply never found and
-    // silently skipped — see ghl-bridge.js whenFieldReady — so it's safe to
-    // leave any of these blank until wired.
+    // Native GHL field `name` attributes this page mirrors values into via
+    // BUI.ghl (see ghl-bridge.js), so the native Form submission on this
+    // same funnel page can create the Contact-linked Property record.
+    // This is deliberately a SHORT list: unit count, rent, the 4 driver
+    // scores, and the 3 AI-computed outputs (band/fee%/monthly fee) are
+    // NOT here, on purpose — n8n's "Update GHL Property Record" step
+    // writes all of those directly via its own API call after search+
+    // update, so nothing on this page needs to mirror them into a native
+    // field at all. This page only needs to get a valid, Contact-linked,
+    // Property-record-with-a-real-googlePlaceId created in the first
+    // place; everything else about the property is filled in afterward.
+    // Replace each placeholder with the real field name from the Form
+    // (previously a Survey — rebuilt as a Form, so these are new IDs). A
+    // field left as a placeholder is simply never found and silently
+    // skipped — see ghl-bridge.js whenFieldReady.
     GHL_FIELDS: {
-      formattedAddress: 'wvCEnKknGau0skD4bv3E',
-      googlePlaceId: 'gBfCUbkbTAIPc0Lgp3O2',
-      unitCount: 'PiYZslin1wrC2iCZwrzY',
-      rentPerUnit: 'kGTNOJaNv66kyiKZlMk3',
-      tenantScore: 'UqC1Zm0DYqhatF5KUITc-1',
-      turnoverScore: 'Rcyi4EKdLtvUZWmEsKM4-1',
-      maintenanceScore: 'a7ZUr1kGMgMl3DZQiNZg-3',
-      complianceScore: 'JgmtFQbe1Xz5tiTbiFLx',
+      formattedAddress: 'REPLACE_ghl_field__formatted_address',
+      googlePlaceId: 'REPLACE_ghl_field__google_place_id',
       // Standard GHL Contact fields — collected on the "Get Your Report"
       // step, right before the native submit fires. Required for the
       // native submission to create a valid Contact at all; without a
@@ -380,11 +382,7 @@
       // fail native validation or create an unusable, unidentifiable
       // Contact record.
       firstName: 'first_name',
-      email: 'email',
-      // Not yet provided — still placeholders until these output fields exist in GHL.
-      operationalDemandBand: 'REPLACE_ghl_field__operational_demand_band',
-      recommendedFeePct: 'REPLACE_ghl_field__recommended_fee_pct',
-      estimatedMonthlyFee: 'REPLACE_ghl_field__estimated_monthly_fee'
+      email: 'email'
     },
 
     // Required consent checkbox on this survey. Deliberately NOT in
@@ -615,10 +613,10 @@
   });
 
   snapshotContinue.addEventListener('bui-click', function () {
+    // Not mirrored to a native field — n8n writes unit count/rent to the
+    // Property record directly after search+update (see GHL_FIELDS doc).
     state.rentPerUnit = parseFloat(rentInput.value) || 0;
     state.unitCount = parseInt(unitsInput.value, 10) || 1;
-    syncGhlField('rentPerUnit', state.rentPerUnit);
-    syncGhlField('unitCount', state.unitCount);
     driverStepIndex = 0;
     renderDriverStep();
     showStep('driver');
@@ -658,7 +656,8 @@
     var step = DRIVER_STEPS[driverStepIndex];
     if (!state.drivers[step.key]) return;
 
-    syncGhlField(step.key + 'Score', DemandEngine.multiplier[state.drivers[step.key]]);
+    // Not mirrored to a native field — n8n writes driver scores to the
+    // Property record directly after search+update (see GHL_FIELDS doc).
 
     if (driverStepIndex < DRIVER_STEPS.length - 1) {
       driverStepIndex++;
@@ -849,9 +848,9 @@
     statFeePct.textContent = feePct.toFixed(1) + '%';
     resultFeeSummary.textContent = currency(monthlyFee) + ' / month';
 
-    syncGhlField('operationalDemandBand', result.band.label);
-    syncGhlField('recommendedFeePct', feePct.toFixed(2));
-    syncGhlField('estimatedMonthlyFee', monthlyFee.toFixed(2));
+    // Not mirrored to a native field — n8n writes the band/fee/monthly fee
+    // to the Property record directly after search+update (see GHL_FIELDS
+    // doc); this page's own copy above is display-only.
 
     resultInsights.innerHTML = '';
     DRIVER_STEPS.forEach(function (step) {
