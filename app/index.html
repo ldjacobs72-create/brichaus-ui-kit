@@ -34,6 +34,15 @@
   below) to create the Contact-linked Property record n8n's pipeline
   searches for — a redirect at that point navigates away and kills this
   app before it can call the scoring webhook or show results at all.
+
+  MUST BE A SURVEY, NOT A FORM — confirmed the hard way (twice): GHL's
+  Form builder does not support placing Custom Object fields on a Form
+  at all — only a Survey element can hold them, and only a Survey's own
+  native submission creates the Contact+Property association this whole
+  design depends on. There is no other automated way to create that
+  association; the only alternative is creating records manually inside
+  GHL. Don't attempt a Form-based rebuild again — this exact rabbit hole
+  has already cost real time twice.
 -->
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
@@ -141,16 +150,19 @@
   #brichaus-assessment .insights-list .desc { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
   #brichaus-assessment .hidden { display: none !important; }
 
-  /* GHL's own native Form submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
+  /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
      Kept in the DOM — BUI.ghl.submitNative() needs to .click() it — but
      never shown to the visitor; this widget's own step flow is the only
      visible continue/submit affordance on the page. A plain CSS rule
      (not scoped to #brichaus-assessment, since GHL renders this control
-     outside this app's own container) so it's hidden immediately on
-     paint, with no dependency on this app's JS having run yet. Keep this
-     selector in sync with CONFIG.GHL_SUBMIT_SELECTOR above by hand — it's
-     duplicated here because CSS can't reference a JS config value. */
-  button[type="submit"].button-element {
+     outside this app's own container) so it's hidden the moment it's
+     ever inserted into the DOM, with no JS timing/polling race at all —
+     deliberately kept as CSS rather than a JS-applied class for exactly
+     that reason. Keep this selector in sync with CONFIG.GHL_SUBMIT_SELECTOR
+     above by hand (CSS can't reference a JS config value) — PLACEHOLDER,
+     update both together once this Survey's real submit control is
+     re-confirmed (see GHL_SUBMIT_SELECTOR's own comment). */
+  .REPLACE_ghl_submit_selector_css_placeholder {
     position: absolute !important;
     left: -99999px !important;
     width: 1px !important;
@@ -360,8 +372,11 @@
     BOOKING_URL: '',
 
     // Native GHL field `name` attributes this page mirrors values into via
-    // BUI.ghl (see ghl-bridge.js), so the native Form submission on this
+    // BUI.ghl (see ghl-bridge.js), so the native Survey submission on this
     // same funnel page can create the Contact-linked Property record.
+    // MUST be a Survey element, not a Form — GHL's Form builder doesn't
+    // support Custom Object fields at all (see the top-of-file doc
+    // comment); only a Survey can hold these and create the association.
     // This is deliberately a SHORT list: unit count, rent, the 4 driver
     // scores, and the 3 AI-computed outputs (band/fee%/monthly fee) are
     // NOT here, on purpose — n8n's "Update GHL Property Record" step
@@ -370,13 +385,14 @@
     // field at all. This page only needs to get a valid, Contact-linked,
     // Property-record-with-a-real-googlePlaceId created in the first
     // place; everything else about the property is filled in afterward.
-    // Replace each placeholder with the real field name from the Form
-    // (previously a Survey — rebuilt as a Form, so these are new IDs). A
+    // PLACEHOLDERS — pending fresh confirmation of this Survey's actual
+    // current field IDs (the ones briefly wired here were for a Form
+    // rebuild that turned out to be a dead end; don't reuse them). A
     // field left as a placeholder is simply never found and silently
     // skipped — see ghl-bridge.js whenFieldReady.
     GHL_FIELDS: {
-      formattedAddress: 'sLU7sWKXNocnZoX5lfzI',
-      googlePlaceId: 't95VHbmXxkZvHQ9O0bOH',
+      formattedAddress: 'REPLACE_ghl_field__formatted_address',
+      googlePlaceId: 'REPLACE_ghl_field__google_place_id',
       // Standard GHL Contact fields — collected on the "Get Your Report"
       // step, right before the native submit fires. Required for the
       // native submission to create a valid Contact at all; without a
@@ -387,30 +403,32 @@
       email: 'email'
     },
 
-    // Required consent checkbox on this Form. Deliberately NOT in
+    // Required consent checkbox on this Survey. Deliberately NOT in
     // GHL_FIELDS/hidden like the other native fields above — its label is
     // real, GHL-configured legal/consent copy that shouldn't be hidden,
     // duplicated, or pre-checked on the visitor's behalf. The "Get Your
     // Report" step scrolls to it and briefly highlights it, and gates its
     // own Continue button on it being checked, but leaves the actual
-    // native checkbox+label exactly where GHL renders it.
-    GHL_TERMS_FIELD: 'terms_and_conditions_1_6PYber8n3tg7YmbkfuDX',
+    // native checkbox+label exactly where GHL renders it. PLACEHOLDER —
+    // pending fresh confirmation (see GHL_FIELDS note above).
+    GHL_TERMS_FIELD: 'REPLACE_ghl_field__terms_and_conditions',
 
-    // This page's native GHL Form submit control — a real
-    // <button type="submit" class="btn btn-dark button-element">, unlike
-    // the div-with-a-click-handler the old Survey used. n8n's pipeline
+    // This page's native GHL Survey submit control. n8n's pipeline
     // only ever searches for a Property record by googlePlaceId and
     // updates it — it never creates one, because a record created via
     // direct API call has no linked Contact (see integrations/ghl-bridge.js
-    // submitNative doc). Only GHL's own native Form submission creates
+    // submitNative doc). Only GHL's own native Survey submission creates
     // that link, so this app has to trigger the real submission itself,
     // once name/email/consent are captured on the "Get Your Report" step,
     // before it calls WEBHOOK_URL — otherwise the record n8n searches for
-    // doesn't exist yet and the update silently no-ops. `.btn` alone is
-    // too generic to trust (likely shared by other buttons on the page);
-    // scoped to the submit-typed button specifically. Update if GHL
-    // changes this markup.
-    GHL_SUBMIT_SELECTOR: 'button[type="submit"].button-element',
+    // doesn't exist yet and the update silently no-ops. PLACEHOLDER —
+    // pending fresh confirmation of this Survey's actual submit control
+    // (the value briefly wired here was for a Form rebuild that turned
+    // out to be a dead end; don't reuse it — Survey's submit markup has
+    // looked different every time it's been inspected this project, so
+    // don't assume without checking). A bare `.btn`-style class is too
+    // generic to trust alone if that's all a fresh inspection turns up.
+    GHL_SUBMIT_SELECTOR: 'REPLACE_ghl_submit_selector',
 
     // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
     // it doesn't confirm the record has actually been persisted server-side
