@@ -260,37 +260,55 @@
       var items = this._items();
       var current = this.current;
       var root = this._root;
-      root.innerHTML = '';
 
-      items.forEach((label, i) => {
+      // Reuse existing rows when only `current` moved (labels unchanged) and
+      // update each row's state in place. A full innerHTML rebuild on every
+      // `current` change re-fires each item's fade-in animation, which reads
+      // as a flicker when current advances repeatedly during a progress
+      // sequence. First render (or an items change) still builds fresh, with
+      // the staggered fade intact.
+      var sameStructure = this._itemEls
+        && this._itemEls.length === items.length
+        && this._itemEls.every(function (el, i) { return el.label === items[i]; });
+
+      if (!sameStructure) {
+        root.innerHTML = '';
+        this._itemEls = items.map((label, i) => {
+          var row = document.createElement('div');
+          row.className = 'bui-checklist__item';
+          row.setAttribute('role', 'listitem');
+          row.style.animationDelay = (i * 0.15) + 's';
+
+          var icon = document.createElement('span');
+          icon.className = 'bui-checklist__icon';
+
+          var labelEl = document.createElement('span');
+          labelEl.className = 'bui-checklist__label';
+          labelEl.textContent = label;
+
+          row.appendChild(icon);
+          row.appendChild(labelEl);
+          root.appendChild(row);
+          return { row: row, icon: icon, labelEl: labelEl, label: label, state: null };
+        });
+      }
+
+      this._itemEls.forEach((el, i) => {
         var index = i + 1;
         var state = index < current ? 'done' : index === current ? 'current' : 'pending';
+        if (el.state === state) return; // unchanged — leave the DOM (and its animation) untouched
+        el.state = state;
+        el.icon.dataset.state = state;
+        el.labelEl.dataset.state = state;
 
-        var row = document.createElement('div');
-        row.className = 'bui-checklist__item';
-        row.setAttribute('role', 'listitem');
-        row.style.animationDelay = (i * 0.15) + 's';
-
-        var icon = document.createElement('span');
-        icon.className = 'bui-checklist__icon';
-        icon.dataset.state = state === 'current' ? 'current' : state;
-
+        el.icon.innerHTML = '';
         if (state === 'done') {
-          icon.innerHTML = '&#10003;';
+          el.icon.innerHTML = '&#10003;';
         } else if (state === 'current') {
           var spinner = document.createElement('bui-spinner');
           spinner.setAttribute('size', 'sm');
-          icon.appendChild(spinner);
+          el.icon.appendChild(spinner);
         }
-
-        var labelEl = document.createElement('span');
-        labelEl.className = 'bui-checklist__label';
-        labelEl.dataset.state = state;
-        labelEl.textContent = label;
-
-        row.appendChild(icon);
-        row.appendChild(labelEl);
-        root.appendChild(row);
       });
     }
 

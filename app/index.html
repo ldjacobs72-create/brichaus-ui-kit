@@ -369,6 +369,19 @@
   }
   #brichaus-assessment .report-download:hover { color: var(--bui-color-accent-hover); }
   #brichaus-assessment .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
+  /* Live status line under the finalizing progress bar — updated once per
+     stage (not per tick) with a real, data-backed detail so the wait reads
+     as genuine work rather than a spinner. */
+  #brichaus-assessment .loading-detail {
+    margin: var(--bui-space-3) 0 0;
+    min-height: 1.2em;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    transition: opacity var(--bui-transition-base, 0.25s ease);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .loading-detail { transition: none; }
+  }
   #brichaus-assessment .hidden { display: none !important; }
 
   /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
@@ -554,14 +567,15 @@
         <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           Crunching the numbers and preparing your recommendations.
         </p>
-        <div style="max-width: 320px; margin: 0 auto; text-align: left;">
+        <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Property located,Market data retrieved,Revenue potential calculated,Finalizing recommendations,Generating your report"
+            items="Located your property,Pulling market comparables,Scoring operational demand,Calculating your fee,Generating your report"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
             <bui-progress-bar id="build-progress" label="Progress" value="0"></bui-progress-bar>
+            <p id="loading-detail" class="loading-detail"></p>
           </div>
         </div>
       </div>
@@ -882,6 +896,7 @@
 
   var checklist = document.getElementById('checklist');
   var buildProgress = document.getElementById('build-progress');
+  var loadingDetail = document.getElementById('loading-detail');
 
   var demoBanner = document.getElementById('demo-banner');
   var reportAddress = document.getElementById('report-address');
@@ -1317,6 +1332,33 @@
     };
   }
 
+  // Per-stage detail shown under the finalizing progress bar. Draws on the
+  // RentCast quicklook data already in hand by this point (comp count, market
+  // rent) so the wait previews real findings rather than a generic spinner.
+  function setLoadingDetail(stage) {
+    var rc = state.rentCast || {};
+    var comps = rc.comparables || [];
+    var msg;
+    switch (stage) {
+      case 1:
+        var city = ((state.address.formattedAddress || '').split(',')[1] || '').trim();
+        msg = city ? 'Located your property in ' + city + '.' : 'Located your property.';
+        break;
+      case 2:
+        msg = comps.length ? 'Found ' + comps.length + ' comparable rentals nearby.' : 'Pulling nearby market comparables…';
+        break;
+      case 3:
+        msg = (typeof rc.rent === 'number') ? 'Market rent estimate near ' + currency(rc.rent) + '/mo.' : 'Estimating market rent for this address…';
+        break;
+      case 4:
+        msg = 'Scoring operational demand across your four drivers…';
+        break;
+      default:
+        msg = 'Generating your report…';
+    }
+    loadingDetail.textContent = msg;
+  }
+
   function runAssessment() {
     var demandScore = DemandEngine.score(state.drivers);
     var band = DemandEngine.band(demandScore);
@@ -1324,21 +1366,31 @@
     var CHECKLIST_STEPS = 5;
     // The real wait here is the pipeline's own response time (RentCast + AI
     // report + Power Automate fee calc), which ranges from a few seconds to
-    // ~30s. The old pacing marched the checklist to 100% in a flat 2.5s, so
-    // the final item ("Generating your report") then sat spinning alone for
-    // the entire real wait — which reads as "stuck". Instead, ease a fake
-    // progress value asymptotically toward ~92% (never reaching it on its
-    // own) and derive the checklist stage from that value, so progress is
-    // always visibly creeping no matter how long the pipeline takes and no
-    // single stage dominates. The actual webhook response snaps it to 100%
-    // and reveals the report.
+    // ~30s. Ease a fake progress value asymptotically toward ~92% (never
+    // reaching it on its own) so the bar is always visibly creeping no matter
+    // how long the pipeline takes; the actual webhook response snaps it to
+    // 100% and reveals the report.
+    //
+    // The checklist stage is derived from that progress, but is only WRITTEN
+    // when it actually changes — bui-checklist rebuilds its whole DOM (and
+    // re-fires each item's fade-in animation) on every attribute set, so
+    // touching .current every tick made the list flicker constantly. Writing
+    // it ~5 times total instead turns each advance into a deliberate "step
+    // done". A data-backed detail line updates alongside it so the wait reads
+    // as genuine work rather than a spinner.
     var progress = 0;
     var settled = false;
+    var lastStage = 0;
     var timer = setInterval(function () {
       if (settled) return;
       progress += (92 - progress) * 0.045; // closes ~4.5% of the remaining gap each tick
       buildProgress.setAttribute('value', String(Math.round(progress)));
-      checklist.current = progress < 18 ? 1 : progress < 38 ? 2 : progress < 58 ? 3 : progress < 78 ? 4 : 5;
+      var stage = progress < 18 ? 1 : progress < 38 ? 2 : progress < 58 ? 3 : progress < 78 ? 4 : 5;
+      if (stage !== lastStage) {
+        lastStage = stage;
+        checklist.current = stage;
+        setLoadingDetail(stage);
+      }
     }, 220);
 
     var finish = function (webhookResult, isDemo) {
@@ -1346,6 +1398,7 @@
       clearInterval(timer);
       checklist.current = CHECKLIST_STEPS + 1;
       buildProgress.setAttribute('value', '100');
+      loadingDetail.textContent = '';
       state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
       renderResults();
       showStep('results');
