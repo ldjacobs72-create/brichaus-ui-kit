@@ -187,6 +187,45 @@
   #brichaus-assessment .insights-list .row { display: flex; gap: 11px; }
   #brichaus-assessment .insights-list .title { font-weight: 700; font-size: 13.5px; }
   #brichaus-assessment .insights-list .desc { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
+  #brichaus-assessment .property-snapshot {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    padding: var(--bui-space-4);
+  }
+  #brichaus-assessment .snapshot-title, #brichaus-assessment .comparables-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    margin-bottom: var(--bui-space-3);
+  }
+  #brichaus-assessment .snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: var(--bui-space-3);
+  }
+  #brichaus-assessment .multifamily-note {
+    margin: var(--bui-space-3) 0 0;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--bui-color-text-faint);
+  }
+  #brichaus-assessment .comparables-section {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+  }
+  #brichaus-assessment .comparables-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bui-space-2);
+  }
+  #brichaus-assessment .comparable-row {
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-sm);
+    padding: var(--bui-space-2) var(--bui-space-3);
+  }
+  #brichaus-assessment .comparable-address { font-weight: 600; font-size: 13px; }
+  #brichaus-assessment .comparable-meta { font-size: 12px; color: var(--bui-color-text-muted); margin-top: 2px; }
   #brichaus-assessment .hidden { display: none !important; }
 
   /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
@@ -395,6 +434,19 @@
             <strong>Estimated Monthly Management Fee:</strong>
             <span id="result-fee-summary">—</span>
           </bui-card>
+        </div>
+
+        <div id="property-snapshot" class="property-snapshot hidden">
+          <div class="snapshot-title">Property Snapshot</div>
+          <div class="snapshot-grid" id="snapshot-grid"></div>
+          <p id="multifamily-note" class="multifamily-note hidden">
+            This unit configuration reflects one unit on record — a multifamily property may have several different layouts.
+          </p>
+        </div>
+
+        <div id="comparables-section" class="comparables-section hidden">
+          <div class="comparables-title">Comparable Properties</div>
+          <div class="comparables-list" id="comparables-list"></div>
         </div>
 
         <div class="insights-list" id="result-insights"></div>
@@ -640,6 +692,11 @@
   var statFeePct = document.getElementById('stat-fee-pct');
   var resultFeeSummary = document.getElementById('result-fee-summary');
   var resultInsights = document.getElementById('result-insights');
+  var propertySnapshot = document.getElementById('property-snapshot');
+  var snapshotGrid = document.getElementById('snapshot-grid');
+  var multifamilyNote = document.getElementById('multifamily-note');
+  var comparablesSection = document.getElementById('comparables-section');
+  var comparablesList = document.getElementById('comparables-list');
   var downloadReportBtn = document.getElementById('download-report-btn');
   var scheduleBtn = document.getElementById('schedule-btn');
 
@@ -1091,6 +1148,9 @@
     // to the Property record directly after search+update (see GHL_FIELDS
     // doc); this page's own copy above is display-only.
 
+    renderPropertySnapshot(webhook);
+    renderComparables(webhook);
+
     resultInsights.innerHTML = '';
     DRIVER_STEPS.forEach(function (step) {
       var choice = state.drivers[step.key];
@@ -1102,6 +1162,88 @@
         '<div><div class="title">' + step.title + ' — ' + choiceLabel + '</div>' +
         '<div class="desc">Contributed a ' + DemandEngine.multiplier[choice].toFixed(1) + 'x weight to your operational demand score.</div></div>';
       resultInsights.appendChild(row);
+    });
+  }
+
+  function buildStatBlock(label, value) {
+    var wrap = document.createElement('div');
+    var l = document.createElement('div');
+    l.className = 'stat-label';
+    l.textContent = label;
+    var v = document.createElement('div');
+    v.className = 'stat-value';
+    v.textContent = value;
+    wrap.appendChild(l);
+    wrap.appendChild(v);
+    return wrap;
+  }
+
+  // propertyType/unitConfiguration come from RentCast via the pipeline's
+  // "Assemble Prototype Output" node — absent whenever RentCast has no
+  // record for the address (new construction, data gaps) or in demo mode.
+  function renderPropertySnapshot(webhook) {
+    var propertyType = webhook && webhook.propertyType;
+    var config = webhook && webhook.unitConfiguration;
+    var rows = [];
+
+    if (propertyType) rows.push(['Property Type', propertyType]);
+    if (config) {
+      if (config.bedrooms != null) rows.push(['Bedrooms', String(config.bedrooms)]);
+      if (config.bathrooms != null) rows.push(['Bathrooms', String(config.bathrooms)]);
+      if (config.squareFootage != null) rows.push(['Square Footage', Number(config.squareFootage).toLocaleString() + ' sq ft']);
+    }
+
+    propertySnapshot.classList.toggle('hidden', !rows.length);
+    if (!rows.length) return;
+
+    snapshotGrid.innerHTML = '';
+    rows.forEach(function (pair) {
+      snapshotGrid.appendChild(buildStatBlock(pair[0], pair[1]));
+    });
+
+    // RentCast's bed/bath/sqft describes a single unit record it has on
+    // file, not every unit in the building — surface that caveat whenever
+    // this property has more than one unit so the figures above aren't
+    // read as "the" configuration.
+    multifamilyNote.classList.toggle('hidden', !(state.unitCount > 1));
+  }
+
+  // comparables is RentCast's raw comp array, passed straight through by
+  // "Assemble Prototype Output" — distinct from the AI-written
+  // report.topComparables, which is a paraphrased subset of the same data.
+  function buildComparableRow(comp) {
+    var address = comp.formattedAddress || comp.address || 'Comparable property';
+    var distance = comp.distance != null ? comp.distance : comp.distanceMiles;
+    var metaParts = [];
+    if (comp.price != null) metaParts.push(currency(comp.price) + '/mo');
+    if (comp.bedrooms != null || comp.bathrooms != null) {
+      var bedsBaths = comp.bedrooms != null ? comp.bedrooms + ' bd' : '';
+      if (comp.bathrooms != null) bedsBaths += (bedsBaths ? ', ' : '') + comp.bathrooms + ' ba';
+      metaParts.push(bedsBaths);
+    }
+    if (distance != null) metaParts.push(Number(distance).toFixed(1) + ' mi away');
+
+    var row = document.createElement('div');
+    row.className = 'comparable-row';
+    var addrEl = document.createElement('div');
+    addrEl.className = 'comparable-address';
+    addrEl.textContent = address;
+    var metaEl = document.createElement('div');
+    metaEl.className = 'comparable-meta';
+    metaEl.textContent = metaParts.join(' · ');
+    row.appendChild(addrEl);
+    row.appendChild(metaEl);
+    return row;
+  }
+
+  function renderComparables(webhook) {
+    var comps = (webhook && webhook.comparables) || [];
+    comparablesSection.classList.toggle('hidden', !comps.length);
+    if (!comps.length) return;
+
+    comparablesList.innerHTML = '';
+    comps.slice(0, 5).forEach(function (comp) {
+      comparablesList.appendChild(buildComparableRow(comp));
     });
   }
 
