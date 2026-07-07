@@ -99,9 +99,19 @@
 
   var STYLE_ID = 'bui-style-ghl-bridge';
   window.BUI.injectStyle(STYLE_ID, [
+    // position: fixed at the viewport's own corner (0,0), not position:
+    // absolute pushed to a huge document-relative offset — the latter
+    // leaves the element at its natural (possibly far-down) vertical
+    // position, still document-scrollable-to; if anything ever calls
+    // .focus()/.scrollIntoView() on a hidden native field (a framework's
+    // own validation/focus handling, for instance), the browser would
+    // jump the whole page there. A fixed element pinned inside the
+    // viewport bounds is already "in view" by definition, so nothing can
+    // ever need to scroll to reach it.
     '.bui-ghl-hidden-native {',
-    '  position: absolute !important;',
-    '  left: -99999px !important;',
+    '  position: fixed !important;',
+    '  top: 0 !important;',
+    '  left: 0 !important;',
     '  width: 1px !important;',
     '  height: 1px !important;',
     '  opacity: 0 !important;',

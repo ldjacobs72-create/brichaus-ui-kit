@@ -198,10 +198,20 @@
      ever inserted into the DOM, with no JS timing/polling race at all —
      deliberately kept as CSS rather than a JS-applied class for exactly
      that reason. Keep this selector in sync with CONFIG.GHL_SUBMIT_SELECTOR
-     above by hand (CSS can't reference a JS config value). */
+     above by hand (CSS can't reference a JS config value).
+
+     position: fixed at the viewport's own corner (0,0) rather than
+     position: absolute pushed to some huge document-relative offset —
+     an earlier version used left: -99999px, which left the element at
+     its natural (very-far-down) vertical position, still document-
+     scrollable-to. Clicking it apparently triggers GHL's own internal
+     focus/scroll handling, which jumped the whole page there. A fixed
+     element pinned inside the viewport bounds is already "in view" by
+     definition, so nothing can ever need to scroll to reach it. */
   .ghl-submit-btn {
-    position: absolute !important;
-    left: -99999px !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 1px !important;
     height: 1px !important;
     opacity: 0 !important;
@@ -213,15 +223,17 @@
      DOM dump. Safe to hide wholesale now that the one thing worth
      keeping visible (the consent checkbox + its label) has been
      physically relocated out of it into the widget's own card — nothing
-     of value is left inside. Same off-screen technique as .ghl-submit-btn
-     above, not display:none, so BUI.ghl.submitNative() clicking the
-     submit button nested inside it keeps working reliably. `ghl-form-wrap`
-     reads as a generic GHL platform class (not scoped to this specific
-     Survey instance) — if this same funnel page ever gains a second,
-     unrelated native form/survey, this rule would hide that one too. */
+     of value is left inside. Same viewport-fixed technique as
+     .ghl-submit-btn above (see its comment for why), not display:none,
+     so BUI.ghl.submitNative() clicking the submit button nested inside
+     it keeps working reliably. `ghl-form-wrap` reads as a generic GHL
+     platform class (not scoped to this specific Survey instance) — if
+     this same funnel page ever gains a second, unrelated native
+     form/survey, this rule would hide that one too. */
   .ghl-form-wrap {
-    position: absolute !important;
-    left: -99999px !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 1px !important;
     height: 1px !important;
     opacity: 0 !important;
