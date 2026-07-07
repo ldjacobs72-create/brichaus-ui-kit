@@ -159,10 +159,8 @@
      ever inserted into the DOM, with no JS timing/polling race at all —
      deliberately kept as CSS rather than a JS-applied class for exactly
      that reason. Keep this selector in sync with CONFIG.GHL_SUBMIT_SELECTOR
-     above by hand (CSS can't reference a JS config value) — PLACEHOLDER,
-     update both together once this Survey's real submit control is
-     re-confirmed (see GHL_SUBMIT_SELECTOR's own comment). */
-  .REPLACE_ghl_submit_selector_css_placeholder {
+     above by hand (CSS can't reference a JS config value). */
+  .ghl-submit-btn {
     position: absolute !important;
     left: -99999px !important;
     width: 1px !important;
@@ -199,7 +197,7 @@
           id="address-input"
           label="Property Address"
           region="us"
-          fields="formattedAddress,addressComponents,location"
+          fields="formattedAddress,addressComponents,location,displayName"
           hint="Start typing to search.">
         </bui-address-input>
       </div>
@@ -385,14 +383,18 @@
     // field at all. This page only needs to get a valid, Contact-linked,
     // Property-record-with-a-real-googlePlaceId created in the first
     // place; everything else about the property is filled in afterward.
-    // PLACEHOLDERS — pending fresh confirmation of this Survey's actual
-    // current field IDs (the ones briefly wired here were for a Form
-    // rebuild that turned out to be a dead end; don't reuse them). A
-    // field left as a placeholder is simply never found and silently
-    // skipped — see ghl-bridge.js whenFieldReady.
+    // No separate "formatted address" field on this Survey — Property
+    // Name is the field that both displays a name AND is the one this
+    // page writes to, to create the record. Google's Places API has no
+    // single "property name" field, so this app derives one — see
+    // computePropertyName() — preferring Google's own place displayName
+    // when it returns one (e.g. a named apartment complex/business), and
+    // otherwise building "<street number> <street name>" from
+    // addressComponents, which reads better as a name than the full
+    // formattedAddress (city/state/zip included).
     GHL_FIELDS: {
-      formattedAddress: 'REPLACE_ghl_field__formatted_address',
-      googlePlaceId: 'REPLACE_ghl_field__google_place_id',
+      googlePlaceId: 'gBfCUbkbTAIPc0Lgp3O2',
+      propertyName: 'gPrTpbXnXzkti10wJpUk',
       // Standard GHL Contact fields — collected on the "Get Your Report"
       // step, right before the native submit fires. Required for the
       // native submission to create a valid Contact at all; without a
@@ -409,26 +411,24 @@
     // duplicated, or pre-checked on the visitor's behalf. The "Get Your
     // Report" step scrolls to it and briefly highlights it, and gates its
     // own Continue button on it being checked, but leaves the actual
-    // native checkbox+label exactly where GHL renders it. PLACEHOLDER —
-    // pending fresh confirmation (see GHL_FIELDS note above).
-    GHL_TERMS_FIELD: 'REPLACE_ghl_field__terms_and_conditions',
+    // native checkbox+label exactly where GHL renders it.
+    GHL_TERMS_FIELD: 'terms_and_conditions_1_B5rwZdJLPWVSoseEaMAX',
 
-    // This page's native GHL Survey submit control. n8n's pipeline
-    // only ever searches for a Property record by googlePlaceId and
-    // updates it — it never creates one, because a record created via
-    // direct API call has no linked Contact (see integrations/ghl-bridge.js
-    // submitNative doc). Only GHL's own native Survey submission creates
-    // that link, so this app has to trigger the real submission itself,
-    // once name/email/consent are captured on the "Get Your Report" step,
-    // before it calls WEBHOOK_URL — otherwise the record n8n searches for
-    // doesn't exist yet and the update silently no-ops. PLACEHOLDER —
-    // pending fresh confirmation of this Survey's actual submit control
-    // (the value briefly wired here was for a Form rebuild that turned
-    // out to be a dead end; don't reuse it — Survey's submit markup has
-    // looked different every time it's been inspected this project, so
-    // don't assume without checking). A bare `.btn`-style class is too
-    // generic to trust alone if that's all a fresh inspection turns up.
-    GHL_SUBMIT_SELECTOR: 'REPLACE_ghl_submit_selector',
+    // This page's native GHL Survey submit control — back to the same
+    // role="button" div with a ghl-btn/ghl-submit-btn class this Survey
+    // had originally (the plain-text-div-with-no-class and the real
+    // <button type="submit"> seen in between both belonged to the Form
+    // rebuild that turned out to be a dead end — see the top-of-file doc
+    // comment). n8n's pipeline only ever searches for a Property record
+    // by googlePlaceId and updates it — it never creates one, because a
+    // record created via direct API call has no linked Contact (see
+    // integrations/ghl-bridge.js submitNative doc). Only GHL's own native
+    // Survey submission creates that link, so this app has to trigger the
+    // real submission itself, once name/email/consent are captured on the
+    // "Get Your Report" step, before it calls WEBHOOK_URL — otherwise the
+    // record n8n searches for doesn't exist yet and the update silently
+    // no-ops.
+    GHL_SUBMIT_SELECTOR: '.ghl-submit-btn',
 
     // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
     // it doesn't confirm the record has actually been persisted server-side
@@ -501,7 +501,7 @@
    * App state
    * =================================================================== */
   var state = {
-    address: { formattedAddress: '', placeId: '' },
+    address: { formattedAddress: '', placeId: '', propertyName: '' },
     unitCount: 1,
     rentPerUnit: 1650,
     drivers: { tenant: 'standard', turnover: 'standard', maintenance: 'standard', compliance: 'standard' },
@@ -600,13 +600,40 @@
   /* =====================================================================
    * Step 1: Property Location
    * =================================================================== */
+  function extractAddressComponent(components, type) {
+    if (!components) return '';
+    var match = components.filter(function (c) {
+      return c && c.types && c.types.indexOf(type) !== -1;
+    })[0];
+    return match ? (match.longText || match.shortText || '') : '';
+  }
+
+  // Google's Places API has no single "property name" field. Prefer the
+  // place's own displayName when Google returns one (e.g. a named
+  // apartment complex/business); otherwise build "<street number>
+  // <street name>" from addressComponents — reads better as a property
+  // name than the full formattedAddress (city/state/zip included).
+  // `fallback` covers both the no-addressComponents case and the manually
+  // -typed-address case (no place data at all).
+  function computePropertyName(place, fallback) {
+    var displayName = place && (typeof place.displayName === 'string' ? place.displayName : (place.displayName && place.displayName.text));
+    if (displayName) return displayName;
+
+    var streetNumber = extractAddressComponent(place && place.addressComponents, 'street_number');
+    var streetName = extractAddressComponent(place && place.addressComponents, 'route');
+    if (streetNumber && streetName) return streetNumber + ' ' + streetName;
+
+    return fallback || '';
+  }
+
   addressInput.addEventListener('bui-address-select', function (evt) {
     var place = evt.detail.place || {};
     state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
     state.address.placeId = evt.detail.placeId || '';
+    state.address.propertyName = computePropertyName(place, state.address.formattedAddress);
     locationContinue.removeAttribute('disabled');
-    syncGhlField('formattedAddress', state.address.formattedAddress);
     syncGhlField('googlePlaceId', state.address.placeId);
+    syncGhlField('propertyName', state.address.propertyName);
   });
 
   // address-input.js degrades to a plain text field whenever Google Places
@@ -619,9 +646,10 @@
     if (state.address.formattedAddress === typed) return; // no-op, e.g. redundant event right after a real selection
     state.address.formattedAddress = typed;
     state.address.placeId = ''; // typed/edited manually, no longer tied to a specific Google place
+    state.address.propertyName = typed; // no place data available when typed manually
     locationContinue.toggleAttribute('disabled', !typed);
-    syncGhlField('formattedAddress', state.address.formattedAddress);
     syncGhlField('googlePlaceId', state.address.placeId);
+    syncGhlField('propertyName', state.address.propertyName);
   });
 
   locationContinue.addEventListener('bui-click', function () {
@@ -778,7 +806,7 @@
       Inspections: readAddonField('inspections', false),
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
-      PropertyName: state.address.formattedAddress
+      PropertyName: state.address.propertyName || state.address.formattedAddress
     };
   }
 
