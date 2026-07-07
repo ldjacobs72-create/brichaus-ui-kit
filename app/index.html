@@ -231,39 +231,36 @@
     font-size: var(--bui-font-size-sm);
     color: var(--bui-color-text-muted);
   }
+  /* Plain-English AI summary reads as a lead paragraph directly under the
+     hero answer — a light accent rule, not a heavy boxed card. */
   #brichaus-assessment .report-summary {
     text-align: left;
     margin-top: var(--bui-space-4);
-    border: 1px solid var(--bui-color-accent);
-    background: var(--bui-color-accent-bg);
-    border-radius: var(--bui-radius-md);
-    padding: var(--bui-space-4);
-  }
-  #brichaus-assessment .report-summary-title {
-    font-weight: 700;
-    font-size: 13.5px;
-    margin-bottom: var(--bui-space-2);
+    padding-left: var(--bui-space-3);
+    border-left: 3px solid var(--bui-color-accent);
   }
   #brichaus-assessment .report-summary-text {
     margin: 0;
     font-size: var(--bui-font-size-md);
-    line-height: 1.55;
+    line-height: 1.6;
     color: var(--bui-color-text);
   }
   #brichaus-assessment .report-confidence {
-    margin: var(--bui-space-3) 0 0;
-    font-size: 12px;
-    font-style: italic;
+    margin: var(--bui-space-2) 0 0;
+    font-size: 11.5px;
     color: var(--bui-color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #brichaus-assessment .report-confidence::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bui-color-accent); flex: 0 0 auto;
   }
   #brichaus-assessment .op-profile {
     text-align: left;
-    margin-top: var(--bui-space-4);
-  }
-  #brichaus-assessment .op-profile-title {
-    font-weight: 700;
-    font-size: 13.5px;
-    margin-bottom: var(--bui-space-3);
+    margin-top: var(--bui-space-5);
   }
   #brichaus-assessment .op-profile-row {
     padding: var(--bui-space-3) 0;
@@ -278,17 +275,100 @@
   }
   #brichaus-assessment .op-cat-name { font-weight: 700; font-size: 13px; }
   #brichaus-assessment .op-cat-label {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: 1px 7px;
     border-radius: 999px;
-    background: var(--bui-color-bg);
+    background: transparent;
     color: var(--bui-color-text-muted);
     border: 1px solid var(--bui-color-border);
   }
+  #brichaus-assessment .op-cat-label[data-tone="active"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="intensive"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="streamlined"] { color: var(--bui-color-accent); border-color: var(--bui-color-accent); background: var(--bui-color-accent-bg); }
   #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
+
+  /* ===== Results — answer-first report layout ===== */
+  #brichaus-assessment .report-address {
+    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--bui-color-text-faint); margin: 0 0 4px;
+  }
+  #brichaus-assessment .report-h2 { margin: 0 0 var(--bui-space-4); font-size: 1.3rem; letter-spacing: -0.01em; }
+  #brichaus-assessment .report-kicker {
+    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
+    color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
+  }
+  #brichaus-assessment .report-hero {
+    display: grid; grid-template-columns: 1.08fr 0.92fr;
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); overflow: hidden;
+  }
+  #brichaus-assessment .report-hero__fee { padding: var(--bui-space-4); border-right: 1px solid var(--bui-color-border); }
+  #brichaus-assessment .report-hero__band { padding: var(--bui-space-4); }
+  #brichaus-assessment .report-fee-num {
+    font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1; color: var(--bui-color-text);
+  }
+  #brichaus-assessment .report-fee-num small { font-size: 0.95rem; font-weight: 650; color: var(--bui-color-text-muted); }
+  #brichaus-assessment .report-fee-sub { font-size: 11.5px; color: var(--bui-color-text-muted); margin-top: 6px; }
+  #brichaus-assessment .report-band-pill {
+    font-size: 0.95rem; font-weight: 750; letter-spacing: 0.02em; margin-bottom: var(--bui-space-3);
+    color: var(--bui-color-accent);
+  }
+  #brichaus-assessment .report-band-pill[data-tone="slate"] { color: var(--bui-color-slate); }
+  #brichaus-assessment .report-band-pill[data-tone="accent"] { color: var(--bui-color-accent); }
+  #brichaus-assessment .report-band-pill[data-tone="warning"] { color: var(--bui-color-warning); }
+  #brichaus-assessment .report-band-pill[data-tone="danger"] { color: var(--bui-color-danger); }
+  #brichaus-assessment .demand-meter__track {
+    position: relative; height: 7px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--bui-color-slate) 0%, var(--bui-color-accent) 45%, var(--bui-color-warning) 72%, var(--bui-color-danger) 100%);
+  }
+  #brichaus-assessment .demand-meter__mark {
+    position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--bui-color-surface); border: 3px solid var(--bui-color-accent);
+    transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  #brichaus-assessment .demand-meter__mark[data-tone="slate"] { border-color: var(--bui-color-slate); }
+  #brichaus-assessment .demand-meter__mark[data-tone="accent"] { border-color: var(--bui-color-accent); }
+  #brichaus-assessment .demand-meter__mark[data-tone="warning"] { border-color: var(--bui-color-warning); }
+  #brichaus-assessment .demand-meter__mark[data-tone="danger"] { border-color: var(--bui-color-danger); }
+  #brichaus-assessment .demand-meter__scale { display: flex; justify-content: space-between; margin-top: 6px; }
+  #brichaus-assessment .demand-meter__scale span {
+    font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bui-color-text-faint);
+  }
+  #brichaus-assessment .report-stats {
+    display: flex; gap: var(--bui-space-4); margin-top: var(--bui-space-4);
+    padding-top: var(--bui-space-4); border-top: 1px solid var(--bui-color-border);
+  }
+  #brichaus-assessment .report-stats > div { flex: 1; }
+  #brichaus-assessment .report-stat-l {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--bui-color-text-faint); margin-bottom: 3px;
+  }
+  #brichaus-assessment .report-stat-v { font-size: 1.05rem; font-weight: 700; }
+  #brichaus-assessment .evidence { text-align: left; margin-top: var(--bui-space-5); }
+  #brichaus-assessment .evidence-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--bui-space-3);
+  }
+  #brichaus-assessment .evidence-card {
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3);
+  }
+  #brichaus-assessment .evidence-specs { display: flex; flex-direction: column; }
+  #brichaus-assessment .evidence-spec {
+    display: flex; justify-content: space-between; gap: var(--bui-space-2);
+    font-size: 12px; padding: 3px 0;
+  }
+  #brichaus-assessment .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
+  #brichaus-assessment .evidence-spec span:last-child { font-weight: 650; }
+  #brichaus-assessment .report-cta { margin-top: var(--bui-space-5); }
+  #brichaus-assessment .report-download {
+    display: block; width: 100%; margin-top: var(--bui-space-3); padding: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-accent); text-decoration: underline; text-underline-offset: 2px;
+  }
+  #brichaus-assessment .report-download:hover { color: var(--bui-color-accent-hover); }
+  #brichaus-assessment .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
   #brichaus-assessment .hidden { display: none !important; }
 
   /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
@@ -499,55 +579,71 @@
           Demo mode — CONFIG.WEBHOOK_URL isn't set, so the fee below is illustrative only, not a live calculation.
         </div>
 
-        <h2 style="margin: 0 0 4px; font-size: 1.4rem;">Here is your Property Intelligence Report</h2>
-        <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
-          Based on your property and operational assessment
-        </p>
+        <p id="report-address" class="report-address hidden"></p>
+        <h2 class="report-h2">Your Property Intelligence Report</h2>
 
-        <bui-dial-gauge id="result-gauge" eyebrow="Operational Demand"></bui-dial-gauge>
-
-        <div class="income-grid">
-          <div><div class="stat-label">Gross Monthly</div><div class="stat-value" id="stat-gross-monthly">—</div></div>
-          <div><div class="stat-label">Gross Annual</div><div class="stat-value" id="stat-gross-annual">—</div></div>
-          <div><div class="stat-label">Recommended Fee</div><div class="stat-value" id="stat-fee-pct">—</div></div>
+        <!-- Answer-first hero: the recommended fee (the number they came for)
+             paired with the operational-demand band and a low->severe meter. -->
+        <div class="report-hero">
+          <div class="report-hero__fee">
+            <div class="report-kicker">Recommended management fee</div>
+            <div class="report-fee-num num" id="hero-fee">—</div>
+            <div class="report-fee-sub" id="hero-fee-sub"></div>
+          </div>
+          <div class="report-hero__band">
+            <div class="report-kicker">Operational demand</div>
+            <div class="report-band-pill" id="hero-band">—</div>
+            <div class="demand-meter">
+              <div class="demand-meter__track"><span class="demand-meter__mark" id="demand-mark"></span></div>
+              <div class="demand-meter__scale"><span>Low</span><span>Severe</span></div>
+            </div>
+          </div>
         </div>
 
-        <div style="margin-top: var(--bui-space-4);">
-          <bui-card variant="tinted" padding="sm">
-            <strong>Estimated Monthly Management Fee:</strong>
-            <span id="result-fee-summary">—</span>
-          </bui-card>
-        </div>
-
+        <!-- Plain-English AI summary, directly under the answer. -->
         <div id="report-summary" class="report-summary hidden">
-          <div class="report-summary-title">Market Summary</div>
           <p class="report-summary-text" id="report-summary-text"></p>
           <p class="report-confidence hidden" id="report-confidence"></p>
         </div>
 
-        <div id="property-snapshot" class="property-snapshot hidden">
-          <div class="snapshot-title">Property Snapshot</div>
-          <div class="snapshot-grid" id="snapshot-grid"></div>
-          <p id="multifamily-note" class="multifamily-note hidden">
-            This unit configuration reflects one unit on record — a multifamily property may have several different layouts.
-          </p>
+        <!-- Supporting figures, demoted beneath the answer. -->
+        <div class="report-stats">
+          <div><div class="report-stat-l">Gross Monthly</div><div class="report-stat-v num" id="stat-gross-monthly">—</div></div>
+          <div><div class="report-stat-l">Gross Annual</div><div class="report-stat-v num" id="stat-gross-annual">—</div></div>
+          <div><div class="report-stat-l">Fee Rate</div><div class="report-stat-v num" id="stat-fee-pct">—</div></div>
         </div>
 
-        <div id="comparables-section" class="comparables-section hidden">
-          <div class="comparables-title">Comparable Properties</div>
-          <div class="comparables-list" id="comparables-list"></div>
-        </div>
-
+        <!-- The "why" behind the band — the AI operational profile. The old
+             mechanical "1.5x weight" driver rows are intentionally dropped. -->
         <div id="op-profile" class="op-profile hidden">
-          <div class="op-profile-title">Operational Profile</div>
+          <div class="report-kicker" id="op-profile-title">What's driving your operational demand</div>
           <div id="op-profile-list"></div>
         </div>
 
-        <div class="insights-list" id="result-insights"></div>
+        <!-- Supporting evidence, grouped and clearly secondary. Each card
+             hides itself if RentCast returned nothing for that block; the
+             whole section hides if both are empty (see renderEvidence). -->
+        <div id="evidence" class="evidence hidden">
+          <div class="report-kicker">The data behind it</div>
+          <div class="evidence-grid">
+            <div id="property-snapshot" class="evidence-card hidden">
+              <div class="report-kicker">Subject property</div>
+              <div class="evidence-specs" id="snapshot-grid"></div>
+              <p id="multifamily-note" class="multifamily-note hidden">
+                Representative of one unit — a multifamily building may hold several layouts.
+              </p>
+            </div>
+            <div id="comparables-section" class="evidence-card hidden">
+              <div class="report-kicker">Nearby comparables</div>
+              <div class="comparables-list" id="comparables-list"></div>
+            </div>
+          </div>
+        </div>
 
-        <div class="results-actions">
-          <bui-button variant="secondary" id="download-report-btn">Download Report</bui-button>
-          <bui-button variant="primary" id="schedule-btn">Schedule Consultation</bui-button>
+        <!-- One clear action; download steps back to a quiet link. -->
+        <div class="report-cta">
+          <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
+          <button type="button" id="download-report-btn" class="report-download">Download the full report (PDF)</button>
         </div>
       </div>
     </bui-card>
@@ -788,12 +884,14 @@
   var buildProgress = document.getElementById('build-progress');
 
   var demoBanner = document.getElementById('demo-banner');
-  var resultGauge = document.getElementById('result-gauge');
+  var reportAddress = document.getElementById('report-address');
+  var heroFee = document.getElementById('hero-fee');
+  var heroFeeSub = document.getElementById('hero-fee-sub');
+  var heroBand = document.getElementById('hero-band');
+  var demandMark = document.getElementById('demand-mark');
   var statGrossMonthly = document.getElementById('stat-gross-monthly');
   var statGrossAnnual = document.getElementById('stat-gross-annual');
   var statFeePct = document.getElementById('stat-fee-pct');
-  var resultFeeSummary = document.getElementById('result-fee-summary');
-  var resultInsights = document.getElementById('result-insights');
   var propertySnapshot = document.getElementById('property-snapshot');
   var snapshotGrid = document.getElementById('snapshot-grid');
   var multifamilyNote = document.getElementById('multifamily-note');
@@ -803,7 +901,9 @@
   var reportSummaryText = document.getElementById('report-summary-text');
   var reportConfidence = document.getElementById('report-confidence');
   var opProfile = document.getElementById('op-profile');
+  var opProfileTitle = document.getElementById('op-profile-title');
   var opProfileList = document.getElementById('op-profile-list');
+  var evidence = document.getElementById('evidence');
   var downloadReportBtn = document.getElementById('download-report-btn');
   var scheduleBtn = document.getElementById('schedule-btn');
 
@@ -1280,16 +1380,8 @@
     var result = state.result;
     var grossMonthly = state.rentPerUnit * state.unitCount;
     var grossAnnual = grossMonthly * 12;
-
-    resultGauge.setAttribute('value', String(DemandEngine.gaugePercent(result.demandScore)));
-    resultGauge.setAttribute('readout', result.band.label);
-    resultGauge.setAttribute('caption', result.band.caption);
-    resultGauge.setAttribute('readout-tone', result.band.tone);
-
-    statGrossMonthly.textContent = currency(grossMonthly);
-    statGrossAnnual.textContent = currency(grossAnnual);
-
     var webhook = result.webhook;
+
     // feeCalcResponse is a fee RATE (e.g. 0.06 for 6%), not a dollar amount —
     // the pipeline's "Trigger Power Automate Fee Calc" step returns this raw,
     // and "Assemble Prototype Output" passes it straight through. Convert to
@@ -1310,33 +1402,44 @@
       monthlyFee = grossMonthly * (feePct / 100);
       isIllustrative = true;
     }
-
     demoBanner.classList.toggle('hidden', !(result.isDemo || isIllustrative));
 
+    // Header address — from the selected place, falling back to the derived name.
+    var addr = state.address.formattedAddress || state.address.propertyName || '';
+    reportAddress.textContent = addr;
+    reportAddress.classList.toggle('hidden', !addr);
+
+    // Hero: the recommended fee is the answer the visitor came for; the demand
+    // band + low->severe meter is the finding that justifies it.
+    heroFee.innerHTML = currency(monthlyFee) + '<small> / mo</small>';
+    heroFeeSub.textContent = feePct.toFixed(1) + '% of ' + currency(grossMonthly) + ' gross monthly rent';
+    heroBand.textContent = result.band.label;
+    // tone (slate|accent|warning|danger) drives the pill + marker color via CSS
+    heroBand.setAttribute('data-tone', result.band.tone);
+    var pct = DemandEngine.gaugePercent(result.demandScore);
+    demandMark.style.left = Math.max(3, Math.min(97, pct)) + '%'; // keep the 13px dot off the rounded track ends
+    demandMark.setAttribute('data-tone', result.band.tone);
+
+    // Supporting figures, demoted beneath the answer.
+    statGrossMonthly.textContent = currency(grossMonthly);
+    statGrossAnnual.textContent = currency(grossAnnual);
     statFeePct.textContent = feePct.toFixed(1) + '%';
-    resultFeeSummary.textContent = currency(monthlyFee) + ' / month';
 
     // Not mirrored to a native field — n8n writes the band/fee/monthly fee
-    // to the Property record directly after search+update (see GHL_FIELDS
-    // doc); this page's own copy above is display-only.
+    // to the Property record directly after search+update (see GHL_FIELDS doc).
 
     renderReportSummary(webhook);
+    renderOperationalProfile(webhook);
     renderPropertySnapshot(webhook);
     renderComparables(webhook);
-    renderOperationalProfile(webhook);
+    renderEvidence();
+  }
 
-    resultInsights.innerHTML = '';
-    DRIVER_STEPS.forEach(function (step) {
-      var choice = state.drivers[step.key];
-      var choiceLabel = choice.charAt(0).toUpperCase() + choice.slice(1);
-      var row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML =
-        '<span class="dot"></span>' +
-        '<div><div class="title">' + step.title + ' — ' + choiceLabel + '</div>' +
-        '<div class="desc">Contributed a ' + DemandEngine.multiplier[choice].toFixed(1) + 'x weight to your operational demand score.</div></div>';
-      resultInsights.appendChild(row);
-    });
+  // The grouped evidence section shows only if at least one of its two cards
+  // (subject property / comparables) actually has data.
+  function renderEvidence() {
+    var any = !propertySnapshot.classList.contains('hidden') || !comparablesSection.classList.contains('hidden');
+    evidence.classList.toggle('hidden', !any);
   }
 
   function buildStatBlock(label, value) {
@@ -1360,19 +1463,30 @@
     var config = webhook && webhook.unitConfiguration;
     var rows = [];
 
-    if (propertyType) rows.push(['Property Type', propertyType]);
+    if (propertyType) rows.push(['Type', propertyType]);
     if (config) {
-      if (config.bedrooms != null) rows.push(['Bedrooms', String(config.bedrooms)]);
-      if (config.bathrooms != null) rows.push(['Bathrooms', String(config.bathrooms)]);
-      if (config.squareFootage != null) rows.push(['Square Footage', Number(config.squareFootage).toLocaleString() + ' sq ft']);
+      if (config.bedrooms != null || config.bathrooms != null) {
+        rows.push(['Beds / Baths', (config.bedrooms != null ? config.bedrooms : '—') + ' / ' + (config.bathrooms != null ? config.bathrooms : '—')]);
+      }
+      if (config.squareFootage != null) rows.push(['Area', Number(config.squareFootage).toLocaleString() + ' sq ft']);
     }
 
     propertySnapshot.classList.toggle('hidden', !rows.length);
     if (!rows.length) return;
 
+    // Rendered as label/value spec rows inside the compact evidence card
+    // (not the wide stat tiles used for the Snapshot-step preview).
     snapshotGrid.innerHTML = '';
     rows.forEach(function (pair) {
-      snapshotGrid.appendChild(buildStatBlock(pair[0], pair[1]));
+      var r = document.createElement('div');
+      r.className = 'evidence-spec';
+      var l = document.createElement('span');
+      l.textContent = pair[0];
+      var v = document.createElement('span');
+      v.textContent = pair[1];
+      r.appendChild(l);
+      r.appendChild(v);
+      snapshotGrid.appendChild(r);
     });
 
     // RentCast's bed/bath/sqft describes a single unit record it has on
@@ -1439,16 +1553,23 @@
 
   // report.operationalProfile.categories is the AI's per-driver narrative
   // (Tenant Friction, Turnover Pressure, Maintenance Burden, Compliance
-  // Burden), each with a human label and a sentence of reasoning — the
-  // qualitative counterpart to the mechanical driver-weight rows below it.
-  // Assembled by "Assemble Prototype Output" from the OIA scoring
-  // sub-workflow; absent in demo mode or a failed webhook.
+  // Burden), each with a human label and a sentence of reasoning. In the
+  // answer-first layout this section IS the "why" behind the band — the
+  // mechanical driver-weight rows it used to sit beside are gone. Assembled
+  // by "Assemble Prototype Output" from the OIA scoring sub-workflow; absent
+  // in demo mode or a failed webhook.
   function renderOperationalProfile(webhook) {
     var profile = webhook && webhook.report && webhook.report.operationalProfile;
     var cats = (profile && profile.categories) || [];
     var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
     opProfile.classList.toggle('hidden', !withText.length);
     if (!withText.length) return;
+
+    // Title names the band it explains, e.g. "Why your demand reads Elevated".
+    var bandLabel = state.result && state.result.band ? state.result.band.label : '';
+    opProfileTitle.textContent = bandLabel
+      ? 'Why your demand reads ' + bandLabel.toLowerCase().replace(/\b\w/g, function (ch) { return ch.toUpperCase(); })
+      : "What's driving your operational demand";
 
     opProfileList.innerHTML = '';
     withText.forEach(function (c) {
@@ -1464,6 +1585,8 @@
       if (c.label) {
         var label = document.createElement('span');
         label.className = 'op-cat-label';
+        // tone chips: active -> warning, intensive -> danger, streamlined -> accent
+        label.setAttribute('data-tone', String(c.label).trim().toLowerCase());
         label.textContent = c.label;
         head.appendChild(label);
       }
@@ -1479,10 +1602,11 @@
     });
   }
 
-  downloadReportBtn.addEventListener('bui-click', function () {
-    // No server-side PDF export wired up yet — print-to-PDF is the
-    // lightweight default. Swap this handler for a real export call if
-    // one becomes available.
+  downloadReportBtn.addEventListener('click', function () {
+    // Now a plain text-link button (not a bui-button), so this listens for a
+    // native 'click', not 'bui-click'. No server-side PDF export wired up yet
+    // — print-to-PDF is the lightweight default; swap for a real export call
+    // if one becomes available.
     window.print();
   });
 
