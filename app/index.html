@@ -438,8 +438,12 @@
     // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
     // it doesn't confirm the record has actually been persisted server-side
     // by the time control returns. This is a buffer before calling
-    // WEBHOOK_URL so n8n's search-by-googlePlaceId has a real record to find.
-    GHL_SUBMIT_SETTLE_MS: 900,
+    // WEBHOOK_URL so n8n's search-by-googlePlaceId has a real record to
+    // find. Trimmed from 900ms — this is a guess, not a confirmation, so
+    // there's no real basis for 900 over a smaller number; if n8n's search
+    // starts coming up empty (record not found yet), raise this first
+    // before suspecting anything else.
+    GHL_SUBMIT_SETTLE_MS: 400,
 
     // The Fee Calculation flow's request schema also expects these add-on
     // toggles (see power-automate-build-spec.md). This funnel's 9 steps
@@ -811,8 +815,14 @@
   // Property record n8n will search for — then waits GHL_SUBMIT_SETTLE_MS
   // for it to actually persist before calling WEBHOOK_URL. See
   // GHL_SUBMIT_SELECTOR above for why this can't happen any earlier or
-  // any later than right here.
+  // any later than right here. Shows the loading step immediately, before
+  // that wait, rather than after it — the click should never sit there
+  // looking unresponsive while nothing on screen has changed yet.
   function submitNativeThenAssess() {
+    showStep('loading');
+    checklist.current = 1;
+    buildProgress.setAttribute('value', '0');
+
     var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
     if (!submitted) {
       console.warn('[brichaus-assessment] Native GHL submit control not found (' + CONFIG.GHL_SUBMIT_SELECTOR + ') — the Property record was not created via GHL submission before scoring.');
@@ -843,10 +853,6 @@
   }
 
   function runAssessment() {
-    showStep('loading');
-    checklist.current = 1;
-    buildProgress.setAttribute('value', '0');
-
     var demandScore = DemandEngine.score(state.drivers);
     var band = DemandEngine.band(demandScore);
 
@@ -864,7 +870,11 @@
       checklist.current = CHECKLIST_STEPS + 1;
       buildProgress.setAttribute('value', '100');
       state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
-      setTimeout(function () { renderResults(); showStep('results'); }, 400);
+      // Was a flat 400ms pause here for no functional reason — n8n's own
+      // response time is already the real wait; nothing needs padding
+      // once it's actually back.
+      renderResults();
+      showStep('results');
     };
 
     if (!CONFIG.WEBHOOK_URL) {
