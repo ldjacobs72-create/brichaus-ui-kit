@@ -96,6 +96,18 @@
     color: var(--bui-color-text-muted);
     font-size: var(--bui-font-size-md);
   }
+  /* Gives each of the 4 sequential driver questions its own glanceable
+     identity — otherwise every screen shows the same 4 choice cards and
+     only the question text (easy to click through without registering
+     you're now rating a different category). */
+  #brichaus-assessment .driver-category {
+    display: flex; align-items: center; gap: var(--bui-space-2); margin-bottom: 6px;
+  }
+  #brichaus-assessment .driver-category__icon { font-size: 22px; line-height: 1; }
+  #brichaus-assessment .driver-category__name {
+    font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--bui-color-text-faint);
+  }
   #brichaus-assessment .step-footer {
     display: flex;
     justify-content: space-between;
@@ -772,6 +784,14 @@
         <bui-progress-bar tone="header" label="5–8. Operational Assessment" id="driver-header-progress" value="45"></bui-progress-bar>
       </div>
       <div class="step-intro">
+        <!-- Each driver gets its own icon + name, distinct at a glance, so
+             clicking through the 4 sequential steps doesn't blur into one
+             repeated screen — the question text is otherwise the only thing
+             that changes between them. -->
+        <div class="driver-category" id="driver-category">
+          <span class="driver-category__icon" id="driver-category-icon"></span>
+          <span class="driver-category__name" id="driver-category-name"></span>
+        </div>
         <p style="font-weight:700; font-size: var(--bui-font-size-md); color: var(--bui-color-text); margin: 0 0 var(--bui-space-3);" id="driver-question"></p>
         <bui-progress-bar variant="segmented" id="driver-sub-progress" label="Driver" value="1" max="4"></bui-progress-bar>
         <div style="margin-top: var(--bui-space-4);">
@@ -1153,10 +1173,10 @@
   };
 
   var DRIVER_STEPS = [
-    { key: 'tenant', title: 'Tenant Management', question: 'How would you describe the overall tenant management demands of your property?' },
-    { key: 'turnover', title: 'Turnover', question: 'How would you describe the unit turnover activity for your property?' },
-    { key: 'maintenance', title: 'Maintenance', question: 'How would you describe the overall maintenance demands of your property?' },
-    { key: 'compliance', title: 'Compliance', question: 'How would you describe the compliance and regulatory demands of your property?' }
+    { key: 'tenant', title: 'Tenant Management', icon: '👥', question: 'How would you describe the overall tenant management demands of your property?' },
+    { key: 'turnover', title: 'Turnover', icon: '🔄', question: 'How would you describe the unit turnover activity for your property?' },
+    { key: 'maintenance', title: 'Maintenance', icon: '🔧', question: 'How would you describe the overall maintenance demands of your property?' },
+    { key: 'compliance', title: 'Compliance', icon: '⚖️', question: 'How would you describe the compliance and regulatory demands of your property?' }
   ];
   var driverStepIndex = 0;
 
@@ -1207,6 +1227,8 @@
   var snapshotPreviewMarketZip = document.getElementById('snapshot-preview-market-zip');
   var snapshotPreviewMarketList = document.getElementById('snapshot-preview-market-list');
 
+  var driverCategoryIcon = document.getElementById('driver-category-icon');
+  var driverCategoryName = document.getElementById('driver-category-name');
   var driverQuestion = document.getElementById('driver-question');
   var driverHeaderProgress = document.getElementById('driver-header-progress');
   var driverSubProgress = document.getElementById('driver-sub-progress');
@@ -1729,6 +1751,8 @@
    * =================================================================== */
   function renderDriverStep() {
     var step = DRIVER_STEPS[driverStepIndex];
+    driverCategoryIcon.textContent = step.icon;
+    driverCategoryName.textContent = step.title;
     driverQuestion.textContent = step.question;
     driverSubProgress.setAttribute('label', step.title + ' Driver');
     driverSubProgress.setAttribute('value', String(driverStepIndex + 1));
