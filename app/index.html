@@ -820,6 +820,15 @@
     // the market-rent hint).
     RENTCAST_QUICKLOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-rentcast-quicklook',
 
+    // Poll endpoint for the two-phase report. When the assessment POST sets
+    // AsyncReport:true, the pipeline returns the deterministic answer (fee,
+    // band, market, comps, operational profile) in ~5-8s and generates the AI
+    // narrative in the background. The widget then polls this endpoint by
+    // googlePlaceId until the prose (clientSummary/confidenceNote) is ready and
+    // slots it in. Leave blank to disable async (the pipeline then responds
+    // synchronously with the full report, ~30s).
+    REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
+
     // Where "Schedule Consultation" sends the visitor (a GHL calendar page
     // or booking widget URL). Leave blank to no-op with a console warning
     // instead of opening a dead link.
@@ -1623,7 +1632,11 @@
       Inspections: readAddonField('inspections', false),
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
-      PropertyName: state.address.propertyName || state.address.formattedAddress
+      PropertyName: state.address.propertyName || state.address.formattedAddress,
+      // Opt into the two-phase report only when we have somewhere to poll for
+      // the narrative. Without REPORT_STATUS_URL the pipeline responds
+      // synchronously with the full report, so we must not request async.
+      AsyncReport: !!CONFIG.REPORT_STATUS_URL
     };
   }
 
@@ -1697,6 +1710,14 @@
       state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
       renderResults();
       showStep('results');
+      // Two-phase report: the pipeline answered fast with everything except the
+      // AI narrative (reportStatus 'generating'). Poll for the prose and slot
+      // it in when ready. Skipped in demo mode and when the response already
+      // carries the full report (sync path, multifamily, or a proposal cache hit).
+      var rep = webhookResult && webhookResult.report;
+      if (!isDemo && rep && rep.reportStatus === 'generating' && !rep.clientSummary) {
+        pollReportStatus(state.address.placeId, 0);
+      }
     };
 
     if (!CONFIG.WEBHOOK_URL) {
@@ -1718,6 +1739,38 @@
       .catch(function (err) {
         console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
         finish(null, true);
+      });
+  }
+
+  // Two-phase report poll. The fast Phase A response already rendered the fee,
+  // band, market, comps, and operational profile; here we poll ghl-report-status
+  // by googlePlaceId until the AI narrative (clientSummary/confidenceNote) has
+  // been generated and stored, then merge it into the shown report. Backs off at
+  // ~2.5s intervals with a ~60s cap; any failure just stops polling (the answer
+  // is already on screen, only the prose is missing).
+  function pollReportStatus(placeId, attempt) {
+    if (!CONFIG.REPORT_STATUS_URL || !placeId) return;
+    attempt = attempt || 0;
+    if (attempt > 24) return; // ~60s ceiling
+    fetch(CONFIG.REPORT_STATUS_URL + '?placeId=' + encodeURIComponent(placeId))
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (data && data.status === 'ready' && data.report) {
+          var report = state.result && state.result.webhook && state.result.webhook.report;
+          if (report) {
+            report.clientSummary = data.report.clientSummary || '';
+            report.confidenceNote = data.report.confidenceNote || '';
+            if (data.report.operationalProfile) report.operationalProfile = data.report.operationalProfile;
+            report.reportStatus = 'ready';
+            renderReportSummary(state.result.webhook);
+            renderOperationalProfile(state.result.webhook);
+          }
+          return;
+        }
+        setTimeout(function () { pollReportStatus(placeId, attempt + 1); }, 2500);
+      })
+      .catch(function () {
+        setTimeout(function () { pollReportStatus(placeId, attempt + 1); }, 2500);
       });
   }
 
@@ -1925,7 +1978,16 @@
   function renderReportSummary(webhook) {
     var report = (webhook && webhook.report) || null;
     var summary = report && report.clientSummary;
-    reportSummary.classList.toggle('hidden', !summary);
+    // Two-phase report: the answer is on screen but the AI narrative is still
+    // generating (being polled). Show a brief placeholder rather than a blank
+    // frame or a section that pops in a few seconds later.
+    var generating = report && report.reportStatus === 'generating' && !summary;
+    reportSummary.classList.toggle('hidden', !summary && !generating);
+    if (generating) {
+      reportSummaryText.textContent = 'Preparing your full market analysis…';
+      reportConfidence.classList.add('hidden');
+      return;
+    }
     if (!summary) return;
     reportSummaryText.textContent = summary;
     var note = report.confidenceNote;
