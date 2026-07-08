@@ -353,19 +353,34 @@
   }
   #brichaus-assessment .op-profile {
     text-align: left;
-    margin-top: var(--bui-space-5);
   }
-  #brichaus-assessment .op-profile-row {
-    padding: var(--bui-space-3) 0;
-    border-top: 1px solid var(--bui-color-border);
+  #brichaus-assessment .workload-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--bui-space-3); margin-bottom: var(--bui-space-2);
   }
+  /* Sizes the existing .demand-meter as a flex sibling of the band pill here
+     — no new meter markup, the meter DOM just relocated into this section. */
+  #brichaus-assessment .demand-meter { flex: 1; max-width: 190px; }
+  #brichaus-assessment .workload-summary {
+    margin: 0 0 var(--bui-space-3); font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55;
+  }
+  #brichaus-assessment .op-profile-row { border-top: 1px solid var(--bui-color-border); }
   #brichaus-assessment .op-profile-row:first-child { border-top: none; }
   #brichaus-assessment .op-profile-head {
     display: flex;
     align-items: center;
     gap: var(--bui-space-2);
-    margin-bottom: 3px;
+    padding: var(--bui-space-3) 0;
+    cursor: pointer;
+    list-style: none;
   }
+  #brichaus-assessment .op-profile-head::-webkit-details-marker { display: none; }
+  #brichaus-assessment .op-profile-head::after {
+    content: '›'; margin-left: auto; font-size: 14px; font-weight: 700;
+    color: var(--bui-color-text-faint); transition: transform var(--bui-transition-base, 150ms ease);
+  }
+  #brichaus-assessment .op-profile-row[open] > .op-profile-head::after { transform: rotate(90deg); }
+  #brichaus-assessment .op-profile-head:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
   #brichaus-assessment .op-cat-name { font-weight: 700; font-size: 13px; }
   #brichaus-assessment .op-cat-label {
     font-size: 10px;
@@ -378,10 +393,14 @@
     color: var(--bui-color-text-muted);
     border: 1px solid var(--bui-color-border);
   }
-  #brichaus-assessment .op-cat-label[data-tone="active"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
-  #brichaus-assessment .op-cat-label[data-tone="intensive"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
-  #brichaus-assessment .op-cat-label[data-tone="streamlined"] { color: var(--bui-color-accent); border-color: var(--bui-color-accent); background: var(--bui-color-accent-bg); }
-  #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
+  /* Tone keys off the real OIA label vocabulary (Low/Normal/High/Severe) —
+     the previous streamlined/active/intensive tones never matched what the
+     pipeline actually returns, so these chips never picked up a color. */
+  #brichaus-assessment .op-cat-label[data-tone="low"] { color: var(--bui-color-success); border-color: var(--bui-color-success); background: var(--bui-color-success-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="normal"] { color: var(--bui-color-info); border-color: var(--bui-color-info); background: var(--bui-color-info-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="high"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="severe"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
+  #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
 
   /* ===== Results — answer-first report layout ===== */
   #brichaus-assessment .report-address {
@@ -393,17 +412,6 @@
     font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
     color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
   }
-  #brichaus-assessment .report-hero {
-    display: grid; grid-template-columns: 1.08fr 0.92fr;
-    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); overflow: hidden;
-  }
-  #brichaus-assessment .report-hero__fee { padding: var(--bui-space-4); border-right: 1px solid var(--bui-color-border); }
-  #brichaus-assessment .report-hero__band { padding: var(--bui-space-4); }
-  #brichaus-assessment .report-fee-num {
-    font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1; color: var(--bui-color-text);
-  }
-  #brichaus-assessment .report-fee-num small { font-size: 0.95rem; font-weight: 650; color: var(--bui-color-text-muted); }
-  #brichaus-assessment .report-fee-sub { font-size: 11.5px; color: var(--bui-color-text-muted); margin-top: 6px; }
   #brichaus-assessment .report-band-pill {
     font-size: 0.95rem; font-weight: 750; letter-spacing: 0.02em; margin-bottom: var(--bui-space-3);
     color: var(--bui-color-accent);
@@ -429,16 +437,6 @@
   #brichaus-assessment .demand-meter__scale span {
     font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bui-color-text-faint);
   }
-  #brichaus-assessment .report-stats {
-    display: flex; gap: var(--bui-space-4); margin-top: var(--bui-space-4);
-    padding-top: var(--bui-space-4); border-top: 1px solid var(--bui-color-border);
-  }
-  #brichaus-assessment .report-stats > div { flex: 1; }
-  #brichaus-assessment .report-stat-l {
-    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--bui-color-text-faint); margin-bottom: 3px;
-  }
-  #brichaus-assessment .report-stat-v { font-size: 1.05rem; font-weight: 700; }
   #brichaus-assessment .evidence { text-align: left; margin-top: var(--bui-space-5); }
   #brichaus-assessment .evidence-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--bui-space-3);
@@ -462,6 +460,60 @@
   }
   #brichaus-assessment .report-download:hover { color: var(--bui-color-accent-hover); }
   #brichaus-assessment .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
+
+  /* ===== Proposal section — the results-card's ambient text-align:center
+     (see .loading-card, .results-card above) needs overriding here, same as
+     .op-profile already does for the Workload section above it. ===== */
+  #brichaus-assessment .proposal-section { text-align: left; margin-top: var(--bui-space-5); }
+  #brichaus-assessment .service-list { display: flex; flex-direction: column; gap: var(--bui-space-3); margin-top: var(--bui-space-4); }
+  #brichaus-assessment .service-card { border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
+  #brichaus-assessment .service-card__head { display: flex; align-items: center; gap: var(--bui-space-2); margin-bottom: 6px; }
+  #brichaus-assessment .service-card__icon { font-size: 20px; line-height: 1; }
+  #brichaus-assessment .service-card__title { margin: 0; font-size: 14.5px; font-weight: 700; color: var(--bui-color-text); }
+  #brichaus-assessment .service-card__desc { margin: 0; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55; }
+  #brichaus-assessment .service-card__details { margin-top: 10px; }
+  #brichaus-assessment .service-card__summary {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+    font-size: 12.5px; font-weight: 700; color: var(--bui-color-accent); padding: 2px 0;
+  }
+  #brichaus-assessment .service-card__summary::-webkit-details-marker { display: none; }
+  #brichaus-assessment .service-card__summary::after { content: '›'; margin-left: auto; font-size: 14px; font-weight: 700; transition: transform 150ms ease; }
+  #brichaus-assessment .service-card__details[open] > .service-card__summary::after { transform: rotate(90deg); }
+  #brichaus-assessment .service-card__summary:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
+  #brichaus-assessment .service-card__list { margin: 8px 0 0; padding-left: 20px; }
+  #brichaus-assessment .service-card__list li { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; margin-bottom: 5px; }
+  #brichaus-assessment .service-card__list li:last-child { margin-bottom: 0; }
+  /* AssetShield only: a static, hardcoded checkmark for this property's
+     recommended items — informational, not an editable selection.
+     Individually toggling coverages is deferred to a later phase. */
+  #brichaus-assessment .service-card__list--checks { list-style: none; padding-left: 0; margin-top: 10px; }
+  #brichaus-assessment .service-card__check-row { margin-bottom: 2px; }
+  #brichaus-assessment .service-card__check-row:last-child { margin-bottom: 0; }
+  #brichaus-assessment .service-card__check-label { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+  #brichaus-assessment .service-card__checkbox {
+    flex: 0 0 auto; width: 19px; height: 19px; margin-top: 1px; border-radius: 5px;
+    border: 2px solid var(--bui-color-border-strong); background: var(--bui-color-surface);
+    position: relative; transition: background 120ms ease, border-color 120ms ease;
+  }
+  #brichaus-assessment .service-card__checkbox.is-checked { background: var(--bui-color-accent); border-color: var(--bui-color-accent); }
+  #brichaus-assessment .service-card__checkbox.is-checked::after {
+    content: ''; position: absolute; left: 5px; top: 1px; width: 6px; height: 11px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  #brichaus-assessment .service-card__check-text { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.45; padding-top: 1px; }
+  #brichaus-assessment .service-card__check-text.is-checked { color: var(--bui-color-text); font-weight: 600; }
+
+  /* ===== Supporting evidence — no longer rendered on screen; reserved for
+     the downloadable PDF (window.print()) so the note below stays true.
+     Wrapped, not deleted: hidden on screen, forced visible under print. ===== */
+  #brichaus-assessment .report-pdf-only { display: none; }
+  @media print {
+    #brichaus-assessment .report-pdf-only { display: block !important; }
+  }
+  #brichaus-assessment .pdf-note {
+    font-size: 11.5px; color: var(--bui-color-text-faint); font-style: italic; text-align: center;
+    margin: var(--bui-space-4) 0;
+  }
   /* Live status line under the finalizing progress bar — updated once per
      stage (not per tick) with a real, data-backed detail so the wait reads
      as genuine work rather than a spinner. */
@@ -750,7 +802,7 @@
   <section data-step="results" class="hidden">
     <bui-card variant="elevated" class="results-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="11. Your Results" value="100"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="11. Your Management Proposal Report" value="100"></bui-progress-bar>
       </div>
       <div style="padding: var(--bui-space-5);">
         <div id="demo-banner" class="demo-banner hidden">
@@ -758,73 +810,81 @@
         </div>
 
         <p id="report-address" class="report-address hidden"></p>
-        <h2 class="report-h2">Your Property Intelligence Report</h2>
+        <h2 class="report-h2">Your Management Proposal Report</h2>
 
-        <!-- Answer-first hero: the recommended fee (the number they came for)
-             paired with the operational-demand band and a low->severe meter. -->
-        <div class="report-hero">
-          <div class="report-hero__fee">
-            <div class="report-kicker">Recommended management fee</div>
-            <div class="report-fee-num num" id="hero-fee">—</div>
-            <div class="report-fee-sub" id="hero-fee-sub"></div>
-          </div>
-          <div class="report-hero__band">
-            <div class="report-kicker">Operational demand</div>
+        <!-- 1. Operational Workload — leads the report. Band + meter are
+             always computable client-side (even in demo mode), so this stays
+             visible unconditionally; only the summary sentence and the
+             per-category rows depend on webhook data (see
+             renderOperationalProfile). Each driver collapses to just its
+             name + rating tag; expand to read the narrative. -->
+        <div id="op-profile" class="op-profile hidden">
+          <div class="report-kicker">Operational Workload</div>
+          <div class="workload-head">
             <div class="report-band-pill" id="hero-band">—</div>
             <div class="demand-meter">
               <div class="demand-meter__track"><span class="demand-meter__mark" id="demand-mark"></span></div>
               <div class="demand-meter__scale"><span>Low</span><span>Severe</span></div>
             </div>
           </div>
-        </div>
-
-        <!-- Plain-English AI summary, directly under the answer. -->
-        <div id="report-summary" class="report-summary hidden">
-          <p class="report-summary-text" id="report-summary-text"></p>
-          <p class="report-confidence hidden" id="report-confidence"></p>
-        </div>
-
-        <!-- Supporting figures, demoted beneath the answer. -->
-        <div class="report-stats">
-          <div><div class="report-stat-l">Gross Monthly</div><div class="report-stat-v num" id="stat-gross-monthly">—</div></div>
-          <div><div class="report-stat-l">Gross Annual</div><div class="report-stat-v num" id="stat-gross-annual">—</div></div>
-          <div><div class="report-stat-l">Fee Rate</div><div class="report-stat-v num" id="stat-fee-pct">—</div></div>
-        </div>
-
-        <!-- The "why" behind the band — the AI operational profile. The old
-             mechanical "1.5x weight" driver rows are intentionally dropped. -->
-        <div id="op-profile" class="op-profile hidden">
-          <div class="report-kicker" id="op-profile-title">What's driving your operational demand</div>
+          <p id="workload-summary" class="workload-summary hidden"></p>
           <div id="op-profile-list"></div>
         </div>
 
-        <!-- Supporting evidence, grouped and clearly secondary. Each card
-             hides itself if RentCast returned nothing for that block; the
-             whole section hides if both are empty (see renderEvidence). -->
-        <div id="evidence" class="evidence hidden">
-          <div class="report-kicker">The data behind it</div>
-          <div class="evidence-grid">
-            <div id="property-snapshot" class="evidence-card hidden">
-              <div class="report-kicker">Subject property</div>
-              <div class="evidence-specs" id="snapshot-grid"></div>
-              <p id="multifamily-note" class="multifamily-note hidden">
-                Representative of one unit — a multifamily building may hold several layouts.
-              </p>
-            </div>
-            <div id="comparables-section" class="evidence-card hidden">
-              <div class="report-kicker">Nearby comparables</div>
-              <div class="comparables-list" id="comparables-list"></div>
-            </div>
-            <!-- Multifamily: market rent by unit type (RentCast /markets), shown
-                 in place of single-unit comps so a mixed-unit building's studios
-                 AND larger units are each represented. -->
-            <div id="market-by-type" class="evidence-card hidden">
-              <div class="report-kicker">Market rent by unit type<span id="market-zip" class="market-zip"></span></div>
-              <div class="market-type-list" id="market-type-list"></div>
-              <p id="market-type-foot" class="market-type-foot hidden"></p>
+        <!-- 2. Proposal — the recommended fee (% now primary, $/mo secondary)
+             reusing the same navy .revenue-hero treatment as the Projected
+             Revenue step, followed by the 5 branded service cards. -->
+        <div class="proposal-section">
+          <div class="report-kicker">Our Proposal</div>
+          <div class="revenue-hero">
+            <span class="revenue-hero__orb" aria-hidden="true"></span>
+            <div class="revenue-hero__kicker">Full Service Management</div>
+            <div class="revenue-hero__amount num" id="hero-fee">—</div>
+            <div class="revenue-hero__sub" id="hero-fee-sub"></div>
+          </div>
+          <div class="service-list" id="service-cards"></div>
+        </div>
+
+        <!-- Supporting evidence — reserved for the downloadable PDF (see
+             .pdf-note below), not shown on screen. Wrapped, not deleted: see
+             .report-pdf-only (screen-hidden, print-visible). -->
+        <div class="report-pdf-only">
+          <!-- Plain-English AI summary. -->
+          <div id="report-summary" class="report-summary hidden">
+            <p class="report-summary-text" id="report-summary-text"></p>
+            <p class="report-confidence hidden" id="report-confidence"></p>
+          </div>
+
+          <!-- Each card hides itself if RentCast returned nothing for that
+               block; the whole section hides if all are empty (see
+               renderEvidence). -->
+          <div id="evidence" class="evidence hidden">
+            <div class="report-kicker">The data behind it</div>
+            <div class="evidence-grid">
+              <div id="property-snapshot" class="evidence-card hidden">
+                <div class="report-kicker">Subject property</div>
+                <div class="evidence-specs" id="snapshot-grid"></div>
+                <p id="multifamily-note" class="multifamily-note hidden">
+                  Representative of one unit — a multifamily building may hold several layouts.
+                </p>
+              </div>
+              <div id="comparables-section" class="evidence-card hidden">
+                <div class="report-kicker">Nearby comparables</div>
+                <div class="comparables-list" id="comparables-list"></div>
+              </div>
+              <!-- Multifamily: market rent by unit type (RentCast /markets), shown
+                   in place of single-unit comps so a mixed-unit building's studios
+                   AND larger units are each represented. -->
+              <div id="market-by-type" class="evidence-card hidden">
+                <div class="report-kicker">Market rent by unit type<span id="market-zip" class="market-zip"></span></div>
+                <div class="market-type-list" id="market-type-list"></div>
+                <p id="market-type-foot" class="market-type-foot hidden"></p>
+              </div>
             </div>
           </div>
         </div>
+
+        <p class="pdf-note">Full supporting evidence — market comparables, RentCast data, and unit specs — is included in your downloadable PDF report below.</p>
 
         <!-- One clear action; download steps back to a quiet link. -->
         <div class="report-cta">
@@ -1117,9 +1177,8 @@
   var heroFeeSub = document.getElementById('hero-fee-sub');
   var heroBand = document.getElementById('hero-band');
   var demandMark = document.getElementById('demand-mark');
-  var statGrossMonthly = document.getElementById('stat-gross-monthly');
-  var statGrossAnnual = document.getElementById('stat-gross-annual');
-  var statFeePct = document.getElementById('stat-fee-pct');
+  var workloadSummary = document.getElementById('workload-summary');
+  var serviceCardsList = document.getElementById('service-cards');
   var propertySnapshot = document.getElementById('property-snapshot');
   var snapshotGrid = document.getElementById('snapshot-grid');
   var multifamilyNote = document.getElementById('multifamily-note');
@@ -1133,7 +1192,6 @@
   var reportSummaryText = document.getElementById('report-summary-text');
   var reportConfidence = document.getElementById('report-confidence');
   var opProfile = document.getElementById('op-profile');
-  var opProfileTitle = document.getElementById('op-profile-title');
   var opProfileList = document.getElementById('op-profile-list');
   var evidence = document.getElementById('evidence');
   var downloadReportBtn = document.getElementById('download-report-btn');
@@ -1918,7 +1976,6 @@
   function renderResults() {
     var result = state.result;
     var grossMonthly = state.rentPerUnit * state.unitCount;
-    var grossAnnual = grossMonthly * 12;
     var webhook = result.webhook;
 
     // Single source of truth for the FINAL band: the server OIA band (the same
@@ -1965,10 +2022,19 @@
     reportAddress.textContent = addr;
     reportAddress.classList.toggle('hidden', !addr);
 
-    // Hero: the recommended fee is the answer the visitor came for; the demand
-    // band + low->severe meter is the finding that justifies it.
-    heroFee.innerHTML = currency(monthlyFee) + '<small> / mo</small>';
-    heroFeeSub.textContent = feePct.toFixed(1) + '% of ' + currency(grossMonthly) + ' gross monthly rent';
+    // Proposal hero: the fee percentage is now the primary number (the
+    // payoff after the Workload build-up above it); the dollar amount is
+    // secondary. Reuses the same gold-accent-span treatment
+    // (.revenue-hero__total) already used for "$X/mo total" on the
+    // Projected Revenue step.
+    heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
+    heroFeeSub.innerHTML = 'recommended monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span> on ' + currency(grossMonthly) + ' gross monthly rent';
+
+    // Workload band + meter: always computable client-side (even in demo
+    // mode / a failed webhook), so this section stays visible unconditionally
+    // — only the summary sentence and per-category rows are conditional on
+    // real webhook data (see renderOperationalProfile).
+    opProfile.classList.remove('hidden');
     heroBand.textContent = result.band.label;
     // tone (slate|accent|warning|danger) drives the pill + marker color via CSS
     heroBand.setAttribute('data-tone', result.band.tone);
@@ -1976,16 +2042,12 @@
     demandMark.style.left = Math.max(3, Math.min(97, pct)) + '%'; // keep the 13px dot off the rounded track ends
     demandMark.setAttribute('data-tone', result.band.tone);
 
-    // Supporting figures, demoted beneath the answer.
-    statGrossMonthly.textContent = currency(grossMonthly);
-    statGrossAnnual.textContent = currency(grossAnnual);
-    statFeePct.textContent = feePct.toFixed(1) + '%';
-
     // Not mirrored to a native field — n8n writes the band/fee/monthly fee
     // to the Property record directly after search+update (see GHL_FIELDS doc).
 
     renderReportSummary(webhook);
     renderOperationalProfile(webhook);
+    renderProposalServiceCards(webhook);
     renderPropertySnapshot(webhook);
     renderComparables(webhook);
     renderMarketByBedrooms(webhook);
@@ -2152,30 +2214,32 @@
 
   // report.operationalProfile.categories is the AI's per-driver narrative
   // (Tenant Friction, Turnover Pressure, Maintenance Burden, Compliance
-  // Burden), each with a human label and a sentence of reasoning. In the
-  // answer-first layout this section IS the "why" behind the band — the
-  // mechanical driver-weight rows it used to sit beside are gone. Assembled
-  // by "Assemble Prototype Output" from the OIA scoring sub-workflow; absent
-  // in demo mode or a failed webhook.
+  // Burden), each with a human label and a sentence of reasoning — this is
+  // the "why" behind the band. Assembled by "Assemble Prototype Output" (or
+  // "Assemble Base Answer" for the async Phase-A path) from the OIA scoring
+  // sub-workflow; absent in demo mode or a failed webhook, in which case the
+  // band/meter above still show (see renderResults) but the summary sentence
+  // and per-category rows below are simply skipped. Each row is a collapsed
+  // <details> — name + rating tag only; expand to read the narrative.
   function renderOperationalProfile(webhook) {
     var profile = webhook && webhook.report && webhook.report.operationalProfile;
+
+    // One-sentence band definition, server-sourced (operationalIntensityDefinition
+    // from the OIA sub-workflow's own band table) — follows the rating, before
+    // the per-category rows.
+    var definition = profile && profile.operationalIntensityDefinition;
+    workloadSummary.textContent = definition || '';
+    workloadSummary.classList.toggle('hidden', !definition);
+
     var cats = (profile && profile.categories) || [];
     var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
-    opProfile.classList.toggle('hidden', !withText.length);
-    if (!withText.length) return;
-
-    // Title names the band it explains, e.g. "Why your demand reads Elevated".
-    var bandLabel = state.result && state.result.band ? state.result.band.label : '';
-    opProfileTitle.textContent = bandLabel
-      ? 'Why your demand reads ' + bandLabel.toLowerCase().replace(/\b\w/g, function (ch) { return ch.toUpperCase(); })
-      : "What's driving your operational demand";
 
     opProfileList.innerHTML = '';
     withText.forEach(function (c) {
-      var row = document.createElement('div');
+      var row = document.createElement('details');
       row.className = 'op-profile-row';
 
-      var head = document.createElement('div');
+      var head = document.createElement('summary');
       head.className = 'op-profile-head';
       var name = document.createElement('span');
       name.className = 'op-cat-name';
@@ -2184,7 +2248,7 @@
       if (c.label) {
         var label = document.createElement('span');
         label.className = 'op-cat-label';
-        // tone chips: active -> warning, intensive -> danger, streamlined -> accent
+        // tone chips key off the real OIA label vocabulary: low/normal/high/severe
         label.setAttribute('data-tone', String(c.label).trim().toLowerCase());
         label.textContent = c.label;
         head.appendChild(label);
@@ -2199,6 +2263,181 @@
       }
       opProfileList.appendChild(row);
     });
+  }
+
+  /* =====================================================================
+   * Proposal — 5 branded service cards (4 static + AssetShield, dynamic).
+   * =================================================================== */
+  var SERVICE_CARDS = [
+    { icon: '🏠', title: 'Market-to-Move-In™',
+      desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
+      items: [
+        'Comparable Marketing Analysis &amp; Real Estate Consulting',
+        'Property Analysis &amp; Market Preparation',
+        'Unit Marketing with Photos / 3D Tour',
+        'Property Showing',
+        'Comprehensive Resident Screening',
+        'Pet Policy &amp; Pet Screening Services',
+        'Collect Security Deposit',
+        'Lease Negotiation &amp; Preparation',
+        'Confirm Utilities Transfer',
+        'Move-in Inspection'
+      ] },
+    { icon: '🔧', title: 'VendorCare™',
+      desc: 'Protect your property\'s condition through proactive maintenance planning, responsive repair coordination, and trusted vendor oversight.',
+      items: ['24/7 Maintenance &amp; Repair Coordination'] },
+    { icon: '💰', title: 'CashFlow Command™',
+      desc: 'Maintain consistent cash flow with disciplined financial management, transparent reporting, and compliance-focused administration.',
+      items: [
+        'Automated Rent Collection',
+        'Monthly Billing &amp; Collection',
+        'Automatic ACH Electronic Bank Deposit Service',
+        'Detailed Monthly Statements &amp; Accounting',
+        'Annual 1099 Preparation',
+        'Scalable Management Systems',
+        'Resident Benefit Packages',
+        'Lease Enforcement',
+        'Legal Compliance &amp; Protection',
+        'Eviction Oversight'
+      ] },
+    { icon: '🚚', title: 'Move-Out-to-Ready™',
+      desc: 'Whether a resident renews or moves out, we coordinate every transition to protect your investment and minimize vacancy.',
+      items: [
+        'Move-out Inspection',
+        'Move Out Coordination &amp; Security Deposit',
+        'Coordinate Rent Ready Work',
+        'Confirm Utilities Transfer',
+        'Coordinate Tenant Communications',
+        'Negotiate Lease Renewals &amp; Agreements'
+      ] }
+  ];
+
+  var ASSET_SHIELD = {
+    icon: '🛡️', title: 'AssetShield™',
+    desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
+    items: [
+      'Annual Inspections',
+      'Leasing Fee Protection',
+      'Lost Rent Coverage',
+      'Pet Placement Protection',
+      'Lease Placement Protection',
+      'Eviction Protection',
+      'Malicious Tenant Damage Coverage'
+    ]
+  };
+
+  // Bridges the real server field (report.operationalProfile.categories[].category,
+  // a display string) to the machine keys ASSET_SHIELD_TRIGGERS is keyed by —
+  // the pipeline has no "key" field of its own, only the display name.
+  var CATEGORY_KEY_BY_NAME = {
+    'Tenant Friction': 'tenantFriction',
+    'Turnover Pressure': 'turnoverPressure',
+    'Maintenance Burden': 'maintenanceBurden',
+    'Compliance Burden': 'complianceBurden'
+  };
+
+  // category key -> label -> AssetShield item(s) this finding recommends.
+  // complianceBurden has no entry: it never checkmarks AssetShield — that
+  // finding stays explained only in the Operational Workload section above.
+  var ASSET_SHIELD_TRIGGERS = {
+    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection', 'Malicious Tenant Damage Coverage'] },
+    turnoverPressure: { High: ['Lost Rent Coverage'], Severe: ['Lost Rent Coverage', 'Lease Placement Protection'] },
+    maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
+  };
+
+  function computeBadgedAssetShieldItems(categories) {
+    var badged = new Set();
+    categories.forEach(function (cat) {
+      var key = CATEGORY_KEY_BY_NAME[cat.category];
+      var forKey = key && ASSET_SHIELD_TRIGGERS[key];
+      var forLabel = forKey && forKey[cat.label];
+      if (forLabel) forLabel.forEach(function (item) { badged.add(item); });
+    });
+    return badged;
+  }
+
+  // Shared renderer for all 5 service cards. badgedSet is undefined for the 4
+  // static cards (plain list, no checkmarks) and a computed Set only for
+  // AssetShield. AssetShield's checkmarks are static/hardcoded — informational,
+  // not an editable selection; individually toggling coverages is deferred to
+  // a later phase.
+  function buildServiceCard(card, badgedSet) {
+    var wrap = document.createElement('div');
+    wrap.className = 'service-card';
+
+    var head = document.createElement('div');
+    head.className = 'service-card__head';
+    var icon = document.createElement('span');
+    icon.className = 'service-card__icon';
+    icon.textContent = card.icon;
+    var title = document.createElement('h3');
+    title.className = 'service-card__title';
+    title.textContent = card.title;
+    head.appendChild(icon);
+    head.appendChild(title);
+    wrap.appendChild(head);
+
+    var desc = document.createElement('p');
+    desc.className = 'service-card__desc';
+    desc.textContent = card.desc;
+    wrap.appendChild(desc);
+
+    var details = document.createElement('details');
+    details.className = 'service-card__details';
+    var badgedCount = badgedSet ? badgedSet.size : 0;
+    if (badgedCount > 0) details.setAttribute('open', '');
+    var summary = document.createElement('summary');
+    summary.className = 'service-card__summary';
+    summary.textContent = badgedCount > 0 ? ('View Included Services · ' + badgedCount + ' recommended for you') : 'View Included Services';
+    details.appendChild(summary);
+
+    // Recommended items float to the top (stable within each group) so an
+    // expanded AssetShield leads with what actually applies to this property.
+    var items = card.items.slice();
+    if (badgedCount > 0) {
+      items.sort(function (a, b) { return (badgedSet.has(a) ? 0 : 1) - (badgedSet.has(b) ? 0 : 1); });
+    }
+
+    var ul = document.createElement('ul');
+    ul.className = 'service-card__list' + (badgedSet ? ' service-card__list--checks' : '');
+    items.forEach(function (item) {
+      var li = document.createElement('li');
+      if (badgedSet) {
+        li.className = 'service-card__check-row';
+        var isChecked = badgedSet.has(item);
+        var rowWrap = document.createElement('div');
+        rowWrap.className = 'service-card__check-label';
+        var box = document.createElement('span');
+        box.className = 'service-card__checkbox' + (isChecked ? ' is-checked' : '');
+        var textSpan = document.createElement('span');
+        textSpan.className = 'service-card__check-text' + (isChecked ? ' is-checked' : '');
+        textSpan.innerHTML = item;
+        rowWrap.appendChild(box);
+        rowWrap.appendChild(textSpan);
+        li.appendChild(rowWrap);
+      } else {
+        li.innerHTML = item;
+      }
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+    wrap.appendChild(details);
+
+    return wrap;
+  }
+
+  // report.operationalProfile.categories drives which AssetShield items get
+  // checkmarked; the 4 catalog cards always render in full regardless of
+  // webhook state (demo mode / a failed call just means zero AssetShield
+  // checkmarks — a valid empty state, not an error state).
+  function renderProposalServiceCards(webhook) {
+    var profile = webhook && webhook.report && webhook.report.operationalProfile;
+    var cats = (profile && profile.categories) || [];
+    var badgedItems = computeBadgedAssetShieldItems(cats);
+
+    serviceCardsList.innerHTML = '';
+    SERVICE_CARDS.forEach(function (card) { serviceCardsList.appendChild(buildServiceCard(card)); });
+    serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
   }
 
   downloadReportBtn.addEventListener('click', function () {
