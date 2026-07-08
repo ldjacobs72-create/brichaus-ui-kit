@@ -515,6 +515,12 @@
           <div class="comparables-title">Nearby Comparable Rentals</div>
           <div class="comparables-list" id="snapshot-preview-comps-list"></div>
         </div>
+        <!-- Multifamily preview: per-unit-type market rents (shown instead of a
+             single studio estimate + studio comps once 2+ units are entered). -->
+        <div id="snapshot-preview-market" class="property-snapshot hidden">
+          <div class="snapshot-title">Market rent by unit type<span id="snapshot-preview-market-zip" class="market-zip"></span></div>
+          <div class="market-type-list" id="snapshot-preview-market-list"></div>
+        </div>
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="location">Back</bui-button>
@@ -907,6 +913,9 @@
   var snapshotPreviewMfNote = document.getElementById('snapshot-preview-mf-note');
   var snapshotPreviewComps = document.getElementById('snapshot-preview-comps');
   var snapshotPreviewCompsList = document.getElementById('snapshot-preview-comps-list');
+  var snapshotPreviewMarket = document.getElementById('snapshot-preview-market');
+  var snapshotPreviewMarketZip = document.getElementById('snapshot-preview-market-zip');
+  var snapshotPreviewMarketList = document.getElementById('snapshot-preview-market-list');
 
   var driverQuestion = document.getElementById('driver-question');
   var driverHeaderProgress = document.getElementById('driver-header-progress');
@@ -1075,6 +1084,14 @@
   // anything, unlike the real pipeline call.
   var rentCastRequestId = 0;
 
+  // Rows with a usable median rent and at least one listing. Shared by the
+  // preview and the final report so both apply the same "has data" bar.
+  function marketRowsWithData(rc) {
+    return (rc.marketByBedrooms || []).filter(function (b) {
+      return b && b.medianRent != null && (b.totalListings || 0) > 0;
+    });
+  }
+
   function renderMarketRentHint() {
     var rc = state.rentCast;
     if (rc.status === 'idle' || rc.status === 'error') {
@@ -1084,12 +1101,43 @@
     marketRentHint.classList.remove('hidden');
     if (rc.status === 'loading') {
       marketRentHint.innerHTML = '<bui-spinner size="sm"></bui-spinner> Checking market rent for this address…';
-    } else {
+      return;
+    }
+    // Multifamily: a single studio estimate misreads a mixed-unit building, so
+    // point at the per-type breakdown below instead of quoting one number.
+    var units = parseInt(unitsInput.value, 10) || 1;
+    if (units > 1 && marketRowsWithData(rc).length) {
+      marketRentHint.textContent = 'Market rent varies by unit type for a building this size — see the breakdown below.';
+    } else if (rc.rent != null) {
       var rangeText = (rc.rentRangeLow && rc.rentRangeHigh)
         ? ' (' + currency(rc.rentRangeLow) + '–' + currency(rc.rentRangeHigh) + ')'
         : '';
       marketRentHint.textContent = 'RentCast estimates market rent here around ' + currency(rc.rent) + '/mo' + rangeText + '.';
+    } else {
+      marketRentHint.classList.add('hidden');
     }
+  }
+
+  // One per-unit-type market row (label / median rent / listing count), shared
+  // by the Snapshot-step preview and the final report so they read identically.
+  function buildMarketTypeRow(b) {
+    var label = b.bedrooms === 0 ? 'Studio' : (b.bedrooms + ' BR');
+    var row = document.createElement('div');
+    row.className = 'market-type-row' + (b.lowSample ? ' is-thin' : '');
+    var l = document.createElement('span');
+    l.className = 'market-type-label';
+    l.textContent = label;
+    var v = document.createElement('span');
+    v.className = 'market-type-rent num';
+    v.textContent = currency(b.medianRent) + '/mo';
+    var c = document.createElement('span');
+    c.className = 'market-type-count';
+    var n = b.totalListings;
+    c.textContent = b.lowSample ? (n + ' listing' + (n === 1 ? '' : 's') + ' · thin') : (n + ' listings');
+    row.appendChild(l);
+    row.appendChild(v);
+    row.appendChild(c);
+    return row;
   }
 
   function fetchRentCastQuicklook(address) {
@@ -1118,7 +1166,13 @@
             rentRangeHigh: data.rentRangeHigh,
             propertyType: data.propertyType || '',
             unitConfiguration: data.unitConfiguration || null,
-            comparables: Array.isArray(data.comparables) ? data.comparables : []
+            comparables: Array.isArray(data.comparables) ? data.comparables : [],
+            // Multifamily per-bedroom market table (from the quicklook's /markets
+            // call). The preview shows this instead of the single studio estimate
+            // once 2+ units are entered — see renderSnapshotPreview.
+            marketByBedrooms: Array.isArray(data.marketByBedrooms) ? data.marketByBedrooms : [],
+            marketZip: data.marketZip || '',
+            marketLastUpdated: data.marketLastUpdated || null
           };
         } else {
           state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
@@ -1145,24 +1199,45 @@
   // it re-evaluates as the visitor edits the field (see the units listener).
   function renderSnapshotPreview() {
     var rc = state.rentCast;
+    var units = parseInt(unitsInput.value, 10) || 1;
+    var isMF = units > 1;
+    var market = marketRowsWithData(rc);
+    // Multifamily with real per-type data → show the market-by-type table and
+    // suppress the single-unit estimate + studio comps (which read as wrong for
+    // a mixed building). Falls back to the AVM view if /markets had nothing.
+    var showMarket = isMF && market.length > 0;
+
+    snapshotPreviewMarket.classList.toggle('hidden', !showMarket);
+    if (showMarket) {
+      snapshotPreviewMarketZip.textContent = rc.marketZip ? (' · ZIP ' + rc.marketZip) : '';
+      snapshotPreviewMarketList.innerHTML = '';
+      market.forEach(function (b) { snapshotPreviewMarketList.appendChild(buildMarketTypeRow(b)); });
+    }
+
+    // Subject-property details + comps: single-family, or multifamily when no
+    // market table is available. For multifamily we drop the single-unit
+    // bed/bath/sqft (usually a studio) and keep only the property type.
     var config = rc.unitConfiguration;
     var rows = [];
-    if (rc.propertyType) rows.push(['Property Type', rc.propertyType]);
-    if (config) {
-      if (config.bedrooms != null) rows.push(['Bedrooms', String(config.bedrooms)]);
-      if (config.bathrooms != null) rows.push(['Bathrooms', String(config.bathrooms)]);
-      if (config.squareFootage != null) rows.push(['Square Footage', Number(config.squareFootage).toLocaleString() + ' sq ft']);
+    if (!showMarket) {
+      if (rc.propertyType) rows.push(['Property Type', rc.propertyType]);
+      if (config && !isMF) {
+        if (config.bedrooms != null) rows.push(['Bedrooms', String(config.bedrooms)]);
+        if (config.bathrooms != null) rows.push(['Bathrooms', String(config.bathrooms)]);
+        if (config.squareFootage != null) rows.push(['Square Footage', Number(config.squareFootage).toLocaleString() + ' sq ft']);
+      }
     }
 
     snapshotPreviewDetails.classList.toggle('hidden', !rows.length);
     if (rows.length) {
       snapshotPreviewGrid.innerHTML = '';
       rows.forEach(function (pair) { snapshotPreviewGrid.appendChild(buildStatBlock(pair[0], pair[1])); });
-      var units = parseInt(unitsInput.value, 10) || 1;
-      snapshotPreviewMfNote.classList.toggle('hidden', !(units > 1));
+      // The one-unit caveat only applies when we're showing single-unit specs
+      // for a multi-unit property (i.e. MF without a market table).
+      snapshotPreviewMfNote.classList.toggle('hidden', !(isMF && !showMarket));
     }
 
-    var comps = rc.comparables || [];
+    var comps = (!showMarket && rc.comparables) ? rc.comparables : [];
     snapshotPreviewComps.classList.toggle('hidden', !comps.length);
     if (comps.length) {
       snapshotPreviewCompsList.innerHTML = '';
@@ -1543,31 +1618,7 @@
 
     marketZip.textContent = report.marketZip ? (' · ZIP ' + report.marketZip) : '';
     marketTypeList.innerHTML = '';
-    withData.forEach(function (b) {
-      var label = b.bedrooms === 0 ? 'Studio' : (b.bedrooms + ' BR');
-      var row = document.createElement('div');
-      row.className = 'market-type-row' + (b.lowSample ? ' is-thin' : '');
-
-      var l = document.createElement('span');
-      l.className = 'market-type-label';
-      l.textContent = label;
-
-      var v = document.createElement('span');
-      v.className = 'market-type-rent num';
-      v.textContent = currency(b.medianRent) + '/mo';
-
-      var c = document.createElement('span');
-      c.className = 'market-type-count';
-      var n = b.totalListings;
-      c.textContent = b.lowSample
-        ? (n + ' listing' + (n === 1 ? '' : 's') + ' · thin')
-        : (n + ' listings');
-
-      row.appendChild(l);
-      row.appendChild(v);
-      row.appendChild(c);
-      marketTypeList.appendChild(row);
-    });
+    withData.forEach(function (b) { marketTypeList.appendChild(buildMarketTypeRow(b)); });
 
     // Footer: data recency, if RentCast provided it. The broader caveat about
     // zip-level medians already renders as the report confidence line.
