@@ -963,13 +963,21 @@
       return match || BANDS[BANDS.length - 1];
     }
 
+    // Look up a band by its label (case-insensitive), so the final report can
+    // adopt the server OIA band (title-case, e.g. "Elevated") as the single
+    // source of truth while reusing this table's tone/caption for presentation.
+    function bandByLabel(label) {
+      var norm = String(label || '').trim().toUpperCase();
+      return BANDS.filter(function (b) { return b.label === norm; })[0] || null;
+    }
+
     function gaugePercent(s) {
       var log2 = Math.log(s) / Math.LN2; // -4..4
       var clamped = Math.max(-4, Math.min(4, log2));
       return Math.round(((clamped + 4) / 8) * 100);
     }
 
-    return { multiplier: MULTIPLIER, score: score, band: band, gaugePercent: gaugePercent };
+    return { multiplier: MULTIPLIER, score: score, band: band, bandByLabel: bandByLabel, gaugePercent: gaugePercent };
   })();
 
   /* =====================================================================
@@ -1782,6 +1790,23 @@
     var grossMonthly = state.rentPerUnit * state.unitCount;
     var grossAnnual = grossMonthly * 12;
     var webhook = result.webhook;
+
+    // Single source of truth for the FINAL band: the server OIA band (the same
+    // one written to the CRM and used in the report narrative). The client-side
+    // DemandEngine band remains the instant preliminary shown on the gauge during
+    // the flow, but here we adopt the server's band so the two band tables can't
+    // silently diverge. Warn if they disagree — a live drift detector for the two
+    // verbatim-copied tables.
+    var serverBandLabel = webhook && webhook.report && webhook.report.operationalProfile && webhook.report.operationalProfile.band;
+    if (serverBandLabel) {
+      var serverBand = DemandEngine.bandByLabel(serverBandLabel);
+      if (serverBand) {
+        if (serverBand.label !== result.band.label) {
+          console.warn('[brichaus-assessment] Demand band drift: client=' + result.band.label + ' server=' + serverBand.label + ' — using server (authoritative).');
+        }
+        result.band = serverBand;
+      }
+    }
 
     // feeCalcResponse is a fee RATE (e.g. 0.06 for 6%), not a dollar amount —
     // the pipeline's "Trigger Power Automate Fee Calc" step returns this raw,
