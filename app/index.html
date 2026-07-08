@@ -1261,7 +1261,11 @@
     fetch(CONFIG.RENTCAST_QUICKLOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ FormattedAddress: address })
+      // GooglePlaceID lets the quicklook key its RentCast cache by the same
+      // universal join key the main pipeline uses, so the estimate fetched
+      // here is reused there instead of being re-fetched. Empty when the
+      // address was typed rather than picked (no placeId yet).
+      body: JSON.stringify({ FormattedAddress: address, GooglePlaceID: state.address.placeId || '' })
     })
       .then(function (res) {
         if (!res.ok) throw new Error('RentCast quicklook responded with status ' + res.status);
