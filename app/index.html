@@ -64,6 +64,21 @@
     margin: 0 auto;
     padding: var(--bui-space-6) var(--bui-space-4);
   }
+  /* Loading/Results steps' own content padding — paired with padding="sm" on
+     their <bui-card> (12px) so the two don't double up the way an unset
+     (default "md", 24px) card padding plus this div's own padding used to.
+     See the mobile breakpoint below for why this needed its own class
+     instead of staying an inline style. */
+  #brichaus-assessment .step-body-pad { padding: var(--bui-space-4); }
+  /* On narrow phones the container's own 16px + this 16px (~32px total,
+     already tighter than the old 64px double-padded total) still reads
+     cramped once you're viewing a content-dense step like Results — trim
+     both down further, but keep a visible gutter rather than going
+     edge-to-edge. */
+  @media (max-width: 420px) {
+    #brichaus-assessment { padding-left: 10px; padding-right: 10px; }
+    #brichaus-assessment .step-body-pad { padding-left: 10px; padding-right: 10px; }
+  }
   #brichaus-assessment .field-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -452,6 +467,10 @@
   #brichaus-assessment .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
   #brichaus-assessment .evidence-spec span:last-child { font-weight: 650; }
   #brichaus-assessment .report-cta { margin-top: var(--bui-space-5); }
+  #brichaus-assessment .cta-followup-note {
+    margin: var(--bui-space-2) 0 0; font-size: 11.5px; color: var(--bui-color-text-muted);
+    text-align: center;
+  }
   #brichaus-assessment .report-download {
     display: block; width: 100%; margin-top: var(--bui-space-3); padding: 4px;
     background: none; border: none; cursor: pointer;
@@ -500,8 +519,33 @@
     content: ''; position: absolute; left: 5px; top: 1px; width: 6px; height: 11px;
     border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
   }
-  #brichaus-assessment .service-card__check-text { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.45; padding-top: 1px; }
+  #brichaus-assessment .service-card__check-textcol { flex: 1 1 auto; min-width: 0; padding-top: 1px; }
+  #brichaus-assessment .service-card__check-text { display: block; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.45; }
   #brichaus-assessment .service-card__check-text.is-checked { color: var(--bui-color-text); font-weight: 600; }
+  #brichaus-assessment .service-card__check-rationale {
+    margin: 3px 0 0; font-size: 11.5px; font-weight: 400; color: var(--bui-color-text-muted); line-height: 1.5;
+  }
+
+  /* One-time reveal choreography: all 5 cards fade/slide in in sequence, then
+     AssetShield's checked items pop in. .will-reveal/.will-pop set the
+     "before" state (with the transition already declared, so the browser
+     has it in hand before .is-revealed/.is-popped flips to the "after"
+     state) — see runRevealSequence(). Skipped entirely under
+     prefers-reduced-motion (existing convention, see .loading-detail above). */
+  #brichaus-assessment .service-card.will-reveal {
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 420ms ease, transform 420ms ease;
+  }
+  #brichaus-assessment .service-card.will-reveal.is-revealed { opacity: 1; transform: translateY(0); }
+  #brichaus-assessment .service-card__checkbox.will-pop {
+    transform: scale(0.4); opacity: 0;
+    transition: transform 220ms cubic-bezier(.34, 1.56, .64, 1), opacity 220ms ease;
+  }
+  #brichaus-assessment .service-card__checkbox.will-pop.is-popped { transform: scale(1); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .service-card.will-reveal,
+    #brichaus-assessment .service-card__checkbox.will-pop { transition: none; }
+  }
 
   /* ===== Supporting evidence — no longer rendered on screen; reserved for
      the downloadable PDF (window.print()) so the note below stays true.
@@ -774,11 +818,11 @@
 
   <!-- ============ STEP: finalizing (webhook call happens here) ============ -->
   <section data-step="loading" class="hidden">
-    <bui-card variant="elevated" class="loading-card">
+    <bui-card variant="elevated" padding="sm" class="loading-card">
       <div slot="header">
         <bui-progress-bar tone="header" label="10. Finalizing Your Report" value="91"></bui-progress-bar>
       </div>
-      <div style="padding: var(--bui-space-5);">
+      <div class="step-body-pad">
         <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
         <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           Crunching the numbers and preparing your recommendations.
@@ -800,11 +844,11 @@
 
   <!-- ============ STEP: results / report generator ============ -->
   <section data-step="results" class="hidden">
-    <bui-card variant="elevated" class="results-card">
+    <bui-card variant="elevated" padding="sm" class="results-card">
       <div slot="header">
         <bui-progress-bar tone="header" label="11. Your Management Proposal Report" value="100"></bui-progress-bar>
       </div>
-      <div style="padding: var(--bui-space-5);">
+      <div class="step-body-pad">
         <div id="demo-banner" class="demo-banner hidden">
           Demo mode — CONFIG.WEBHOOK_URL isn't set, so the fee below is illustrative only, not a live calculation.
         </div>
@@ -886,9 +930,13 @@
 
         <p class="pdf-note">Full supporting evidence — market comparables, RentCast data, and unit specs — is included in your downloadable PDF report below.</p>
 
-        <!-- One clear action; download steps back to a quiet link. -->
+        <!-- One clear action; download steps back to a quiet link. Schedule
+             navigates the current tab onward in the funnel (see BOOKING_URL
+             doc + scheduleBtn handler) — the note below sets the expectation
+             that the report follows by email rather than staying on screen. -->
         <div class="report-cta">
           <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
+          <p class="cta-followup-note">We'll email your full proposal shortly — no need to keep this page open.</p>
           <button type="button" id="download-report-btn" class="report-download">Download the full report (PDF)</button>
         </div>
       </div>
@@ -930,9 +978,13 @@
     // synchronously with the full report, ~30s).
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
 
-    // Where "Schedule Consultation" sends the visitor (a GHL calendar page
-    // or booking widget URL). Leave blank to no-op with a console warning
-    // instead of opening a dead link.
+    // Where "Schedule Consultation" sends the visitor — a same-funnel GHL
+    // page (this navigates the CURRENT tab, not a new one; see scheduleBtn's
+    // handler below). The live report is intentionally not preserved across
+    // that navigation — the visitor's copy comes from the emailed PDF
+    // instead (see power-automate-build-spec.md for the PDF-generation +
+    // email pipeline this depends on). Leave blank to no-op with a console
+    // warning instead of navigating to a dead link.
     BOOKING_URL: '',
 
     // Native GHL field `name` attributes this page mirrors values into via
@@ -2345,6 +2397,16 @@
     maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
   };
 
+  // One-line "why" shown under each checked AssetShield item, keyed by the
+  // same item names ASSET_SHIELD_TRIGGERS badges.
+  var ASSET_SHIELD_RATIONALE = {
+    'Eviction Protection': 'Tenant friction on this property is running high, which raises the odds of needing to pursue an eviction — this covers that process if it becomes necessary.',
+    'Malicious Tenant Damage Coverage': 'Given the severity of tenant friction here, this protects against intentional property damage specifically.',
+    'Lost Rent Coverage': 'Turnover pressure here is elevated, so protecting your income during vacancy periods reduces the financial impact of more frequent unit turns.',
+    'Lease Placement Protection': 'Given how severe turnover is on this property, this reduces the cost of re-leasing units that turn over repeatedly.',
+    'Annual Inspections': 'Maintenance demand here is elevated — proactive inspections catch issues before they escalate into larger, costlier repairs.'
+  };
+
   function computeBadgedAssetShieldItems(categories) {
     var badged = new Set();
     categories.forEach(function (cat) {
@@ -2409,11 +2471,20 @@
         rowWrap.className = 'service-card__check-label';
         var box = document.createElement('span');
         box.className = 'service-card__checkbox' + (isChecked ? ' is-checked' : '');
+        var textCol = document.createElement('div');
+        textCol.className = 'service-card__check-textcol';
         var textSpan = document.createElement('span');
         textSpan.className = 'service-card__check-text' + (isChecked ? ' is-checked' : '');
         textSpan.innerHTML = item;
+        textCol.appendChild(textSpan);
+        if (isChecked && ASSET_SHIELD_RATIONALE[item]) {
+          var rationale = document.createElement('p');
+          rationale.className = 'service-card__check-rationale';
+          rationale.textContent = ASSET_SHIELD_RATIONALE[item];
+          textCol.appendChild(rationale);
+        }
         rowWrap.appendChild(box);
-        rowWrap.appendChild(textSpan);
+        rowWrap.appendChild(textCol);
         li.appendChild(rowWrap);
       } else {
         li.innerHTML = item;
@@ -2430,14 +2501,57 @@
   // checkmarked; the 4 catalog cards always render in full regardless of
   // webhook state (demo mode / a failed call just means zero AssetShield
   // checkmarks — a valid empty state, not an error state).
+  // One-time choreographed reveal: all 5 cards fade/slide in one after
+  // another, then AssetShield's checked items pop in. Desktop plays
+  // immediately (the report is already on screen); mobile waits for the
+  // section to actually scroll into view (IntersectionObserver, disconnects
+  // after firing once) since the whole point is a reveal, not something
+  // that already happened off-screen above the fold.
+  function runRevealSequence(cards, assetShieldCard) {
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var isMobile = window.matchMedia('(max-width: 420px)').matches;
+
+    function play() {
+      cards.forEach(function (card, i) {
+        if (reduceMotion) { card.classList.add('is-revealed'); return; }
+        card.classList.add('will-reveal');
+        void card.offsetWidth; // commit the "before" state before the delayed flip to "after"
+        setTimeout(function () { card.classList.add('is-revealed'); }, i * 130);
+      });
+
+      var cardRevealSpan = reduceMotion ? 0 : (cards.length - 1) * 130 + 420;
+      var checks = assetShieldCard ? assetShieldCard.querySelectorAll('.service-card__checkbox.is-checked') : [];
+      checks.forEach(function (box, i) {
+        if (reduceMotion) return; // already fully visible, nothing to pop
+        box.classList.add('will-pop');
+        void box.offsetWidth;
+        setTimeout(function () { box.classList.add('is-popped'); }, cardRevealSpan + i * 150);
+      });
+    }
+
+    if (isMobile && 'IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        if (entries.some(function (entry) { return entry.isIntersecting; })) {
+          play();
+          observer.disconnect();
+        }
+      }, { threshold: 0.15 });
+      observer.observe(serviceCardsList);
+    } else {
+      play();
+    }
+  }
+
   function renderProposalServiceCards(webhook) {
     var profile = webhook && webhook.report && webhook.report.operationalProfile;
     var cats = (profile && profile.categories) || [];
     var badgedItems = computeBadgedAssetShieldItems(cats);
 
     serviceCardsList.innerHTML = '';
-    SERVICE_CARDS.forEach(function (card) { serviceCardsList.appendChild(buildServiceCard(card)); });
-    serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
+    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
+    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
+    cards.push(assetShieldCard);
+    runRevealSequence(cards, assetShieldCard);
   }
 
   downloadReportBtn.addEventListener('click', function () {
@@ -2453,7 +2567,11 @@
       console.warn('[brichaus-assessment] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
       return;
     }
-    window.open(CONFIG.BOOKING_URL, '_blank', 'noopener');
+    // Same-tab navigation — a real transition to the next funnel page, not a
+    // popup. The live report is deliberately not preserved across this
+    // navigation; the visitor's durable copy is the emailed PDF (see
+    // BOOKING_URL's doc comment above).
+    window.location.href = CONFIG.BOOKING_URL;
   });
 
   /* =====================================================================
