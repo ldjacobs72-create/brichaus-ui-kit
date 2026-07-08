@@ -244,6 +244,81 @@
   #brichaus-assessment .market-type-row.is-thin { opacity: 0.6; }
   #brichaus-assessment .market-type-row.is-thin .market-type-rent { color: var(--bui-color-text-muted); }
   #brichaus-assessment .market-type-foot { margin: var(--bui-space-3) 0 0; font-size: 11px; color: var(--bui-color-text-faint); }
+
+  /* ---- Revenue-first Property Snapshot ---- */
+  #brichaus-assessment .revenue-hero {
+    position: relative; overflow: hidden;
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4) var(--bui-space-5);
+    border-radius: var(--bui-radius-md);
+    background: #1c2230; color: #fff;
+  }
+  #brichaus-assessment .revenue-hero__orb {
+    position: absolute; top: -40px; right: -30px; width: 150px; height: 150px;
+    border-radius: 50%; background: #3f4c60; opacity: 0.45; pointer-events: none;
+  }
+  #brichaus-assessment .revenue-hero__kicker {
+    position: relative; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: #9aa4b0; margin-bottom: 6px;
+  }
+  #brichaus-assessment .revenue-hero__amount {
+    position: relative; font-size: 2.6rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
+  }
+  #brichaus-assessment .revenue-hero__sub {
+    position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4;
+  }
+  #brichaus-assessment .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
+
+  /* rent vs market gauge */
+  #brichaus-assessment .rvm-card {
+    margin-top: var(--bui-space-3); padding: var(--bui-space-3) var(--bui-space-4);
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .rvm-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bui-space-3); }
+  #brichaus-assessment .rvm-title { font-weight: 650; font-size: 14px; }
+  #brichaus-assessment .rvm-verdict { font-size: 12.5px; font-weight: 700; }
+  #brichaus-assessment .rvm-verdict[data-tone="accent"] { color: var(--bui-color-accent); }
+  #brichaus-assessment .rvm-verdict[data-tone="danger"] { color: #b5583f; }
+  #brichaus-assessment .rvm-verdict[data-tone="slate"] { color: var(--bui-color-text-muted); }
+  #brichaus-assessment .rvm-track {
+    position: relative; height: 8px; border-radius: 999px; background: #eceef2; margin: 6px 0;
+  }
+  #brichaus-assessment .rvm-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px; background: var(--bui-color-accent); opacity: 0.35; }
+  #brichaus-assessment .rvm-tick { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--bui-color-text-muted); transform: translateX(-1px); }
+  #brichaus-assessment .rvm-marker { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--bui-color-accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transform: translate(-50%, -50%); }
+  #brichaus-assessment .rvm-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--bui-color-text-faint); }
+  #brichaus-assessment .rvm-scale span:nth-child(2) { color: var(--bui-color-text-muted); }
+
+  /* property chips */
+  #brichaus-assessment .snapshot-chips { display: flex; flex-wrap: wrap; gap: var(--bui-space-2); margin-top: var(--bui-space-3); }
+  #brichaus-assessment .snapshot-chip {
+    font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    background: #f4f6f8; border: 1px solid var(--bui-color-border); color: var(--bui-color-text-muted);
+  }
+
+  /* comps card */
+  #brichaus-assessment .comps-card {
+    margin-top: var(--bui-space-3); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); overflow: hidden;
+  }
+  #brichaus-assessment .comps-card__head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: var(--bui-space-3) var(--bui-space-4); background: #f6f7f9; border-bottom: 1px solid var(--bui-color-border);
+  }
+  #brichaus-assessment .comps-card__count { font-weight: 700; font-size: 13px; }
+  #brichaus-assessment .comps-card__avg { font-size: 12px; color: var(--bui-color-text-muted); }
+  #brichaus-assessment .comps-card__avg strong { color: var(--bui-color-text); }
+  #brichaus-assessment .comp-card-row { display: flex; justify-content: space-between; align-items: center; gap: var(--bui-space-3); padding: var(--bui-space-3) var(--bui-space-4); border-bottom: 1px solid var(--bui-color-border); }
+  #brichaus-assessment .comp-card-addr { font-size: 13px; color: var(--bui-color-text); }
+  #brichaus-assessment .comp-card-price { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  #brichaus-assessment .comps-viewall {
+    display: block; width: 100%; text-align: center; padding: var(--bui-space-3);
+    background: none; border: none; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: 13px; font-weight: 650; color: var(--bui-color-accent);
+  }
+  #brichaus-assessment .comps-viewall:hover { text-decoration: underline; }
+
+  /* multifamily market-by-type card (Snapshot step) */
+  #brichaus-assessment .market-card { margin-top: var(--bui-space-3); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
   #brichaus-assessment .snapshot-preview-intro {
     margin: var(--bui-space-3) 0 0;
     font-size: var(--bui-font-size-sm);
@@ -491,33 +566,57 @@
         <h2>Tell us a little about your property</h2>
         <p>This helps us calculate your potential revenue and recommended management fee.</p>
         <div class="field-row">
-          <bui-input id="rent-input" label="Average Monthly Rent per Unit" prefix="$" type="number" value="1650"></bui-input>
-          <bui-input id="units-input" label="Number of Units" type="number" value="1"></bui-input>
+          <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number" value="1650"></bui-input>
+          <bui-input id="units-input" label="Units" type="number" value="1"></bui-input>
         </div>
+
+        <!-- Revenue-first hero: projected annual rent is the headline figure the
+             visitor is here to understand. Driven purely by the rent/units
+             inputs (updates live as they type) — independent of the RentCast
+             lookup, so it's meaningful even before/without market data. -->
+        <div class="revenue-hero">
+          <span class="revenue-hero__orb" aria-hidden="true"></span>
+          <div class="revenue-hero__kicker">Projected Annual Rent</div>
+          <div class="revenue-hero__amount num" id="revenue-annual">—</div>
+          <div class="revenue-hero__sub" id="revenue-sub"></div>
+        </div>
+
         <div id="market-rent-hint" class="market-rent-hint hidden"></div>
 
-        <!-- Early RentCast preview: property type, unit configuration, and
-             nearby comps for the selected address. Fetched the moment the
-             address is picked (see fetchRentCastQuicklook), so it's usually
-             already here by the time the visitor lands on this step —
-             front-loading real data keeps them engaged well before the
-             final pipeline call. Each block self-hides until its data
-             arrives (or stays hidden if RentCast has nothing for the
-             address), so an empty/slow lookup never leaves a broken frame. -->
-        <div id="snapshot-preview-details" class="property-snapshot hidden">
-          <div class="snapshot-title">What we found for this address</div>
-          <div class="snapshot-grid" id="snapshot-preview-grid"></div>
-          <p id="snapshot-preview-mf-note" class="multifamily-note hidden">
-            This unit configuration reflects one unit on record — a multifamily property may have several different layouts.
-          </p>
+        <!-- Single-family: rent-vs-market gauge, property chips, and nearby
+             comps — all from the RentCast quicklook, each self-hiding until its
+             data arrives. Multifamily (2+ units) swaps these for the
+             per-unit-type market table below (a single studio gauge/comps
+             misreads a mixed building). -->
+        <div id="rent-vs-market" class="rvm-card hidden">
+          <div class="rvm-head">
+            <span class="rvm-title">Your rent vs. market</span>
+            <span class="rvm-verdict" id="rvm-verdict"></span>
+          </div>
+          <div class="rvm-track">
+            <span class="rvm-fill" id="rvm-fill"></span>
+            <span class="rvm-tick" id="rvm-tick"></span>
+            <span class="rvm-marker" id="rvm-marker"></span>
+          </div>
+          <div class="rvm-scale">
+            <span id="rvm-low"></span><span id="rvm-mid"></span><span id="rvm-high"></span>
+          </div>
         </div>
-        <div id="snapshot-preview-comps" class="comparables-section hidden">
-          <div class="comparables-title">Nearby Comparable Rentals</div>
-          <div class="comparables-list" id="snapshot-preview-comps-list"></div>
+
+        <div id="snapshot-chips" class="snapshot-chips hidden"></div>
+
+        <div id="snapshot-comps-card" class="comps-card hidden">
+          <div class="comps-card__head">
+            <span class="comps-card__count" id="comps-count"></span>
+            <span class="comps-card__avg" id="comps-avg"></span>
+          </div>
+          <div class="comps-card__list" id="comps-card-list"></div>
+          <button type="button" class="comps-viewall hidden" id="comps-viewall"></button>
         </div>
-        <!-- Multifamily preview: per-unit-type market rents (shown instead of a
-             single studio estimate + studio comps once 2+ units are entered). -->
-        <div id="snapshot-preview-market" class="property-snapshot hidden">
+
+        <!-- Multifamily: per-unit-type market rents (shown instead of the
+             single-unit gauge/chips/comps once 2+ units are entered). -->
+        <div id="snapshot-preview-market" class="market-card hidden">
           <div class="snapshot-title">Market rent by unit type<span id="snapshot-preview-market-zip" class="market-zip"></span></div>
           <div class="market-type-list" id="snapshot-preview-market-list"></div>
         </div>
@@ -908,11 +1007,22 @@
   var unitsInput = document.getElementById('units-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
   var marketRentHint = document.getElementById('market-rent-hint');
-  var snapshotPreviewDetails = document.getElementById('snapshot-preview-details');
-  var snapshotPreviewGrid = document.getElementById('snapshot-preview-grid');
-  var snapshotPreviewMfNote = document.getElementById('snapshot-preview-mf-note');
-  var snapshotPreviewComps = document.getElementById('snapshot-preview-comps');
-  var snapshotPreviewCompsList = document.getElementById('snapshot-preview-comps-list');
+  var revenueAnnual = document.getElementById('revenue-annual');
+  var revenueSub = document.getElementById('revenue-sub');
+  var rentVsMarket = document.getElementById('rent-vs-market');
+  var rvmVerdict = document.getElementById('rvm-verdict');
+  var rvmFill = document.getElementById('rvm-fill');
+  var rvmTick = document.getElementById('rvm-tick');
+  var rvmMarker = document.getElementById('rvm-marker');
+  var rvmLow = document.getElementById('rvm-low');
+  var rvmMid = document.getElementById('rvm-mid');
+  var rvmHigh = document.getElementById('rvm-high');
+  var snapshotChips = document.getElementById('snapshot-chips');
+  var snapshotCompsCard = document.getElementById('snapshot-comps-card');
+  var compsCount = document.getElementById('comps-count');
+  var compsAvg = document.getElementById('comps-avg');
+  var compsCardList = document.getElementById('comps-card-list');
+  var compsViewall = document.getElementById('comps-viewall');
   var snapshotPreviewMarket = document.getElementById('snapshot-preview-market');
   var snapshotPreviewMarketZip = document.getElementById('snapshot-preview-market-zip');
   var snapshotPreviewMarketList = document.getElementById('snapshot-preview-market-list');
@@ -1092,30 +1202,31 @@
     });
   }
 
+  // The lookup is only surfaced as a subtle "checking…" line while in flight —
+  // once it resolves, the rent-vs-market gauge (single-family) or the
+  // per-unit-type table (multifamily) carries the market read, so the hint
+  // gets out of the way. A failed/empty lookup stays silent (non-blocking).
   function renderMarketRentHint() {
     var rc = state.rentCast;
-    if (rc.status === 'idle' || rc.status === 'error') {
-      marketRentHint.classList.add('hidden');
-      return;
-    }
-    marketRentHint.classList.remove('hidden');
     if (rc.status === 'loading') {
+      marketRentHint.classList.remove('hidden');
       marketRentHint.innerHTML = '<bui-spinner size="sm"></bui-spinner> Checking market rent for this address…';
-      return;
-    }
-    // Multifamily: a single studio estimate misreads a mixed-unit building, so
-    // point at the per-type breakdown below instead of quoting one number.
-    var units = parseInt(unitsInput.value, 10) || 1;
-    if (units > 1 && marketRowsWithData(rc).length) {
-      marketRentHint.textContent = 'Market rent varies by unit type for a building this size — see the breakdown below.';
-    } else if (rc.rent != null) {
-      var rangeText = (rc.rentRangeLow && rc.rentRangeHigh)
-        ? ' (' + currency(rc.rentRangeLow) + '–' + currency(rc.rentRangeHigh) + ')'
-        : '';
-      marketRentHint.textContent = 'RentCast estimates market rent here around ' + currency(rc.rent) + '/mo' + rangeText + '.';
     } else {
       marketRentHint.classList.add('hidden');
     }
+  }
+
+  // Revenue-first headline: projected annual rent = rent/unit × units × 12.
+  // Driven by the inputs alone (not the RentCast lookup), so it's always
+  // present and updates live as the visitor edits either field.
+  function renderRevenueHero() {
+    var rent = parseFloat(rentInput.value) || 0;
+    var units = parseInt(unitsInput.value, 10) || 0;
+    var gross = rent * units;
+    revenueAnnual.textContent = currency(gross * 12);
+    revenueSub.innerHTML = units
+      ? (units + ' unit' + (units === 1 ? '' : 's') + ' × ' + currency(rent) + '/mo × 12  ·  <span class="revenue-hero__total">' + currency(gross) + '/mo total</span>')
+      : '';
   }
 
   // One per-unit-type market row (label / median rent / listing count), shared
@@ -1197,14 +1308,97 @@
   // this address), so a partial/failed lookup never leaves an empty frame.
   // The multifamily caveat keys off the unit count entered on THIS step, so
   // it re-evaluates as the visitor edits the field (see the units listener).
+  // Single-family: place the owner's rent on a low→high market track, with the
+  // market point (RentCast estimate) ticked and a verdict. "Below market" is the
+  // upside story, so it's the accented one; at/above market stay neutral.
+  function renderRentVsMarket(rc) {
+    var low = rc.rentRangeLow, mid = rc.rent, high = rc.rentRangeHigh;
+    var owner = parseFloat(rentInput.value) || 0;
+    if (mid == null || low == null || high == null || high <= low) {
+      rentVsMarket.classList.add('hidden');
+      return;
+    }
+    rentVsMarket.classList.remove('hidden');
+    var pctOf = function (v) { return Math.max(0, Math.min(100, (v - low) / (high - low) * 100)); };
+    var markerPct = pctOf(owner);
+    rvmFill.style.width = markerPct + '%';
+    rvmMarker.style.left = markerPct + '%';
+    rvmTick.style.left = pctOf(mid) + '%';
+    rvmLow.textContent = currency(low);
+    rvmMid.textContent = 'market ' + currency(mid);
+    rvmHigh.textContent = currency(high);
+    var verdict, tone;
+    if (owner > 0 && owner < low) { verdict = 'Below market'; tone = 'accent'; }
+    else if (owner > high) { verdict = 'Above market'; tone = 'danger'; }
+    else { verdict = 'Right at market'; tone = 'slate'; }
+    rvmVerdict.textContent = verdict;
+    rvmVerdict.setAttribute('data-tone', tone);
+  }
+
+  // Single-family: RentCast property chips (type, layout, size).
+  function renderChips(rc) {
+    var chips = [];
+    if (rc.propertyType) chips.push(rc.propertyType);
+    var cfg = rc.unitConfiguration;
+    if (cfg) {
+      if (cfg.bedrooms != null) chips.push(cfg.bedrooms === 0 ? 'Studio · 0 bd' : (cfg.bedrooms + ' bd'));
+      if (cfg.bathrooms != null) chips.push(cfg.bathrooms + ' ba');
+      if (cfg.squareFootage != null) chips.push(Number(cfg.squareFootage).toLocaleString() + ' sq ft');
+    }
+    snapshotChips.innerHTML = '';
+    chips.forEach(function (t) {
+      var s = document.createElement('span');
+      s.className = 'snapshot-chip';
+      s.textContent = t;
+      snapshotChips.appendChild(s);
+    });
+    snapshotChips.classList.toggle('hidden', !chips.length);
+  }
+
+  function buildCompCardRow(c) {
+    var row = document.createElement('div');
+    row.className = 'comp-card-row';
+    var a = document.createElement('span');
+    a.className = 'comp-card-addr';
+    a.textContent = c.formattedAddress || c.address || 'Comparable property';
+    var p = document.createElement('span');
+    p.className = 'comp-card-price num';
+    p.textContent = currency(c.price) + '/mo';
+    row.appendChild(a);
+    row.appendChild(p);
+    return row;
+  }
+
+  // Single-family: nearby comps with the neighborhood average, collapsed to 3
+  // with a View-all toggle.
+  var compsExpanded = false;
+  function renderComps(rc) {
+    var comps = (rc.comparables || []).filter(function (c) { return c.price != null; });
+    snapshotCompsCard.classList.toggle('hidden', !comps.length);
+    if (!comps.length) return;
+    var avg = Math.round(comps.reduce(function (s, c) { return s + c.price; }, 0) / comps.length);
+    compsCount.textContent = comps.length + ' comp' + (comps.length === 1 ? '' : 's') + ' nearby';
+    compsAvg.innerHTML = 'avg <strong>' + currency(avg) + '</strong>/mo';
+    var shown = compsExpanded ? comps : comps.slice(0, 3);
+    compsCardList.innerHTML = '';
+    shown.forEach(function (c) { compsCardList.appendChild(buildCompCardRow(c)); });
+    if (comps.length > 3) {
+      compsViewall.classList.remove('hidden');
+      compsViewall.textContent = compsExpanded ? 'Show fewer' : ('View all ' + comps.length + ' comparables →');
+    } else {
+      compsViewall.classList.add('hidden');
+    }
+  }
+
+  // Orchestrates the Snapshot-step market read. Multifamily (2+ units) with real
+  // per-type data shows the per-unit-type table and suppresses the single-unit
+  // gauge/chips/comps (which misread a mixed building). Single-family shows the
+  // gauge + chips + comps. The revenue hero is independent and always shown.
   function renderSnapshotPreview() {
     var rc = state.rentCast;
     var units = parseInt(unitsInput.value, 10) || 1;
     var isMF = units > 1;
     var market = marketRowsWithData(rc);
-    // Multifamily with real per-type data → show the market-by-type table and
-    // suppress the single-unit estimate + studio comps (which read as wrong for
-    // a mixed building). Falls back to the AVM view if /markets had nothing.
     var showMarket = isMF && market.length > 0;
 
     snapshotPreviewMarket.classList.toggle('hidden', !showMarket);
@@ -1214,51 +1408,43 @@
       market.forEach(function (b) { snapshotPreviewMarketList.appendChild(buildMarketTypeRow(b)); });
     }
 
-    // Subject-property details + comps: single-family, or multifamily when no
-    // market table is available. For multifamily we drop the single-unit
-    // bed/bath/sqft (usually a studio) and keep only the property type.
-    var config = rc.unitConfiguration;
-    var rows = [];
-    if (!showMarket) {
-      if (rc.propertyType) rows.push(['Property Type', rc.propertyType]);
-      if (config && !isMF) {
-        if (config.bedrooms != null) rows.push(['Bedrooms', String(config.bedrooms)]);
-        if (config.bathrooms != null) rows.push(['Bathrooms', String(config.bathrooms)]);
-        if (config.squareFootage != null) rows.push(['Square Footage', Number(config.squareFootage).toLocaleString() + ' sq ft']);
-      }
-    }
-
-    snapshotPreviewDetails.classList.toggle('hidden', !rows.length);
-    if (rows.length) {
-      snapshotPreviewGrid.innerHTML = '';
-      rows.forEach(function (pair) { snapshotPreviewGrid.appendChild(buildStatBlock(pair[0], pair[1])); });
-      // The one-unit caveat only applies when we're showing single-unit specs
-      // for a multi-unit property (i.e. MF without a market table).
-      snapshotPreviewMfNote.classList.toggle('hidden', !(isMF && !showMarket));
-    }
-
-    var comps = (!showMarket && rc.comparables) ? rc.comparables : [];
-    snapshotPreviewComps.classList.toggle('hidden', !comps.length);
-    if (comps.length) {
-      snapshotPreviewCompsList.innerHTML = '';
-      comps.slice(0, 5).forEach(function (comp) { snapshotPreviewCompsList.appendChild(buildComparableRow(comp)); });
+    if (showMarket || rc.status !== 'ready') {
+      rentVsMarket.classList.add('hidden');
+      snapshotChips.classList.add('hidden');
+      snapshotCompsCard.classList.add('hidden');
+    } else {
+      renderRentVsMarket(rc);
+      renderChips(rc);
+      renderComps(rc);
     }
   }
 
   locationContinue.addEventListener('bui-click', function () {
     if (locationContinue.hasAttribute('disabled')) return;
     showStep('snapshot');
-    // Re-render in case the quicklook resolved while the visitor was still
-    // on the Location step (its render targets live on this step, hidden
-    // until now) and to set the multifamily note against the current units.
+    // Re-render in case the quicklook resolved while the visitor was still on
+    // the Location step (its render targets live on this step, hidden until
+    // now), and refresh the revenue hero against the current inputs.
+    renderRevenueHero();
     renderSnapshotPreview();
   });
 
-  // The multifamily caveat on the preview depends on the unit count entered
-  // here, so keep it in sync as the visitor edits the field.
+  // Both the revenue hero (rent × units × 12) and the market read (the
+  // rent-vs-market marker position, and the single-family/multifamily split by
+  // unit count) depend on these inputs, so recompute both as either is edited.
   ['bui-input', 'bui-change'].forEach(function (evtName) {
-    unitsInput.addEventListener(evtName, renderSnapshotPreview);
+    rentInput.addEventListener(evtName, function () { renderRevenueHero(); renderSnapshotPreview(); });
+    unitsInput.addEventListener(evtName, function () { renderRevenueHero(); renderSnapshotPreview(); });
   });
+
+  compsViewall.addEventListener('click', function () {
+    compsExpanded = !compsExpanded;
+    renderComps(state.rentCast);
+  });
+
+  // Seed the revenue hero from the default inputs so the headline is present
+  // immediately, before the visitor touches anything.
+  renderRevenueHero();
 
   /* =====================================================================
    * Step 2: Property Snapshot
