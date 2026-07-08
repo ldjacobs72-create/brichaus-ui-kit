@@ -226,6 +226,24 @@
   }
   #brichaus-assessment .comparable-address { font-weight: 600; font-size: 13px; }
   #brichaus-assessment .comparable-meta { font-size: 12px; color: var(--bui-color-text-muted); margin-top: 2px; }
+  /* Multifamily: per-unit-type market rent rows (label / median rent / sample). */
+  #brichaus-assessment .market-zip { font-weight: 400; color: var(--bui-color-text-faint); }
+  #brichaus-assessment .market-type-list { display: flex; flex-direction: column; gap: var(--bui-space-2); }
+  #brichaus-assessment .market-type-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: baseline;
+    gap: var(--bui-space-3);
+    padding: var(--bui-space-2) var(--bui-space-3);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-sm);
+  }
+  #brichaus-assessment .market-type-label { font-weight: 600; font-size: 13px; }
+  #brichaus-assessment .market-type-rent { font-weight: 700; font-size: 14px; color: var(--bui-color-accent); }
+  #brichaus-assessment .market-type-count { font-size: 11px; color: var(--bui-color-text-faint); white-space: nowrap; }
+  #brichaus-assessment .market-type-row.is-thin { opacity: 0.6; }
+  #brichaus-assessment .market-type-row.is-thin .market-type-rent { color: var(--bui-color-text-muted); }
+  #brichaus-assessment .market-type-foot { margin: var(--bui-space-3) 0 0; font-size: 11px; color: var(--bui-color-text-faint); }
   #brichaus-assessment .snapshot-preview-intro {
     margin: var(--bui-space-3) 0 0;
     font-size: var(--bui-font-size-sm);
@@ -651,6 +669,14 @@
               <div class="report-kicker">Nearby comparables</div>
               <div class="comparables-list" id="comparables-list"></div>
             </div>
+            <!-- Multifamily: market rent by unit type (RentCast /markets), shown
+                 in place of single-unit comps so a mixed-unit building's studios
+                 AND larger units are each represented. -->
+            <div id="market-by-type" class="evidence-card hidden">
+              <div class="report-kicker">Market rent by unit type<span id="market-zip" class="market-zip"></span></div>
+              <div class="market-type-list" id="market-type-list"></div>
+              <p id="market-type-foot" class="market-type-foot hidden"></p>
+            </div>
           </div>
         </div>
 
@@ -912,6 +938,10 @@
   var multifamilyNote = document.getElementById('multifamily-note');
   var comparablesSection = document.getElementById('comparables-section');
   var comparablesList = document.getElementById('comparables-list');
+  var marketByType = document.getElementById('market-by-type');
+  var marketZip = document.getElementById('market-zip');
+  var marketTypeList = document.getElementById('market-type-list');
+  var marketTypeFoot = document.getElementById('market-type-foot');
   var reportSummary = document.getElementById('report-summary');
   var reportSummaryText = document.getElementById('report-summary-text');
   var reportConfidence = document.getElementById('report-confidence');
@@ -1485,14 +1515,66 @@
     renderOperationalProfile(webhook);
     renderPropertySnapshot(webhook);
     renderComparables(webhook);
+    renderMarketByBedrooms(webhook);
     renderEvidence();
   }
 
-  // The grouped evidence section shows only if at least one of its two cards
-  // (subject property / comparables) actually has data.
+  // The grouped evidence section shows only if at least one of its cards
+  // (subject property / comparables / market-by-type) actually has data.
   function renderEvidence() {
-    var any = !propertySnapshot.classList.contains('hidden') || !comparablesSection.classList.contains('hidden');
+    var any = !propertySnapshot.classList.contains('hidden')
+      || !comparablesSection.classList.contains('hidden')
+      || !marketByType.classList.contains('hidden');
     evidence.classList.toggle('hidden', !any);
+  }
+
+  // Multifamily: RentCast's per-bedroom market rents for the zip (report.
+  // marketByBedrooms, from the pipeline's /markets branch). Shown instead of a
+  // single studio estimate + studio comps so a mixed-unit owner sees every unit
+  // type — studios through the largest well-sampled layout — represented. Rows
+  // with a thin listing sample are shown but flagged, not hidden. Absent for
+  // single-family (the card stays hidden and comps render as usual).
+  function renderMarketByBedrooms(webhook) {
+    var report = (webhook && webhook.report) || null;
+    var rows = (report && report.isMultifamily && Array.isArray(report.marketByBedrooms)) ? report.marketByBedrooms : [];
+    var withData = rows.filter(function (b) { return b && b.medianRent != null && (b.totalListings || 0) > 0; });
+    marketByType.classList.toggle('hidden', !withData.length);
+    if (!withData.length) return;
+
+    marketZip.textContent = report.marketZip ? (' · ZIP ' + report.marketZip) : '';
+    marketTypeList.innerHTML = '';
+    withData.forEach(function (b) {
+      var label = b.bedrooms === 0 ? 'Studio' : (b.bedrooms + ' BR');
+      var row = document.createElement('div');
+      row.className = 'market-type-row' + (b.lowSample ? ' is-thin' : '');
+
+      var l = document.createElement('span');
+      l.className = 'market-type-label';
+      l.textContent = label;
+
+      var v = document.createElement('span');
+      v.className = 'market-type-rent num';
+      v.textContent = currency(b.medianRent) + '/mo';
+
+      var c = document.createElement('span');
+      c.className = 'market-type-count';
+      var n = b.totalListings;
+      c.textContent = b.lowSample
+        ? (n + ' listing' + (n === 1 ? '' : 's') + ' · thin')
+        : (n + ' listings');
+
+      row.appendChild(l);
+      row.appendChild(v);
+      row.appendChild(c);
+      marketTypeList.appendChild(row);
+    });
+
+    // Footer: data recency, if RentCast provided it. The broader caveat about
+    // zip-level medians already renders as the report confidence line.
+    var updated = report.marketLastUpdated;
+    var foot = updated ? ('Median asking rents · RentCast market data as of ' + String(updated).slice(0, 10)) : 'Median asking rents · RentCast market data';
+    marketTypeFoot.textContent = foot;
+    marketTypeFoot.classList.remove('hidden');
   }
 
   function buildStatBlock(label, value) {
@@ -1514,10 +1596,15 @@
   function renderPropertySnapshot(webhook) {
     var propertyType = webhook && webhook.propertyType;
     var config = webhook && webhook.unitConfiguration;
+    var isMultifamily = !!(webhook && webhook.report && webhook.report.isMultifamily);
     var rows = [];
 
     if (propertyType) rows.push(['Type', propertyType]);
-    if (config) {
+    // For multifamily we deliberately omit RentCast's single-unit bed/bath/sqft
+    // (it describes one representative unit — usually a studio — and misreads as
+    // "the" building). The "Market rent by unit type" card carries the unit-mix
+    // picture instead.
+    if (config && !isMultifamily) {
       if (config.bedrooms != null || config.bathrooms != null) {
         rows.push(['Beds / Baths', (config.bedrooms != null ? config.bedrooms : '—') + ' / ' + (config.bathrooms != null ? config.bathrooms : '—')]);
       }
@@ -1543,10 +1630,11 @@
     });
 
     // RentCast's bed/bath/sqft describes a single unit record it has on
-    // file, not every unit in the building — surface that caveat whenever
-    // this property has more than one unit so the figures above aren't
-    // read as "the" configuration.
-    multifamilyNote.classList.toggle('hidden', !(state.unitCount > 1));
+    // file, not every unit in the building — surface that caveat whenever a
+    // single-family/small property shows more than one unit. For true
+    // multifamily we drop those rows entirely and show the per-type market
+    // table, so the note would be redundant — hide it.
+    multifamilyNote.classList.toggle('hidden', !(state.unitCount > 1) || isMultifamily);
   }
 
   // comparables is RentCast's raw comp array, passed straight through by
