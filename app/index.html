@@ -532,11 +532,37 @@
 <body>
 <div id="brichaus-assessment">
 
-  <!-- ============ STEP: property location ============ -->
-  <section data-step="location">
+  <!-- ============ STEP: property type ============ -->
+  <section data-step="property-type">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="1. Property Location" value="10"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="1. Property Type" value="9"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>What kind of property is this?</h2>
+        <p>This determines how we read comparable rents for your address.</p>
+        <bui-choice-group id="property-type-choice-group" name="property-type">
+          <bui-choice-card value="single" label="Single Family"
+            description="One rentable unit."></bui-choice-card>
+          <bui-choice-card value="multi" label="Multifamily"
+            description="Two or more rentable units."></bui-choice-card>
+        </bui-choice-group>
+        <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="unit-count-input" label="Number of Units" type="number" min="2" placeholder="e.g. 8"></bui-input>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <span class="spacer"></span>
+        <bui-button id="property-type-continue" variant="slate" disabled>Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: property location ============ -->
+  <section data-step="location" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="2. Property Location" value="18"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <h2>Where is the property?</h2>
@@ -550,7 +576,7 @@
         </bui-address-input>
       </div>
       <div slot="footer" class="step-footer">
-        <span class="spacer"></span>
+        <bui-button variant="secondary" data-back="property-type">Back</bui-button>
         <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
       </div>
     </bui-card>
@@ -560,34 +586,22 @@
   <section data-step="snapshot" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="2. Property Snapshot" value="25"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="3. Property Snapshot" value="27"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <h2>Tell us a little about your property</h2>
         <p>This helps us calculate your potential revenue and recommended management fee.</p>
-        <div class="field-row">
-          <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number" value="1650"></bui-input>
-          <bui-input id="units-input" label="Units" type="number" value="1"></bui-input>
-        </div>
-
-        <!-- Revenue-first hero: projected annual rent is the headline figure the
-             visitor is here to understand. Driven purely by the rent/units
-             inputs (updates live as they type) — independent of the RentCast
-             lookup, so it's meaningful even before/without market data. -->
-        <div class="revenue-hero">
-          <span class="revenue-hero__orb" aria-hidden="true"></span>
-          <div class="revenue-hero__kicker">Projected Annual Rent</div>
-          <div class="revenue-hero__amount num" id="revenue-annual">—</div>
-          <div class="revenue-hero__sub" id="revenue-sub"></div>
-        </div>
+        <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number"></bui-input>
 
         <div id="market-rent-hint" class="market-rent-hint hidden"></div>
 
         <!-- Single-family: rent-vs-market gauge, property chips, and nearby
              comps — all from the RentCast quicklook, each self-hiding until its
-             data arrives. Multifamily (2+ units) swaps these for the
-             per-unit-type market table below (a single studio gauge/comps
-             misreads a mixed building). -->
+             data arrives. Multifamily swaps these for the per-unit-type market
+             table below (a single studio gauge/comps misreads a mixed
+             building). Which one shows is decided by state.propertyType,
+             committed on the Property Type step before this one is ever
+             reached — never inferred from a possibly-stale input here. -->
         <div id="rent-vs-market" class="rvm-card hidden">
           <div class="rvm-head">
             <span class="rvm-title">Your rent vs. market</span>
@@ -615,7 +629,7 @@
         </div>
 
         <!-- Multifamily: per-unit-type market rents (shown instead of the
-             single-unit gauge/chips/comps once 2+ units are entered). -->
+             single-unit gauge/chips/comps). -->
         <div id="snapshot-preview-market" class="market-card hidden">
           <div class="snapshot-title">Market rent by unit type<span id="snapshot-preview-market-zip" class="market-zip"></span></div>
           <div class="market-type-list" id="snapshot-preview-market-list"></div>
@@ -628,11 +642,38 @@
     </bui-card>
   </section>
 
+  <!-- ============ STEP: projected annual revenue (transition into operations) ============ -->
+  <section data-step="revenue" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="4. Projected Revenue" value="36"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Here's what this property could generate</h2>
+        <p>Next, let's look at how day-to-day operations affect how much of this revenue you actually keep.</p>
+
+        <!-- Revenue-first hero: projected annual rent, computed from the
+             committed rent/unit-count (not live inputs — those live on the
+             prior steps, already behind us by the time this renders). -->
+        <div class="revenue-hero">
+          <span class="revenue-hero__orb" aria-hidden="true"></span>
+          <div class="revenue-hero__kicker">Projected Annual Rent</div>
+          <div class="revenue-hero__amount num" id="revenue-annual">—</div>
+          <div class="revenue-hero__sub" id="revenue-sub"></div>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="snapshot">Back</bui-button>
+        <bui-button id="revenue-continue" variant="slate">Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
   <!-- ============ STEP: operational assessment (4 sequential drivers) ============ -->
   <section data-step="driver" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="3–6. Operational Assessment" id="driver-header-progress" value="43"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="5–8. Operational Assessment" id="driver-header-progress" value="45"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <p style="font-weight:700; font-size: var(--bui-font-size-md); color: var(--bui-color-text); margin: 0 0 var(--bui-space-3);" id="driver-question"></p>
@@ -661,7 +702,7 @@
   <section data-step="contact" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="7. Get Your Report" id="contact-header-progress" value="80"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <h2>Where should we send your report?</h2>
@@ -683,7 +724,7 @@
   <section data-step="loading" class="hidden">
     <bui-card variant="elevated" class="loading-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="8. Finalizing Your Report" value="90"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="10. Finalizing Your Report" value="91"></bui-progress-bar>
       </div>
       <div style="padding: var(--bui-space-5);">
         <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
@@ -709,7 +750,7 @@
   <section data-step="results" class="hidden">
     <bui-card variant="elevated" class="results-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="9. Your Results" value="100"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="11. Your Results" value="100"></bui-progress-bar>
       </div>
       <div style="padding: var(--bui-space-5);">
         <div id="demo-banner" class="demo-banner hidden">
@@ -985,9 +1026,12 @@
    * =================================================================== */
   var state = {
     address: { formattedAddress: '', placeId: '', propertyName: '' },
+    propertyType: '', // 'single' | 'multi' — set on the Property Type step, before address/quicklook
     unitCount: 1,
-    rentPerUnit: 1650,
-    drivers: { tenant: 'standard', turnover: 'standard', maintenance: 'standard', compliance: 'standard' },
+    rentPerUnit: 0,
+    // No pre-selected value for any driver — the visitor must actively pick
+    // one before Continue enables (see renderDriverStep/driverContinue).
+    drivers: { tenant: '', turnover: '', maintenance: '', compliance: '' },
     contact: { firstName: '', email: '' },
     result: null, // populated once the webhook responds (or demo fallback)
     // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
@@ -1009,23 +1053,30 @@
    * =================================================================== */
   var root = document.getElementById('brichaus-assessment');
   var sections = {
+    'property-type': root.querySelector('[data-step="property-type"]'),
     location: root.querySelector('[data-step="location"]'),
     snapshot: root.querySelector('[data-step="snapshot"]'),
+    revenue: root.querySelector('[data-step="revenue"]'),
     driver: root.querySelector('[data-step="driver"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
     results: root.querySelector('[data-step="results"]')
   };
 
+  var propertyTypeChoiceGroup = document.getElementById('property-type-choice-group');
+  var unitCountField = document.getElementById('unit-count-field');
+  var unitCountInput = document.getElementById('unit-count-input');
+  var propertyTypeContinue = document.getElementById('property-type-continue');
+
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
 
   var rentInput = document.getElementById('rent-input');
-  var unitsInput = document.getElementById('units-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
   var marketRentHint = document.getElementById('market-rent-hint');
   var revenueAnnual = document.getElementById('revenue-annual');
   var revenueSub = document.getElementById('revenue-sub');
+  var revenueContinue = document.getElementById('revenue-continue');
   var rentVsMarket = document.getElementById('rent-vs-market');
   var rvmVerdict = document.getElementById('rvm-verdict');
   var rvmFill = document.getElementById('rvm-fill');
@@ -1165,6 +1216,43 @@
     return fallback || '';
   }
 
+  /* =====================================================================
+   * Step 1: Property Type — asked before the address, so by the time the
+   * RentCast quicklook resolves and the Snapshot step first paints, the
+   * widget already knows single-family vs. multifamily. Deciding this from
+   * a unit-count input entered later (the old flow) meant the Snapshot
+   * step's first render read whatever default that input still held,
+   * showing the wrong comp view for a beat before the visitor corrected it.
+   * =================================================================== */
+  function refreshPropertyTypeContinue() {
+    var type = propertyTypeChoiceGroup.value;
+    var unitsOk = type === 'multi' ? (parseInt(unitCountInput.value, 10) || 0) >= 2 : true;
+    propertyTypeContinue.toggleAttribute('disabled', !type || !unitsOk);
+  }
+
+  propertyTypeChoiceGroup.addEventListener('bui-change', function (evt) {
+    var isMulti = evt.detail.value === 'multi';
+    unitCountField.classList.toggle('hidden', !isMulti);
+    refreshPropertyTypeContinue();
+  });
+
+  unitCountInput.addEventListener('bui-input', refreshPropertyTypeContinue);
+  unitCountInput.addEventListener('bui-change', refreshPropertyTypeContinue);
+
+  propertyTypeContinue.addEventListener('bui-click', function () {
+    if (propertyTypeContinue.hasAttribute('disabled')) return;
+    state.propertyType = propertyTypeChoiceGroup.value;
+    state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
+    showStep('location');
+  });
+
+  /* =====================================================================
+   * Step 2: Property Location
+   * =================================================================== */
+  root.querySelector('[data-back="property-type"]').addEventListener('bui-click', function () {
+    showStep('property-type');
+  });
+
   addressInput.addEventListener('bui-address-select', function (evt) {
     var place = evt.detail.place || {};
     state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
@@ -1234,11 +1322,12 @@
   }
 
   // Revenue-first headline: projected annual rent = rent/unit × units × 12.
-  // Driven by the inputs alone (not the RentCast lookup), so it's always
-  // present and updates live as the visitor edits either field.
+  // Lives on its own step (after Property Snapshot), so it reads the
+  // committed state.rentPerUnit/state.unitCount rather than live inputs —
+  // both are already final by the time this step is shown.
   function renderRevenueHero() {
-    var rent = parseFloat(rentInput.value) || 0;
-    var units = parseInt(unitsInput.value, 10) || 0;
+    var rent = state.rentPerUnit || 0;
+    var units = state.unitCount || 0;
     var gross = rent * units;
     revenueAnnual.textContent = currency(gross * 12);
     revenueSub.innerHTML = units
@@ -1411,16 +1500,49 @@
     }
   }
 
-  // Orchestrates the Snapshot-step market read. Multifamily (2+ units) with real
-  // per-type data shows the per-unit-type table and suppresses the single-unit
-  // gauge/chips/comps (which misread a mixed building). Single-family shows the
-  // gauge + chips + comps. The revenue hero is independent and always shown.
+  // Illustrative-only ballpark for the rent field's placeholder — never the
+  // input's value, and never presented as a prediction. Single-family: the
+  // RentCast AVM point estimate for this address. Multifamily has no single
+  // "market rent" (it varies by unit type), so blend the 1BR/2BR medians
+  // 50/50 for a rough anchor; falls back to whichever of the two exists, or
+  // null (no placeholder at all) if neither is available.
+  function computeRentPlaceholder(rc, propertyType) {
+    if (!rc || rc.status !== 'ready') return null;
+    if (propertyType === 'multi') {
+      var rows = marketRowsWithData(rc);
+      var oneBr = rows.filter(function (r) { return r.bedrooms === 1; })[0];
+      var twoBr = rows.filter(function (r) { return r.bedrooms === 2; })[0];
+      if (oneBr && twoBr) return (oneBr.medianRent + twoBr.medianRent) / 2;
+      if (oneBr) return oneBr.medianRent;
+      if (twoBr) return twoBr.medianRent;
+      return null;
+    }
+    return typeof rc.rent === 'number' ? rc.rent : null;
+  }
+
+  function renderRentPlaceholder() {
+    var value = computeRentPlaceholder(state.rentCast, state.propertyType);
+    if (value != null) {
+      rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
+      rentInput.setAttribute('hint', 'Ballpark only, not a prediction — enter your actual average rent per unit.');
+    } else {
+      rentInput.removeAttribute('placeholder');
+      rentInput.removeAttribute('hint');
+    }
+  }
+
+  // Orchestrates the Snapshot-step market read. Multifamily (chosen on the
+  // Property Type step, before the address/quicklook ever ran) with real
+  // per-type data shows the per-unit-type table and suppresses the
+  // single-unit gauge/chips/comps (which misread a mixed building).
+  // Single-family shows the gauge + chips + comps.
   function renderSnapshotPreview() {
     var rc = state.rentCast;
-    var units = parseInt(unitsInput.value, 10) || 1;
-    var isMF = units > 1;
+    var isMF = state.propertyType === 'multi';
     var market = marketRowsWithData(rc);
     var showMarket = isMF && market.length > 0;
+
+    renderRentPlaceholder();
 
     snapshotPreviewMarket.classList.toggle('hidden', !showMarket);
     if (showMarket) {
@@ -1445,17 +1567,15 @@
     showStep('snapshot');
     // Re-render in case the quicklook resolved while the visitor was still on
     // the Location step (its render targets live on this step, hidden until
-    // now), and refresh the revenue hero against the current inputs.
-    renderRevenueHero();
+    // now). state.propertyType is already committed (Step 1, before this),
+    // so this first paint shows the correct SFR/MF view immediately.
     renderSnapshotPreview();
   });
 
-  // Both the revenue hero (rent × units × 12) and the market read (the
-  // rent-vs-market marker position, and the single-family/multifamily split by
-  // unit count) depend on these inputs, so recompute both as either is edited.
+  // The market read (rent-vs-market marker position) depends on the entered
+  // rent, so recompute it live as the visitor types.
   ['bui-input', 'bui-change'].forEach(function (evtName) {
-    rentInput.addEventListener(evtName, function () { renderRevenueHero(); renderSnapshotPreview(); });
-    unitsInput.addEventListener(evtName, function () { renderRevenueHero(); renderSnapshotPreview(); });
+    rentInput.addEventListener(evtName, function () { renderSnapshotPreview(); });
   });
 
   compsViewall.addEventListener('click', function () {
@@ -1463,36 +1583,46 @@
     renderComps(state.rentCast);
   });
 
-  // Seed the revenue hero from the default inputs so the headline is present
-  // immediately, before the visitor touches anything.
-  renderRevenueHero();
-
   /* =====================================================================
-   * Step 2: Property Snapshot
+   * Step 3: Property Snapshot
    * =================================================================== */
   root.querySelector('[data-back="location"]').addEventListener('bui-click', function () {
     showStep('location');
   });
 
   snapshotContinue.addEventListener('bui-click', function () {
-    // Not mirrored to a native field — n8n writes unit count/rent to the
-    // Property record directly after search+update (see GHL_FIELDS doc).
+    // Not mirrored to a native field — n8n writes rent to the Property
+    // record directly after search+update (see GHL_FIELDS doc). Unit count
+    // was already committed on the Property Type step.
     state.rentPerUnit = parseFloat(rentInput.value) || 0;
-    state.unitCount = parseInt(unitsInput.value, 10) || 1;
+    renderRevenueHero();
+    showStep('revenue');
+  });
+
+  /* =====================================================================
+   * Step 4: Projected Annual Revenue (transition into the operational
+   * assessment) — purely a display of already-committed state.rentPerUnit/
+   * state.unitCount, no inputs of its own.
+   * =================================================================== */
+  root.querySelector('[data-back="snapshot"]').addEventListener('bui-click', function () {
+    showStep('snapshot');
+  });
+
+  revenueContinue.addEventListener('bui-click', function () {
     driverStepIndex = 0;
     renderDriverStep();
     showStep('driver');
   });
 
   /* =====================================================================
-   * Steps 3-6: Operational Assessment (4 sequential driver questions)
+   * Steps 5-8: Operational Assessment (4 sequential driver questions)
    * =================================================================== */
   function renderDriverStep() {
     var step = DRIVER_STEPS[driverStepIndex];
     driverQuestion.textContent = step.question;
     driverSubProgress.setAttribute('label', step.title + ' Driver');
     driverSubProgress.setAttribute('value', String(driverStepIndex + 1));
-    driverHeaderProgress.setAttribute('value', String(30 + driverStepIndex * 12));
+    driverHeaderProgress.setAttribute('value', String(45 + driverStepIndex * 10));
 
     var current = state.drivers[step.key];
     driverChoiceGroup.value = current;
@@ -1507,7 +1637,7 @@
 
   driverBack.addEventListener('bui-click', function () {
     if (driverStepIndex === 0) {
-      showStep('snapshot');
+      showStep('revenue');
       return;
     }
     driverStepIndex--;
@@ -1530,7 +1660,7 @@
   });
 
   /* =====================================================================
-   * Step 7: Get Your Report — captures the name/email/consent this native
+   * Step 9: Get Your Report — captures the name/email/consent this native
    * submit needs to create a valid, Contact-linked record. Nothing before
    * this step writes name/email anywhere, and nothing after it should —
    * this is the one point in the flow where the native submit fires.
@@ -1623,7 +1753,7 @@
   }
 
   /* =====================================================================
-   * Step 8: Finalizing — webhook call happens here
+   * Step 10: Finalizing — webhook call happens here
    * =================================================================== */
   function buildWebhookPayload() {
     return {
@@ -1783,7 +1913,7 @@
   }
 
   /* =====================================================================
-   * Step 9: Results / Report Generator
+   * Step 11: Results / Report Generator
    * =================================================================== */
   function renderResults() {
     var result = state.result;
@@ -2115,7 +2245,7 @@
     });
   });
 
-  showStep('location');
+  showStep('property-type');
 })();
 </script>
 </body>
