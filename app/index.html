@@ -2528,17 +2528,19 @@
       ] }
   ];
 
+  // Items are limited to what the Fee Calc pipeline can actually price
+  // (EvictionCoverage/LeasePlacements/Inspections/PetCoverage all have a
+  // corresponding input field there) — Leasing Fee Protection, Lost Rent
+  // Coverage, and Malicious Tenant Damage Coverage were dropped because
+  // Power Automate's fee formula has no field to price them at all.
   var ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
     desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
     items: [
       'Annual Inspections',
-      'Leasing Fee Protection',
-      'Lost Rent Coverage',
       'Pet Placement Protection',
       'Lease Placement Protection',
-      'Eviction Protection',
-      'Malicious Tenant Damage Coverage'
+      'Eviction Protection'
     ]
   };
 
@@ -2555,20 +2557,28 @@
   // category key -> label -> AssetShield item(s) this finding recommends.
   // complianceBurden has no entry: it never checkmarks AssetShield — that
   // finding stays explained only in the Operational Workload section above.
+  // Mirrors the same thresholds the Fee Calc webhook now uses to decide
+  // EvictionCoverage/LeasePlacements/Inspections, so what's checked here
+  // always matches what was actually priced into the fee.
   var ASSET_SHIELD_TRIGGERS = {
-    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection', 'Malicious Tenant Damage Coverage'] },
-    turnoverPressure: { High: ['Lost Rent Coverage'], Severe: ['Lost Rent Coverage', 'Lease Placement Protection'] },
+    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection'] },
+    turnoverPressure: { Severe: ['Lease Placement Protection'] },
     maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
   };
 
-  // One-line "why" shown under each checked AssetShield item, keyed by the
-  // same item names ASSET_SHIELD_TRIGGERS badges.
+  // One-line "why" shown under each checked (recommended-and-priced-in)
+  // AssetShield item, keyed by the same item names ASSET_SHIELD_TRIGGERS badges.
   var ASSET_SHIELD_RATIONALE = {
     'Eviction Protection': 'Tenant friction on this property is running high, which raises the odds of needing to pursue an eviction — this covers that process if it becomes necessary.',
-    'Malicious Tenant Damage Coverage': 'Given the severity of tenant friction here, this protects against intentional property damage specifically.',
-    'Lost Rent Coverage': 'Turnover pressure here is elevated, so protecting your income during vacancy periods reduces the financial impact of more frequent unit turns.',
     'Lease Placement Protection': 'Given how severe turnover is on this property, this reduces the cost of re-leasing units that turn over repeatedly.',
     'Annual Inspections': 'Maintenance demand here is elevated — proactive inspections catch issues before they escalate into larger, costlier repairs.'
+  };
+
+  // Pet Placement Protection is never trigger-driven (no operational finding
+  // recommends it) and isn't priced into the fee by default — it's a
+  // voluntary, always-shown invite rather than a data-driven recommendation.
+  var ASSET_SHIELD_OPT_IN_NOTES = {
+    'Pet Placement Protection': "Accepting pets can be a difficult decision — we're committed to making it easier for you."
   };
 
   function computeBadgedAssetShieldItems(categories) {
@@ -2646,6 +2656,11 @@
           rationale.className = 'service-card__check-rationale';
           rationale.textContent = ASSET_SHIELD_RATIONALE[item];
           textCol.appendChild(rationale);
+        } else if (ASSET_SHIELD_OPT_IN_NOTES[item]) {
+          var optInNote = document.createElement('p');
+          optInNote.className = 'service-card__check-rationale';
+          optInNote.textContent = ASSET_SHIELD_OPT_IN_NOTES[item];
+          textCol.appendChild(optInNote);
         }
         rowWrap.appendChild(box);
         rowWrap.appendChild(textCol);
