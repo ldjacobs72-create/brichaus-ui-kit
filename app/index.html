@@ -108,6 +108,24 @@
     font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--bui-color-text-faint);
   }
+  /* Selecting a driver option flips that one card to reveal the same
+     nuanced reference text the final report uses (see DRIVER_REFERENCE).
+     0deg->90deg->0deg (not a full 180) so the text is never mirrored/
+     backwards mid-animation — no second "back face" to keep upright. The
+     description swap itself happens in JS at the 90deg midpoint, driven by
+     bui-choice-card's own public "description" attribute (not the
+     component's internals — see choice-card.js's _syncAttrs()). */
+  @keyframes bui-driver-card-flip {
+    0% { transform: rotateY(0deg); }
+    50% { transform: rotateY(90deg); }
+    100% { transform: rotateY(0deg); }
+  }
+  #brichaus-assessment bui-choice-card.is-flipping .bui-choice-card {
+    animation: bui-driver-card-flip 340ms ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment bui-choice-card.is-flipping .bui-choice-card { animation: none; }
+  }
   #brichaus-assessment .step-footer {
     display: flex;
     justify-content: space-between;
@@ -850,7 +868,7 @@
         <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Located your property,Pulling market comparables,Scoring operational demand,Calculating your fee,Generating your report"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Calculating your fee,Generating your report"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
@@ -1180,6 +1198,39 @@
   ];
   var driverStepIndex = 0;
 
+  // Verbatim from the OIA pipeline's own reference text (n8n "PropScore: OIA
+  // Scoring" -> "Populate Canned Evidence Notes") so the option a visitor
+  // picks here reads with the exact same nuance their final report will use
+  // — streamlined/standard/active/intensive map 1:1 to the OIA workflow's
+  // own Low/Normal/High/Severe labels (same mapping DemandEngine.MULTIPLIER
+  // already uses).
+  var DRIVER_REFERENCE = {
+    tenant: {
+      streamlined: 'Tenant activity is unusually quiet, with rent paid on time and minimal management intervention needed.',
+      standard: 'Tenant communication and day-to-day issues are typical for a property like yours, with occasional routine matters handled through standard practices.',
+      active: 'Tenant-related issues are occurring more than expected — repeated complaints, payment follow-up, conflicts, or lease-enforcement needs beyond the ordinary.',
+      intensive: 'Tenant activity is materially disruptive relative to a typical property — active evictions, legal disputes, serious violations, or persistent conflict.'
+    },
+    turnover: {
+      streamlined: 'Turnover is unusually low — tenants are staying long-term, vacancies are rare, and leasing effort is minimal.',
+      standard: 'Unit turnover is occurring at a typical pace for this property type and market, handled through ordinary leasing activity.',
+      active: 'Turnover on this property is running higher than typical, requiring more frequent leasing, marketing, and rent-ready turnaround than a standard property in this market.',
+      intensive: 'Turnover is a major operating problem here — multiple vacancies, chronic churn, or prolonged difficulty re-leasing units.'
+    },
+    maintenance: {
+      streamlined: 'Maintenance needs are unusually light — the property is in strong condition and service calls are rare.',
+      standard: 'Maintenance needs are routine for a property of this age, size, and condition — ordinary service calls and upkeep.',
+      active: 'Maintenance demand is running above normal — recurring repairs, aging systems, and more frequent vendor coordination than a typical property.',
+      intensive: 'Maintenance represents a major operating burden — serious deferred maintenance, safety issues, major system failures, or a large repair backlog.'
+    },
+    compliance: {
+      streamlined: 'Compliance and administrative requirements are unusually simple — no special rules, added filings, or elevated compliance tasks.',
+      standard: 'Compliance and administrative requirements are typical for this jurisdiction and property type — standard notices and recordkeeping, with no unusual filings or oversight expected.',
+      active: 'Compliance work is running above normal — rent-control tracking, recurring inspections, registration requirements, or HOA coordination beyond the ordinary.',
+      intensive: 'Compliance and regulatory exposure here is significant — active code enforcement, lawsuits, complex local restrictions, or unresolved notices.'
+    }
+  };
+
   /* =====================================================================
    * DOM refs
    * =================================================================== */
@@ -1278,6 +1329,15 @@
     Object.keys(sections).forEach(function (key) {
       sections[key].classList.toggle('hidden', key !== name);
     });
+    scrollToTop();
+  }
+
+  // A visitor scrolled down to read the last choice card (or any long step)
+  // would otherwise land mid-scroll on the next screen — most noticeable on
+  // the 4 sequential driver questions, which re-render in place via
+  // renderDriverStep() and never call showStep() at all between them.
+  function scrollToTop() {
+    root.scrollIntoView({ behavior: window.BUI.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
   function currency(n) {
@@ -1750,6 +1810,7 @@
    * Steps 5-8: Operational Assessment (4 sequential driver questions)
    * =================================================================== */
   function renderDriverStep() {
+    scrollToTop();
     var step = DRIVER_STEPS[driverStepIndex];
     driverCategoryIcon.textContent = step.icon;
     driverCategoryName.textContent = step.title;
@@ -1761,12 +1822,63 @@
     var current = state.drivers[step.key];
     driverChoiceGroup.value = current;
     driverContinue.toggleAttribute('disabled', !current);
+
+    // Safety net: don't depend on whether the value assignment above
+    // happened to dispatch a synthetic 'bui-change' (BuiChoiceGroup only
+    // dispatches when its value attribute actually changes). The 4 cards
+    // are shared/reused across all 4 questions, so every question render
+    // must deterministically reset them to this question's own state.
+    resetDriverCardDescriptions();
+    if (current) showDriverCardReference(step.key, current, false);
+  }
+
+  // Reveals the exact reference text the final report will use for a given
+  // driver label (see DRIVER_REFERENCE) by swapping the card's public
+  // "description" attribute (choice-card.js's own supported, documented way
+  // to change its copy). The 4 <bui-choice-card> elements are shared across
+  // all 4 questions, so every call first resets every card to its cached
+  // original description, then applies the reference text to only the one
+  // matching card — this is idempotent and safe to call any number of times
+  // regardless of whether it's triggered by a real click, a synthetic
+  // re-sync event, or renderDriverStep()'s own safety-net call.
+  function resetDriverCardDescriptions() {
+    var cards = Array.prototype.slice.call(driverChoiceGroup.querySelectorAll('bui-choice-card'));
+    cards.forEach(function (card) {
+      if (card.dataset.originalDescription === undefined) {
+        card.dataset.originalDescription = card.getAttribute('description') || '';
+      }
+      card.classList.remove('is-flipping');
+      card.setAttribute('description', card.dataset.originalDescription);
+    });
+  }
+
+  function showDriverCardReference(driverKey, value, animate) {
+    var nuanced = (DRIVER_REFERENCE[driverKey] || {})[value];
+    if (!nuanced) return;
+    var card = driverChoiceGroup.querySelector('bui-choice-card[value="' + value + '"]');
+    if (!card) return;
+    if (!animate || window.BUI.prefersReducedMotion()) {
+      card.setAttribute('description', nuanced);
+      return;
+    }
+    card.classList.add('is-flipping');
+    setTimeout(function () {
+      // Guard: a rapid second click may have already called
+      // resetDriverCardDescriptions(), which removes this class — don't let
+      // a stale timeout re-apply nuanced text to a no-longer-selected card.
+      if (card.classList.contains('is-flipping')) {
+        card.setAttribute('description', nuanced);
+      }
+    }, 160);
   }
 
   driverChoiceGroup.addEventListener('bui-change', function (evt) {
     var step = DRIVER_STEPS[driverStepIndex];
+    var isNewChoice = state.drivers[step.key] !== evt.detail.value;
     state.drivers[step.key] = evt.detail.value;
     driverContinue.removeAttribute('disabled');
+    resetDriverCardDescriptions();
+    if (evt.detail.value) showDriverCardReference(step.key, evt.detail.value, isNewChoice);
   });
 
   driverBack.addEventListener('bui-click', function () {
@@ -1925,7 +2037,7 @@
         msg = city ? 'Located your property in ' + city + '.' : 'Located your property.';
         break;
       case 2:
-        msg = comps.length ? 'Found ' + comps.length + ' comparable rentals nearby.' : 'Pulling nearby market comparables…';
+        msg = comps.length ? 'Confirmed ' + comps.length + ' comparable rentals nearby.' : 'Validating comps one last time…';
         break;
       case 3:
         msg = (typeof rc.rent === 'number') ? 'Market rent estimate near ' + currency(rc.rent) + '/mo.' : 'Estimating market rent for this address…';
@@ -1938,6 +2050,19 @@
     }
     loadingDetail.textContent = msg;
   }
+
+  // Once the fake progress bar reaches its last stage, the detail line would
+  // otherwise sit frozen on "Generating your report…" for however long the
+  // real webhook takes (often 15-25s more) — dead air that can read as
+  // stuck. This rotates through a short, one-way sequence of reassurance
+  // lines during that specific dead zone only; deliberately short (four
+  // lines, not looping) per "not too many, just enough to feel aware."
+  var REASSURANCE_MESSAGES = [
+    'Almost there…',
+    'Just a few more seconds…',
+    'Any moment now…',
+    'Putting the finishing touches on your report…'
+  ];
 
   function runAssessment() {
     var demandScore = DemandEngine.score(state.drivers);
@@ -1961,6 +2086,8 @@
     var progress = 0;
     var settled = false;
     var lastStage = 0;
+    var reassuranceTimer = null;
+    var reassuranceIndex = 0;
     var timer = setInterval(function () {
       if (settled) return;
       progress += (92 - progress) * 0.045; // closes ~4.5% of the remaining gap each tick
@@ -1970,12 +2097,25 @@
         lastStage = stage;
         checklist.current = stage;
         setLoadingDetail(stage);
+        if (stage === 5) {
+          // Give "Generating your report…" its own beat before the
+          // reassurance rotation starts filling the dead air.
+          reassuranceTimer = setInterval(function () {
+            if (reassuranceIndex >= REASSURANCE_MESSAGES.length) {
+              clearInterval(reassuranceTimer);
+              return;
+            }
+            loadingDetail.textContent = REASSURANCE_MESSAGES[reassuranceIndex];
+            reassuranceIndex++;
+          }, 5000);
+        }
       }
     }, 220);
 
     var finish = function (webhookResult, isDemo) {
       settled = true;
       clearInterval(timer);
+      if (reassuranceTimer) clearInterval(reassuranceTimer);
       checklist.current = CHECKLIST_STEPS + 1;
       buildProgress.setAttribute('value', '100');
       loadingDetail.textContent = '';
