@@ -1708,6 +1708,13 @@
     resetRecognitionPanel();
     if (!state.address.placeId || !CONFIG.CONTACT_RECOGNITION_URL) return;
     var placeId = state.address.placeId;
+    // Gate Continue for the duration of the check itself — resetRecognitionPanel()
+    // just enabled it based on placeId alone, but a visitor can click through
+    // well before this fetch resolves (confirmed live: the funnel advanced past
+    // Location before the recognition check came back). A fixed wait timer would
+    // either be too short on a slow connection or needlessly annoying on a fast
+    // one; disabling until the check actually settles is correct either way.
+    locationContinue.setAttribute('disabled', '');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1716,17 +1723,26 @@
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (placeId !== state.address.placeId) return; // superseded by a newer selection
-        if (!data || !data.recognized) return;
+        if (!data || !data.recognized) {
+          locationContinue.removeAttribute('disabled');
+          return;
+        }
         state.recognition.active = true;
         state.recognition.firstName = data.firstName || '';
         state.recognition.contactId = data.contactId || '';
         recognitionFirstname.textContent = state.recognition.firstName;
         recognitionPanel.classList.remove('hidden');
         showRecognitionState('welcome');
-        locationContinue.setAttribute('disabled', '');
+        // Stays disabled — the welcome/confirm-email panel (already gating
+        // Continue) is what re-enables it, either on a confirmed match or
+        // once the recognize-vs-conflict flow reaches its "done" state.
       })
       .catch(function (err) {
         console.warn('[brichaus-assessment] Contact recognition check failed (non-blocking):', err);
+        // Fail open — a webhook outage should never trap a legitimate visitor
+        // behind a check that can't complete, same principle as the RentCast
+        // quicklook's own non-blocking failure handling.
+        if (placeId === state.address.placeId) locationContinue.removeAttribute('disabled');
       });
   }
 
