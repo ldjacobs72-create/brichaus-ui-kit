@@ -352,6 +352,29 @@
     margin-bottom: var(--bui-space-4);
     text-align: center;
   }
+  #brichaus-assessment .address-verifying {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--bui-space-3);
+    font-size: 12.5px;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .address-verifying__spinner {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bui-color-border);
+    border-top-color: #C1633F;
+    animation: bui-address-verifying-spin 700ms linear infinite;
+  }
+  @keyframes bui-address-verifying-spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .address-verifying__spinner { animation: none; }
+  }
   #brichaus-assessment .recognition-panel {
     margin-top: var(--bui-space-4);
     padding: var(--bui-space-4);
@@ -887,6 +910,11 @@
           fields="formattedAddress,addressComponents,location,displayName"
           hint="Start typing to search.">
         </bui-address-input>
+
+        <div id="address-verifying" class="address-verifying hidden">
+          <span class="address-verifying__spinner" aria-hidden="true"></span>
+          Locating your property…
+        </div>
 
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-welcome" class="recognition-state hidden">
@@ -1479,6 +1507,7 @@
 
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
+  var addressVerifying = document.getElementById('address-verifying');
 
   var recognitionPanel = document.getElementById('recognition-panel');
   var recognitionWelcome = document.getElementById('recognition-welcome');
@@ -1723,6 +1752,28 @@
     resetRecognitionPanel();
   });
 
+  // Enter, pressed a second time once an address is already selected (the
+  // suggestion dropdown closed, a real placeId on file, and Continue not
+  // still gated by the recognition check above), advances the step —
+  // mirrors the common "type, Enter, Enter" address-field pattern instead
+  // of forcing a mouse click. Registered on the capture phase so it reads
+  // the dropdown's open/closed state as it was BEFORE the component's own
+  // keydown handler (registered directly on its native <input>, target
+  // phase) runs and possibly closes it by selecting a suggestion — without
+  // that ordering, the very same Enter that just picked a suggestion would
+  // also fire this and try to advance before checkContactRecognition() has
+  // even disabled Continue, let alone resolved.
+  addressInput.addEventListener('keydown', function (evt) {
+    if (evt.key !== 'Enter') return;
+    var listbox = addressInput.querySelector('.bui-address-listbox');
+    var suggestionsOpen = listbox && listbox.dataset.open === 'true';
+    if (suggestionsOpen) return; // let the component's own handler pick a suggestion instead
+    if (state.address.placeId && !locationContinue.hasAttribute('disabled')) {
+      evt.preventDefault();
+      locationContinue.querySelector('.bui-btn').click();
+    }
+  }, true);
+
   // Fired the moment an address is committed (selection or manual typed
   // entry) rather than waiting for the full n8n pipeline at the end of
   // the assessment — by the time the visitor reaches the Snapshot step
@@ -1855,6 +1906,7 @@
     recognitionEmailValue = '';
     recognitionPhoneValue = '';
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
+    addressVerifying.classList.add('hidden');
   }
 
   var recognitionEmailValue = '';
@@ -1891,6 +1943,11 @@
     // either be too short on a slow connection or needlessly annoying on a fast
     // one; disabling until the check actually settles is correct either way.
     locationContinue.setAttribute('disabled', '');
+    // Visible feedback for the disabled-button gap above — otherwise the
+    // visitor just sees Continue go dead with no explanation while this
+    // fetch is in flight. Cleared on every resolution path below (and by
+    // resetRecognitionPanel() if a newer selection supersedes this one).
+    addressVerifying.classList.remove('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1899,6 +1956,7 @@
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        addressVerifying.classList.add('hidden');
         if (!data || !data.recognized) {
           locationContinue.removeAttribute('disabled');
           return;
@@ -1918,7 +1976,10 @@
         // Fail open — a webhook outage should never trap a legitimate visitor
         // behind a check that can't complete, same principle as the RentCast
         // quicklook's own non-blocking failure handling.
-        if (placeId === state.address.placeId) locationContinue.removeAttribute('disabled');
+        if (placeId === state.address.placeId) {
+          addressVerifying.classList.add('hidden');
+          locationContinue.removeAttribute('disabled');
+        }
       });
   }
 

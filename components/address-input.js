@@ -454,9 +454,13 @@
         if (!isOpen) return;
         this._setActive(Math.max(0, this._activeIndex - 1));
       } else if (evt.key === 'Enter') {
-        if (!isOpen || this._activeIndex === -1) return;
+        if (!isOpen) return;
         evt.preventDefault();
-        this._selectSuggestion(this._activeIndex);
+        // No arrow-key highlight yet (the common case — visitor just typed
+        // and hit Enter without ever pressing an arrow key) falls back to
+        // the top suggestion, matching how most address autocompletes treat
+        // a bare Enter.
+        this._selectSuggestion(this._activeIndex === -1 ? 0 : this._activeIndex);
       } else if (evt.key === 'Escape') {
         if (!isOpen) return;
         evt.preventDefault();
