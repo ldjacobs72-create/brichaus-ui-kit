@@ -261,8 +261,11 @@
 
   /* ===== Premium visual pass: Property Type choice cards ===== */
   #brichaus-assessment #property-type-choice-group .bui-choice-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20px;
+  }
+  @media (max-width: 720px) {
+    #brichaus-assessment #property-type-choice-group .bui-choice-grid { grid-template-columns: 1fr; }
   }
   #brichaus-assessment #property-type-choice-group .bui-choice-card {
     border: 1.5px solid #E3E5E9;
@@ -301,20 +304,26 @@
   #brichaus-assessment .trust-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #6B7280;
+    gap: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3F4754;
     white-space: nowrap;
+    background: #FFFFFF;
+    border: 1px solid #E3E5E9;
+    border-radius: 999px;
+    padding: 10px 16px;
+    box-shadow: 0 2px 8px rgba(20, 24, 32, 0.06);
   }
   #brichaus-assessment .trust-item__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: #EEF1F5;
-    color: #4C5768;
+    background: #4C5768;
+    color: #FFFFFF;
     font-size: 11px;
     line-height: 1;
     flex-shrink: 0;
@@ -960,9 +969,15 @@
         <p>This determines how we read comparable rents for your address.</p>
         <bui-choice-group id="property-type-choice-group" name="property-type">
           <bui-choice-card value="single" label="Single Family"
-            description="One rentable unit."></bui-choice-card>
+            description="Single family home, Condo, Townhome."></bui-choice-card>
           <bui-choice-card value="multi" label="Multifamily"
-            description="Two or more rentable units."></bui-choice-card>
+            description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
+          <!-- Visible but not yet selectable — the funnel's scoring/fee logic
+               doesn't support commercial yet. The disabled attribute is the
+               component's own (blocks selection, greys the card). -->
+          <bui-choice-card value="commercial" label="Commercial" disabled
+            description="Mixed Use, Neighborhood Retail, Gas Stations."
+            meta="Coming Soon" meta-tone="slate"></bui-choice-card>
         </bui-choice-group>
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-count-input" label="Number of Units" type="number" min="2" placeholder="e.g. 8"></bui-input>
@@ -1325,7 +1340,7 @@
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Response Within 24 Hours</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Results in Minutes &mdash; or We Follow Up Within 24 Hours</span>
   </div>
 
 </div>
