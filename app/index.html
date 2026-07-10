@@ -1532,7 +1532,7 @@
     // Populated by checkContactRecognition() when the selected property
     // already has a known point of contact on file. attempts counts failed
     // email-confirmation tries (2 allowed before the conflict/phone path).
-    recognition: { active: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
+    recognition: { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
   };
 
   var DRIVER_STEPS = [
@@ -1988,7 +1988,7 @@
   // whenever the address changes so a stale welcome/phone prompt from a
   // previous selection never lingers on a new one.
   function resetRecognitionPanel() {
-    state.recognition = { active: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+    state.recognition = { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
     recognitionPanel.classList.add('hidden');
     recognitionWelcome.classList.add('hidden');
     recognitionPhone.classList.add('hidden');
@@ -2090,6 +2090,17 @@
           showRecognitionState('done');
           recognitionDoneMessage.textContent = 'Thanks, ' + state.recognition.firstName + '! Continue below to get your updated proposal.';
           locationContinue.removeAttribute('disabled');
+          // A confirmed existing contact shouldn't be re-onboarded at the
+          // "Get Your Report" step: prefill their known name and the email
+          // they just confirmed, and (see refreshContactContinue) skip the
+          // consent-checkbox gate — they already agreed when they first
+          // came through. The backend just associates the new property.
+          state.recognition.confirmed = true;
+          if (!state.contact.firstName) state.contact.firstName = state.recognition.firstName;
+          state.contact.email = emailAttempt;
+          contactNameInput.value = state.contact.firstName;
+          contactEmailInput.value = state.contact.email;
+          refreshContactContinue();
           return;
         }
         // Kept so the conflict handoff below can hand a human every email
@@ -2496,7 +2507,10 @@
   }
 
   function refreshContactContinue() {
-    var termsOk = !!(termsFieldEl && termsFieldEl.checked);
+    // A recognized contact who confirmed their email already consented on a
+    // previous visit — don't gate them on the checkbox again; the backend
+    // just associates the new property with their existing Contact.
+    var termsOk = !!(termsFieldEl && termsFieldEl.checked) || state.recognition.confirmed;
     var ready = !!state.contact.firstName && isValidEmail(state.contact.email) && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
   }
@@ -2601,6 +2615,10 @@
       // backend records a real compliance trail rather than inferring it.
       FirstName: state.contact.firstName,
       Email: state.contact.email,
+      // Known GHL contact id from the recognition flow, when this visitor
+      // confirmed their email as an existing contact — lets the backend
+      // associate the property directly even if the email were edited.
+      ContactID: state.recognition.confirmed ? state.recognition.contactId : '',
       Consent: !!(termsFieldEl && termsFieldEl.checked),
       ConsentTimestamp: state.contact.consentTs || new Date().toISOString(),
       // Opt into the two-phase report only when we have somewhere to poll for
