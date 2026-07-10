@@ -1455,14 +1455,19 @@
     GHL_SUBMIT_SELECTOR: '.ghl-submit-btn',
 
     // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
-    // it doesn't confirm the record has actually been persisted server-side
-    // by the time control returns. This is a buffer before calling
-    // WEBHOOK_URL so n8n's search-by-googlePlaceId has a real record to
-    // find. Trimmed from 900ms — this is a guess, not a confirmation, so
-    // there's no real basis for 900 over a smaller number; if n8n's search
-    // starts coming up empty (record not found yet), raise this first
-    // before suspecting anything else.
-    GHL_SUBMIT_SETTLE_MS: 400,
+    // it doesn't confirm the record has actually been persisted (and
+    // search-indexed) server-side by the time control returns. This is a
+    // buffer before calling WEBHOOK_URL so n8n's search-by-googlePlaceId
+    // (Search GHL Property Record) has a real, findable record by the time
+    // it runs. Was trimmed to 400ms for perceived latency, then confirmed
+    // live to be too short — real test submissions came back from n8n's
+    // search as "no matching record" (status 200, zero results, not an
+    // error) even though the native submission itself fired correctly (no
+    // "submit control not found" console warning). Restored to the
+    // original 900ms. If this specific value ever proves insufficient
+    // again, raise it further before suspecting anything else — this is
+    // still a fixed guess, not a real "has GHL indexed it yet" check.
+    GHL_SUBMIT_SETTLE_MS: 900,
 
     // The Fee Calculation flow's request schema also expects these add-on
     // toggles (see power-automate-build-spec.md). This funnel's 9 steps
