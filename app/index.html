@@ -193,6 +193,26 @@
     margin-bottom: var(--bui-space-4);
     text-align: center;
   }
+  #brichaus-assessment .recognition-panel {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-info-bg);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .recognition-message {
+    margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment .recognition-error {
+    margin: 4px 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-danger);
+  }
+  #brichaus-assessment .recognition-state bui-button {
+    margin-top: var(--bui-space-3);
+  }
   #brichaus-assessment .income-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -700,6 +720,23 @@
           fields="formattedAddress,addressComponents,location,displayName"
           hint="Start typing to search.">
         </bui-address-input>
+
+        <div id="recognition-panel" class="recognition-panel hidden">
+          <div id="recognition-welcome" class="recognition-state hidden">
+            <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your existing management proposal.</p>
+            <bui-input id="recognition-email-input" label="Email" type="email"></bui-input>
+            <p id="recognition-email-error" class="recognition-error hidden">That doesn't match what we have on file — please try again.</p>
+            <bui-button id="recognition-confirm-btn" variant="slate">Confirm Email</bui-button>
+          </div>
+          <div id="recognition-phone" class="recognition-state hidden">
+            <p class="recognition-message">We couldn't confirm your email. Leave a phone number and we'll have someone reach out to help.</p>
+            <bui-input id="recognition-phone-input" label="Phone Number" type="tel"></bui-input>
+            <bui-button id="recognition-phone-btn" variant="slate">Submit</bui-button>
+          </div>
+          <div id="recognition-done" class="recognition-state hidden">
+            <p id="recognition-done-message" class="recognition-message"></p>
+          </div>
+        </div>
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="property-type">Back</bui-button>
@@ -1007,6 +1044,15 @@
     // the market-rent hint).
     RENTCAST_QUICKLOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-rentcast-quicklook',
 
+    // Fired the moment an address is selected, alongside the RentCast
+    // quicklook above. Looks up whether this property already has a
+    // known point of contact on file (Dataverse, keyed by googlePlaceId)
+    // and, if so, confirms it's still a valid GHL contact before ever
+    // showing a name — see PropScore: Contact Recognition & Conflict.
+    // Leave blank to skip recognition entirely (funnel behaves exactly
+    // as it did before this existed).
+    CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
+
     // Poll endpoint for the two-phase report. When the assessment POST sets
     // AsyncReport:true, the pipeline returns the deterministic answer (fee,
     // band, market, comps, operational profile) in ~5-8s and generates the AI
@@ -1187,7 +1233,11 @@
     // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
     // comparables come from the enriched RentCast quicklook and feed the
     // Snapshot-step preview; they stay null until the lookup returns.
-    rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] }
+    rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] },
+    // Populated by checkContactRecognition() when the selected property
+    // already has a known point of contact on file. attempts counts failed
+    // email-confirmation tries (2 allowed before the conflict/phone path).
+    recognition: { active: false, firstName: '', contactId: '', attempts: 0 }
   };
 
   var DRIVER_STEPS = [
@@ -1253,6 +1303,18 @@
 
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
+
+  var recognitionPanel = document.getElementById('recognition-panel');
+  var recognitionWelcome = document.getElementById('recognition-welcome');
+  var recognitionFirstname = document.getElementById('recognition-firstname');
+  var recognitionEmailInput = document.getElementById('recognition-email-input');
+  var recognitionEmailError = document.getElementById('recognition-email-error');
+  var recognitionConfirmBtn = document.getElementById('recognition-confirm-btn');
+  var recognitionPhone = document.getElementById('recognition-phone');
+  var recognitionPhoneInput = document.getElementById('recognition-phone-input');
+  var recognitionPhoneBtn = document.getElementById('recognition-phone-btn');
+  var recognitionDone = document.getElementById('recognition-done');
+  var recognitionDoneMessage = document.getElementById('recognition-done-message');
 
   var rentInput = document.getElementById('rent-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
@@ -1455,6 +1517,7 @@
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
     fetchRentCastQuicklook(state.address.formattedAddress);
+    checkContactRecognition();
   });
 
   // Only a real Google Place selection may proceed past this step — a
@@ -1481,6 +1544,7 @@
     syncGhlField('googlePlaceId', '');
     syncGhlField('propertyName', '');
     if (typed) fetchRentCastQuicklook(typed);
+    resetRecognitionPanel();
   });
 
   // Fired the moment an address is committed (selection or manual typed
@@ -1601,6 +1665,127 @@
         renderSnapshotPreview();
       });
   }
+
+  // Resets the recognition panel to its hidden/inactive state — called
+  // whenever the address changes so a stale welcome/phone prompt from a
+  // previous selection never lingers on a new one.
+  function resetRecognitionPanel() {
+    state.recognition = { active: false, firstName: '', contactId: '', attempts: 0 };
+    recognitionPanel.classList.add('hidden');
+    recognitionWelcome.classList.add('hidden');
+    recognitionPhone.classList.add('hidden');
+    recognitionDone.classList.add('hidden');
+    recognitionEmailError.classList.add('hidden');
+    recognitionEmailValue = '';
+    recognitionPhoneValue = '';
+    locationContinue.toggleAttribute('disabled', !state.address.placeId);
+  }
+
+  var recognitionEmailValue = '';
+  var recognitionPhoneValue = '';
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    recognitionEmailInput.addEventListener(eventName, function (evt) {
+      recognitionEmailValue = (evt.detail.value || '').trim();
+    });
+    recognitionPhoneInput.addEventListener(eventName, function (evt) {
+      recognitionPhoneValue = (evt.detail.value || '').trim();
+    });
+  });
+
+  function showRecognitionState(name) {
+    recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
+    recognitionPhone.classList.toggle('hidden', name !== 'phone');
+    recognitionDone.classList.toggle('hidden', name !== 'done');
+  }
+
+  // Fired alongside the RentCast quicklook on every address selection. Asks
+  // whether this property already has a known point of contact on file —
+  // if so, gates Continue behind an email-confirmation prompt (2 attempts)
+  // before letting the visitor proceed, per the contact-conflict business
+  // rule: an unconfirmed match must not silently reuse or reassign the
+  // property's existing point of contact.
+  function checkContactRecognition() {
+    resetRecognitionPanel();
+    if (!state.address.placeId || !CONFIG.CONTACT_RECOGNITION_URL) return;
+    var placeId = state.address.placeId;
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
+    })
+      .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
+      .then(function (data) {
+        if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        if (!data || !data.recognized) return;
+        state.recognition.active = true;
+        state.recognition.firstName = data.firstName || '';
+        state.recognition.contactId = data.contactId || '';
+        recognitionFirstname.textContent = state.recognition.firstName;
+        recognitionPanel.classList.remove('hidden');
+        showRecognitionState('welcome');
+        locationContinue.setAttribute('disabled', '');
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Contact recognition check failed (non-blocking):', err);
+      });
+  }
+
+  recognitionConfirmBtn.addEventListener('bui-click', function () {
+    var placeId = state.address.placeId;
+    var emailAttempt = recognitionEmailValue;
+    recognitionEmailError.classList.add('hidden');
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
+    })
+      .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
+      .then(function (data) {
+        if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        if (data && data.confirmed) {
+          showRecognitionState('done');
+          recognitionDoneMessage.textContent = 'Thanks, ' + state.recognition.firstName + '! Continue below to get your updated proposal.';
+          locationContinue.removeAttribute('disabled');
+          return;
+        }
+        state.recognition.attempts++;
+        if (state.recognition.attempts >= 2) {
+          showRecognitionState('phone');
+        } else {
+          recognitionEmailError.classList.remove('hidden');
+        }
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Email confirmation failed:', err);
+        recognitionEmailError.classList.remove('hidden');
+      });
+  });
+
+  recognitionPhoneBtn.addEventListener('bui-click', function () {
+    var phone = recognitionPhoneValue;
+    if (!phone) return;
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'conflict',
+        googlePlaceId: state.address.placeId,
+        formattedAddress: state.address.formattedAddress,
+        phone: phone,
+        existingFirstName: state.recognition.firstName,
+        existingContactId: state.recognition.contactId
+      })
+    })
+      .then(function () {
+        showRecognitionState('done');
+        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly.";
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Conflict handoff failed:', err);
+        showRecognitionState('done');
+        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly.";
+      });
+  });
 
   // Renders the Snapshot-step RentCast preview from state.rentCast. Reuses
   // the same buildStatBlock/buildComparableRow helpers and .property-snapshot
