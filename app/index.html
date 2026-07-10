@@ -1469,6 +1469,22 @@
     // still a fixed guess, not a real "has GHL indexed it yet" check.
     GHL_SUBMIT_SETTLE_MS: 900,
 
+    // writeField (ghl-bridge.js) writes a value immediately, then schedules
+    // a defensive SECOND write ~50ms later because GHL's own hydration/
+    // re-render can clobber the first one — "a value that looks right on
+    // screen can still submit empty." submitNativeThenAssess() used to
+    // click GHL_SUBMIT_SELECTOR in the same tick as syncGhlField, racing
+    // that defensive rewrite: if GHL clobbered the first write, the click
+    // fired before the safety write landed, submitting a blank
+    // googlePlaceId/propertyName. Confirmed live: three separate test
+    // submissions all fired GHL's webhook (proving the click itself
+    // worked) but created no matching Property record at all — not
+    // findable by placeId OR by address text — consistent with GHL never
+    // receiving a real property name to create the record with. This is
+    // the wait before clicking submit, comfortably past writeField's 50ms
+    // retry delay.
+    GHL_PRE_SUBMIT_WRITE_MS: 150,
+
     // The Fee Calculation flow's request schema also expects these add-on
     // toggles (see power-automate-build-spec.md). This funnel's 9 steps
     // don't collect them, so if another page/step in this GHL funnel does,
@@ -2597,11 +2613,16 @@
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
 
-    var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
-    if (!submitted) {
-      console.warn('[brichaus-assessment] Native GHL submit control not found (' + CONFIG.GHL_SUBMIT_SELECTOR + ') — the Property record was not created via GHL submission before scoring.');
-    }
-    setTimeout(runAssessment, submitted ? CONFIG.GHL_SUBMIT_SETTLE_MS : 0);
+    // Wait past writeField's own 50ms defensive rewrite (see GHL_PRE_SUBMIT_WRITE_MS)
+    // before clicking submit, so GHL can't clobber the first write and have
+    // the click fire on a blank field.
+    setTimeout(function () {
+      var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
+      if (!submitted) {
+        console.warn('[brichaus-assessment] Native GHL submit control not found (' + CONFIG.GHL_SUBMIT_SELECTOR + ') — the Property record was not created via GHL submission before scoring.');
+      }
+      setTimeout(runAssessment, submitted ? CONFIG.GHL_SUBMIT_SETTLE_MS : 0);
+    }, CONFIG.GHL_PRE_SUBMIT_WRITE_MS);
   }
 
   /* =====================================================================
