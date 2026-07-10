@@ -272,7 +272,46 @@
     background: #FFFFFF;
     border-radius: 14px;
     padding: 28px;
+    height: 100%;
+    box-sizing: border-box;
     transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+  /* Commercial (disabled) card: same footprint as its siblings, marked with
+     an overlay badge instead of the meta slot. The component's own disabled
+     style fades the whole card to 0.5 opacity, which would wash out the
+     badge too — so opacity is reset and the muting is done here instead. */
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] {
+    position: relative;
+    overflow: hidden;
+    opacity: 1;
+    background: #FAFBFC;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__label,
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__description {
+    color: #A6ACB6;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.45);
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::after {
+    content: 'COMING SOON';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-6deg);
+    padding: 6px 14px;
+    border: 1.5px solid #C6CAD2;
+    border-radius: 999px;
+    background: #FFFFFF;
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    box-shadow: 0 2px 8px rgba(20, 24, 32, 0.08);
+    white-space: nowrap;
   }
   #brichaus-assessment #property-type-choice-group .bui-choice-card[aria-checked="true"] {
     border: 2px solid #4C5768;
@@ -974,10 +1013,12 @@
             description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
           <!-- Visible but not yet selectable — the funnel's scoring/fee logic
                doesn't support commercial yet. The disabled attribute is the
-               component's own (blocks selection, greys the card). -->
+               component's own (blocks selection); the "Coming Soon" marker is
+               a CSS overlay badge (see the commercial-card rules) rather than
+               the meta slot, so this card stays the same height as the other
+               two. -->
           <bui-choice-card value="commercial" label="Commercial" disabled
-            description="Mixed Use, Neighborhood Retail, Gas Stations."
-            meta="Coming Soon" meta-tone="slate"></bui-choice-card>
+            description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
         </bui-choice-group>
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-count-input" label="Number of Units" type="number" min="2" placeholder="e.g. 8"></bui-input>
