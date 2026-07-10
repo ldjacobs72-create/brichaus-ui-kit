@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Management Proposal</title>
+
+<!--
+  Brichaus Management Proposal Viewer — pasted as a GHL Custom HTML element
+  on its own funnel/website page, live at
+  https://mgmt.brichausgroup.com/residential-management-proposal/?placeId=<GooglePlaceID>
+  (see PropScore: Main Pipeline's "Update GHL Property Record" step, which
+  writes this exact URL to the property's proposal_link field once an
+  assessment finishes). Renders the property's stored
+  cr55d_onlineproposaljson (Dataverse) as an interactive page instead of a
+  static file — nothing is permanently stored as a PDF; "download" is just
+  window.print().
+
+  Gated behind email confirmation (same PropScore: Contact Recognition &
+  Conflict workflow the assessment funnel uses, actions "recognize" /
+  "confirmEmail" / "conflict" / "getCachedProposal") so a guessed or shared
+  placeId can't expose another owner's proposal. The real stored email is
+  never sent to this page for comparison — only the server's boolean
+  confirmed/recognized result is.
+-->
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/card.js"></script>
+
+<style>
+  /* ===== Premium visual pass: page canvas, intro title, card chrome -----
+     Same treatment as app/index.html's redesign pass -- see that file for
+     the full rationale. This <style> tag is pasted whole into the host GHL
+     page (see the top-of-file doc comment), which carries no other content
+     of its own, so styling body directly is the intended full-page canvas. */
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: #ffffff;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(90deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
+      radial-gradient(circle at 50% 0%, #ffffff 0%, #eef0f3 100%);
+    background-attachment: fixed;
+  }
+  #brichaus-proposal {
+    font-family: var(--bui-font-family);
+    color: var(--bui-color-text);
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--bui-space-4) var(--bui-space-4) var(--bui-space-6);
+  }
+  #brichaus-proposal .proposal-intro {
+    text-align: center;
+    max-width: 620px;
+    margin: 0 auto var(--bui-space-5);
+  }
+  #brichaus-proposal .proposal-intro h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    font-weight: 700;
+    color: #2B2F36;
+  }
+  #brichaus-proposal .proposal-intro p {
+    margin: 0 auto;
+    max-width: 520px;
+    font-size: 16px;
+    color: #6B7280;
+  }
+  #brichaus-proposal .bui-card { overflow: hidden; }
+  #brichaus-proposal .bui-card[data-variant="elevated"] {
+    box-shadow: 0 1px 2px rgba(20, 24, 32, 0.04), 0 24px 48px -16px rgba(20, 24, 32, 0.16);
+  }
+  #brichaus-proposal .bui-card[data-padding="sm"] .bui-card__header,
+  #brichaus-proposal .bui-card[data-padding="sm"] .bui-card__body,
+  #brichaus-proposal .bui-card[data-padding="sm"] .bui-card__footer {
+    padding: 0;
+  }
+  #brichaus-proposal .step-body-pad { padding: 52px 56px 44px; }
+  @media (max-width: 420px) {
+    #brichaus-proposal { padding-left: 10px; padding-right: 10px; }
+    #brichaus-proposal .step-body-pad { padding: 28px 16px 24px; }
+    #brichaus-proposal .proposal-panel { padding: 32px 24px; }
+  }
+  #brichaus-proposal .hidden { display: none !important; }
+
+  /* ---- Status panels (loading / invalid / not-found / unavailable /
+     gate) -- styled as their own card (white, radius, soft shadow) so they
+     read as a finished part of the page rather than bare text floating on
+     the new grid background. ---- */
+  #brichaus-proposal .proposal-panel {
+    text-align: center;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 52px 56px;
+    background: var(--bui-color-surface);
+    border-radius: var(--bui-radius-lg);
+    box-shadow: 0 1px 2px rgba(20, 24, 32, 0.04), 0 24px 48px -16px rgba(20, 24, 32, 0.16);
+  }
+  #brichaus-proposal .proposal-status-text {
+    margin: 0 0 var(--bui-space-4);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text-muted);
+    line-height: 1.6;
+  }
+
+  /* "Confirm Email" / phone-capture "Submit" are variant="slate", the same
+     forward-navigation semantic as app/index.html's "Continue" -- same rust
+     restyle for visual consistency between the two pages. */
+  #brichaus-proposal .bui-btn[data-variant="slate"] {
+    height: 52px;
+    padding: 0 40px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    background: #C1633F;
+    border-color: #C1633F;
+    color: #FFFFFF;
+    box-shadow: 0 4px 14px rgba(193, 99, 63, 0.35);
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  }
+  #brichaus-proposal .bui-btn[data-variant="slate"]:hover:not(:disabled) {
+    background: #AC5333;
+    border-color: #AC5333;
+    transform: translateY(-1px);
+  }
+  #brichaus-proposal .bui-btn[data-variant="slate"]:disabled {
+    background: #DCDFE4;
+    border-color: #DCDFE4;
+    color: #9AA0AA;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  /* ---- Trust panel below the card -- same 4-item row as app/index.html ---- */
+  #brichaus-proposal .trust-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px 32px;
+    margin: var(--bui-space-6) auto 0;
+    max-width: 800px;
+  }
+  #brichaus-proposal .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6B7280;
+    white-space: nowrap;
+  }
+  #brichaus-proposal .trust-item__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #EEF1F5;
+    color: #4C5768;
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* ---- Email-confirmation gate (ported from app/index.html's
+     recognition panel) ---- */
+  #brichaus-proposal .recognition-panel {
+    padding: var(--bui-space-4);
+    background: var(--bui-color-info-bg);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+    text-align: left;
+  }
+  #brichaus-proposal .recognition-message {
+    margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  #brichaus-proposal .recognition-error {
+    margin: 4px 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-danger);
+  }
+  #brichaus-proposal .recognition-state bui-button { margin-top: var(--bui-space-3); }
+
+  /* ---- Report layout (ported verbatim from app/index.html's Results step:
+     Operational Workload + Proposal service cards + CTA. Evidence/comps/
+     RentCast blocks are intentionally NOT ported — that raw data isn't part
+     of the stored proposal JSON.) ---- */
+  #brichaus-proposal .report-address {
+    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--bui-color-text-faint); margin: 0 0 4px;
+  }
+  #brichaus-proposal .report-h2 { margin: 0 0 var(--bui-space-4); font-size: 1.3rem; letter-spacing: -0.01em; }
+  #brichaus-proposal .report-kicker {
+    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
+    color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
+  }
+  #brichaus-proposal .report-band-pill {
+    font-size: 0.95rem; font-weight: 750; letter-spacing: 0.02em; margin-bottom: var(--bui-space-3);
+    color: var(--bui-color-accent);
+  }
+  #brichaus-proposal .report-band-pill[data-tone="slate"] { color: var(--bui-color-slate); }
+  #brichaus-proposal .report-band-pill[data-tone="accent"] { color: var(--bui-color-accent); }
+  #brichaus-proposal .report-band-pill[data-tone="warning"] { color: var(--bui-color-warning); }
+  #brichaus-proposal .report-band-pill[data-tone="danger"] { color: var(--bui-color-danger); }
+  #brichaus-proposal .op-profile { text-align: left; }
+  #brichaus-proposal .workload-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--bui-space-3); margin-bottom: var(--bui-space-2);
+  }
+  #brichaus-proposal .demand-meter { flex: 1; max-width: 190px; }
+  #brichaus-proposal .demand-meter__track {
+    position: relative; height: 7px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--bui-color-slate) 0%, var(--bui-color-accent) 45%, var(--bui-color-warning) 72%, var(--bui-color-danger) 100%);
+  }
+  #brichaus-proposal .demand-meter__mark {
+    position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--bui-color-surface); border: 3px solid var(--bui-color-accent);
+    transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  #brichaus-proposal .demand-meter__mark[data-tone="slate"] { border-color: var(--bui-color-slate); }
+  #brichaus-proposal .demand-meter__mark[data-tone="accent"] { border-color: var(--bui-color-accent); }
+  #brichaus-proposal .demand-meter__mark[data-tone="warning"] { border-color: var(--bui-color-warning); }
+  #brichaus-proposal .demand-meter__mark[data-tone="danger"] { border-color: var(--bui-color-danger); }
+  #brichaus-proposal .demand-meter__scale { display: flex; justify-content: space-between; margin-top: 6px; }
+  #brichaus-proposal .demand-meter__scale span {
+    font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bui-color-text-faint);
+  }
+  #brichaus-proposal .workload-summary {
+    margin: 0 0 var(--bui-space-3); font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55;
+  }
+  #brichaus-proposal .op-profile-row { border-top: 1px solid var(--bui-color-border); }
+  #brichaus-proposal .op-profile-row:first-child { border-top: none; }
+  #brichaus-proposal .op-profile-head {
+    display: flex; align-items: center; gap: var(--bui-space-2);
+    padding: var(--bui-space-3) 0; cursor: pointer; list-style: none;
+  }
+  #brichaus-proposal .op-profile-head::-webkit-details-marker { display: none; }
+  #brichaus-proposal .op-profile-head::after {
+    content: '›'; margin-left: auto; font-size: 14px; font-weight: 700;
+    color: var(--bui-color-text-faint); transition: transform var(--bui-transition-base, 150ms ease);
+  }
+  #brichaus-proposal .op-profile-row[open] > .op-profile-head::after { transform: rotate(90deg); }
+  #brichaus-proposal .op-profile-head:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
+  #brichaus-proposal .op-cat-name { font-weight: 700; font-size: 13px; }
+  #brichaus-proposal .op-cat-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 1px 7px; border-radius: 999px; background: transparent;
+    color: var(--bui-color-text-muted); border: 1px solid var(--bui-color-border);
+  }
+  #brichaus-proposal .op-cat-label[data-tone="low"] { color: var(--bui-color-success); border-color: var(--bui-color-success); background: var(--bui-color-success-bg); }
+  #brichaus-proposal .op-cat-label[data-tone="normal"] { color: var(--bui-color-info); border-color: var(--bui-color-info); background: var(--bui-color-info-bg); }
+  #brichaus-proposal .op-cat-label[data-tone="high"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
+  #brichaus-proposal .op-cat-label[data-tone="severe"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
+  #brichaus-proposal .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
+
+  #brichaus-proposal .revenue-hero {
+    position: relative; overflow: hidden;
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4) var(--bui-space-5);
+    border-radius: var(--bui-radius-md);
+    background: #1c2230; color: #fff;
+  }
+  #brichaus-proposal .revenue-hero__orb {
+    position: absolute; top: -40px; right: -30px; width: 150px; height: 150px;
+    border-radius: 50%; background: #3f4c60; opacity: 0.45; pointer-events: none;
+  }
+  #brichaus-proposal .revenue-hero__kicker {
+    position: relative; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: #9aa4b0; margin-bottom: 6px;
+  }
+  #brichaus-proposal .revenue-hero__amount {
+    position: relative; font-size: 2.6rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
+  }
+  #brichaus-proposal .revenue-hero__sub { position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4; }
+  #brichaus-proposal .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
+
+  #brichaus-proposal .proposal-section { text-align: left; margin-top: var(--bui-space-5); }
+  #brichaus-proposal .report-summary {
+    text-align: left; margin-top: var(--bui-space-4);
+    padding-left: var(--bui-space-3); border-left: 3px solid var(--bui-color-accent);
+  }
+  #brichaus-proposal .report-summary-text { margin: 0; font-size: var(--bui-font-size-md); line-height: 1.6; color: var(--bui-color-text); }
+  #brichaus-proposal .report-confidence {
+    margin: var(--bui-space-2) 0 0; font-size: 11.5px; color: var(--bui-color-text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  #brichaus-proposal .report-confidence::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--bui-color-accent); flex: 0 0 auto;
+  }
+  #brichaus-proposal .service-list { display: flex; flex-direction: column; gap: var(--bui-space-3); margin-top: var(--bui-space-4); }
+  #brichaus-proposal .service-card { border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
+  #brichaus-proposal .service-card__head { display: flex; align-items: center; gap: var(--bui-space-2); margin-bottom: 6px; }
+  #brichaus-proposal .service-card__icon { font-size: 20px; line-height: 1; }
+  #brichaus-proposal .service-card__title { margin: 0; font-size: 14.5px; font-weight: 700; color: var(--bui-color-text); }
+  #brichaus-proposal .service-card__desc { margin: 0; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55; }
+  #brichaus-proposal .service-card__details { margin-top: 10px; }
+  #brichaus-proposal .service-card__summary {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+    font-size: 12.5px; font-weight: 700; color: var(--bui-color-accent); padding: 2px 0;
+  }
+  #brichaus-proposal .service-card__summary::-webkit-details-marker { display: none; }
+  #brichaus-proposal .service-card__summary::after { content: '›'; margin-left: auto; font-size: 14px; font-weight: 700; transition: transform 150ms ease; }
+  #brichaus-proposal .service-card__details[open] > .service-card__summary::after { transform: rotate(90deg); }
+  #brichaus-proposal .service-card__summary:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
+  #brichaus-proposal .service-card__list { margin: 8px 0 0; padding-left: 20px; }
+  #brichaus-proposal .service-card__list li { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; margin-bottom: 5px; }
+  #brichaus-proposal .service-card__list li:last-child { margin-bottom: 0; }
+  #brichaus-proposal .service-card__list--checks { list-style: none; padding-left: 0; margin-top: 10px; }
+  #brichaus-proposal .service-card__check-row { margin-bottom: 2px; }
+  #brichaus-proposal .service-card__check-row:last-child { margin-bottom: 0; }
+  #brichaus-proposal .service-card__check-label { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+  #brichaus-proposal .service-card__checkbox {
+    flex: 0 0 auto; width: 19px; height: 19px; margin-top: 1px; border-radius: 5px;
+    border: 2px solid var(--bui-color-border-strong); background: var(--bui-color-surface);
+    position: relative; transition: background 120ms ease, border-color 120ms ease;
+  }
+  #brichaus-proposal .service-card__checkbox.is-checked { background: var(--bui-color-accent); border-color: var(--bui-color-accent); }
+  #brichaus-proposal .service-card__checkbox.is-checked::after {
+    content: ''; position: absolute; left: 5px; top: 1px; width: 6px; height: 11px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  #brichaus-proposal .service-card__check-textcol { flex: 1 1 auto; min-width: 0; padding-top: 1px; }
+  #brichaus-proposal .service-card__check-text { display: block; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.45; }
+  #brichaus-proposal .service-card__check-text.is-checked { color: var(--bui-color-text); font-weight: 600; }
+  #brichaus-proposal .service-card__check-rationale {
+    margin: 3px 0 0; font-size: 11.5px; font-weight: 400; color: var(--bui-color-text-muted); line-height: 1.5;
+  }
+  #brichaus-proposal .service-card.will-reveal {
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 420ms ease, transform 420ms ease;
+  }
+  #brichaus-proposal .service-card.will-reveal.is-revealed { opacity: 1; transform: translateY(0); }
+  #brichaus-proposal .service-card__checkbox.will-pop {
+    transform: scale(0.4); opacity: 0;
+    transition: transform 220ms cubic-bezier(.34, 1.56, .64, 1), opacity 220ms ease;
+  }
+  #brichaus-proposal .service-card__checkbox.will-pop.is-popped { transform: scale(1); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-proposal .service-card.will-reveal,
+    #brichaus-proposal .service-card__checkbox.will-pop { transition: none; }
+  }
+
+  #brichaus-proposal .report-cta { margin-top: var(--bui-space-5); }
+  #brichaus-proposal .cta-followup-note {
+    margin: var(--bui-space-2) 0 0; font-size: 11.5px; color: var(--bui-color-text-muted); text-align: center;
+  }
+  #brichaus-proposal .report-download {
+    display: block; width: 100%; margin-top: var(--bui-space-3); padding: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-accent); text-decoration: underline; text-underline-offset: 2px;
+  }
+  #brichaus-proposal .report-download:hover { color: var(--bui-color-accent-hover); }
+  #brichaus-proposal .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
+
+  @media print {
+    #brichaus-proposal .recognition-panel,
+    #brichaus-proposal .report-cta { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="brichaus-proposal">
+
+  <!-- Persistent title/subtitle above every state -- same pattern as
+       app/index.html's .assessment-intro (showPanel() only ever toggles
+       .hidden on [data-state] elements, never touches this sibling). -->
+  <div class="proposal-intro">
+    <h1>Your Management Proposal</h1>
+    <p>Confirm your email below to view your personalized property management proposal.</p>
+  </div>
+
+  <div data-state="loading" class="proposal-panel">
+    <p class="proposal-status-text" id="loading-status-text">Checking your link…</p>
+  </div>
+
+  <div data-state="invalid" class="proposal-panel hidden">
+    <p class="proposal-status-text">This link is missing a property reference. Please use the link from your email, or contact us directly.</p>
+  </div>
+
+  <div data-state="notfound" class="proposal-panel hidden">
+    <p class="proposal-status-text">We couldn't find a proposal for this property. If you believe this is an error, please contact us.</p>
+  </div>
+
+  <div data-state="unavailable" class="proposal-panel hidden">
+    <p class="proposal-status-text">Your proposal isn't ready yet. Please check back shortly, or schedule a consultation and we'll walk you through it directly.</p>
+    <bui-button variant="primary" id="unavailable-schedule-btn">Schedule your consultation</bui-button>
+  </div>
+
+  <!-- Email-confirmation gate — same recognize/confirmEmail/conflict actions
+       as app/index.html's in-funnel recognition panel (PropScore: Contact
+       Recognition & Conflict). See that file's checkContactRecognition()
+       doc comment for the full business-rule rationale. -->
+  <div data-state="gate" class="proposal-panel hidden">
+    <div id="recognition-panel" class="recognition-panel">
+      <div id="recognition-welcome" class="recognition-state hidden">
+        <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your management proposal.</p>
+        <bui-input id="recognition-email-input" label="Email" type="email"></bui-input>
+        <p id="recognition-email-error" class="recognition-error hidden">That doesn't match what we have on file — please try again.</p>
+        <bui-button id="recognition-confirm-btn" variant="slate">Confirm Email</bui-button>
+      </div>
+      <div id="recognition-phone" class="recognition-state hidden">
+        <p class="recognition-message">We couldn't confirm your email. Leave a phone number and we'll have someone reach out to help.</p>
+        <bui-input id="recognition-phone-input" label="Phone Number" type="tel"></bui-input>
+        <bui-button id="recognition-phone-btn" variant="slate">Submit</bui-button>
+      </div>
+      <div id="recognition-done" class="recognition-state hidden">
+        <p id="recognition-done-message" class="recognition-message"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- The rendered proposal — ported from app/index.html's Results step
+       (Operational Workload + Proposal service cards + CTA). No progress
+       bar/header here; this isn't a funnel step. -->
+  <div data-state="report" class="hidden">
+    <bui-card variant="elevated" padding="sm" class="results-card">
+      <div class="step-body-pad">
+        <p id="report-address" class="report-address hidden"></p>
+        <h2 class="report-h2">Your Management Proposal Report</h2>
+
+        <div id="op-profile" class="op-profile hidden">
+          <div class="report-kicker">Operational Workload</div>
+          <div class="workload-head">
+            <div class="report-band-pill" id="hero-band">—</div>
+            <div class="demand-meter">
+              <div class="demand-meter__track"><span class="demand-meter__mark" id="demand-mark"></span></div>
+              <div class="demand-meter__scale"><span>Low</span><span>Severe</span></div>
+            </div>
+          </div>
+          <p id="workload-summary" class="workload-summary hidden"></p>
+          <div id="op-profile-list"></div>
+        </div>
+
+        <div id="report-summary" class="report-summary hidden">
+          <p class="report-summary-text" id="report-summary-text"></p>
+          <p class="report-confidence hidden" id="report-confidence"></p>
+        </div>
+
+        <div class="proposal-section">
+          <div class="report-kicker">Our Proposal</div>
+          <div class="revenue-hero">
+            <span class="revenue-hero__orb" aria-hidden="true"></span>
+            <div class="revenue-hero__kicker">Full Service Management</div>
+            <div class="revenue-hero__amount num" id="hero-fee">—</div>
+            <div class="revenue-hero__sub" id="hero-fee-sub"></div>
+          </div>
+          <div class="service-list" id="service-cards"></div>
+        </div>
+
+        <div class="report-cta">
+          <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
+          <p class="cta-followup-note">Questions about this proposal? We're happy to walk through it with you.</p>
+          <button type="button" id="download-report-btn" class="report-download">Download this proposal (PDF)</button>
+        </div>
+      </div>
+    </bui-card>
+  </div>
+
+  <!-- Persistent trust row below every state -- same pattern/copy as
+       app/index.html's .trust-panel. -->
+  <div class="trust-panel">
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Response Within 24 Hours</span>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  if (!window.BUI) {
+    console.error('[brichaus-proposal] core.js must be loaded first.');
+    return;
+  }
+
+  /* =====================================================================
+   * Config
+   * =================================================================== */
+  var CONFIG = {
+    // Same n8n workflow the assessment funnel uses (see
+    // PropScore: Contact Recognition & Conflict) — this page only calls its
+    // recognize/confirmEmail/conflict/getCachedProposal actions.
+    CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
+    // Where "Schedule Consultation" sends the visitor. Leave blank to no-op
+    // with a console warning instead of navigating to a dead link.
+    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya'
+  };
+
+  var root = document.getElementById('brichaus-proposal');
+  var panels = {};
+  root.querySelectorAll('[data-state]').forEach(function (el) {
+    panels[el.getAttribute('data-state')] = el;
+  });
+  function showPanel(name) {
+    Object.keys(panels).forEach(function (key) {
+      panels[key].classList.toggle('hidden', key !== name);
+    });
+  }
+
+  var placeId = new URLSearchParams(window.location.search).get('placeId');
+
+  /* =====================================================================
+   * Email-confirmation gate (ported from app/index.html's recognition
+   * panel — see checkContactRecognition()/recognitionConfirmBtn/
+   * recognitionPhoneBtn there for the original, in-funnel version).
+   * =================================================================== */
+  var recognitionFirstname = document.getElementById('recognition-firstname');
+  var recognitionEmailInput = document.getElementById('recognition-email-input');
+  var recognitionEmailError = document.getElementById('recognition-email-error');
+  var recognitionConfirmBtn = document.getElementById('recognition-confirm-btn');
+  var recognitionPhone = document.getElementById('recognition-phone');
+  var recognitionPhoneInput = document.getElementById('recognition-phone-input');
+  var recognitionPhoneBtn = document.getElementById('recognition-phone-btn');
+  var recognitionDone = document.getElementById('recognition-done');
+  var recognitionDoneMessage = document.getElementById('recognition-done-message');
+  var recognitionWelcome = document.getElementById('recognition-welcome');
+
+  var recognition = { firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+  var recognitionEmailValue = '';
+  var recognitionPhoneValue = '';
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    recognitionEmailInput.addEventListener(eventName, function (evt) {
+      recognitionEmailValue = (evt.detail.value || '').trim();
+    });
+    recognitionPhoneInput.addEventListener(eventName, function (evt) {
+      recognitionPhoneValue = (evt.detail.value || '').trim();
+    });
+  });
+
+  function showRecognitionState(name) {
+    recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
+    recognitionPhone.classList.toggle('hidden', name !== 'phone');
+    recognitionDone.classList.toggle('hidden', name !== 'done');
+  }
+
+  recognitionConfirmBtn.addEventListener('bui-click', function () {
+    var emailAttempt = recognitionEmailValue;
+    recognitionEmailError.classList.add('hidden');
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
+    })
+      .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
+      .then(function (data) {
+        if (data && data.confirmed) {
+          loadProposal();
+          return;
+        }
+        // Kept so the conflict handoff below can hand a human every email
+        // this visitor actually tried — useful context for figuring out who
+        // they really are, even though it never gets compared against the
+        // real stored email again here (that comparison is server-side only).
+        if (emailAttempt) recognition.wrongEmails.push(emailAttempt);
+        recognition.attempts++;
+        if (recognition.attempts >= 2) {
+          showRecognitionState('phone');
+        } else {
+          recognitionEmailError.classList.remove('hidden');
+        }
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-proposal] Email confirmation failed:', err);
+        recognitionEmailError.classList.remove('hidden');
+      });
+  });
+
+  recognitionPhoneBtn.addEventListener('bui-click', function () {
+    var phone = recognitionPhoneValue;
+    if (!phone) return;
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'conflict',
+        googlePlaceId: placeId,
+        formattedAddress: '',
+        phone: phone,
+        existingFirstName: recognition.firstName,
+        existingContactId: recognition.contactId,
+        wrongEmailAttempts: recognition.wrongEmails
+      })
+    })
+      .then(function () {
+        showRecognitionState('done');
+        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly to help you access your proposal.";
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-proposal] Conflict handoff failed:', err);
+        showRecognitionState('done');
+        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly to help you access your proposal.";
+      });
+  });
+
+  /* =====================================================================
+   * Page bootstrap: recognize -> gate -> confirmEmail -> getCachedProposal
+   * =================================================================== */
+  function init() {
+    if (!placeId) {
+      showPanel('invalid');
+      return;
+    }
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
+    })
+      .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
+      .then(function (data) {
+        if (!data || !data.recognized) {
+          showPanel('notfound');
+          return;
+        }
+        recognition.firstName = data.firstName || '';
+        recognition.contactId = data.contactId || '';
+        recognitionFirstname.textContent = recognition.firstName;
+        showRecognitionState('welcome');
+        showPanel('gate');
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-proposal] Contact recognition check failed:', err);
+        showPanel('notfound');
+      });
+  }
+
+  function loadProposal() {
+    showPanel('loading');
+    document.getElementById('loading-status-text').textContent = 'Loading your proposal…';
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getCachedProposal', googlePlaceId: placeId })
+    })
+      .then(function (res) { return res.ok ? res.json() : { found: false }; })
+      .then(function (data) {
+        if (!data || !data.found) {
+          showPanel('unavailable');
+          return;
+        }
+        renderProposal(data);
+        showPanel('report');
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-proposal] getCachedProposal failed:', err);
+        showPanel('unavailable');
+      });
+  }
+
+  /* =====================================================================
+   * DemandEngine — verbatim from app/index.html (see that file's own copy
+   * for the "why" doc comment; not re-derived here since it's an exact
+   * duplicate on purpose — see the descoped shared-module extraction).
+   * =================================================================== */
+  var DemandEngine = (function () {
+    var BANDS = [
+      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Minimal Operational Complexity', tone: 'slate' },
+      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-Average Operational Complexity', tone: 'slate' },
+      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical Operational Complexity', tone: 'accent' },
+      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-Average Operational Complexity', tone: 'warning' },
+      { min: 3.00, max: 7.99, label: 'HIGH', caption: 'High Operational Complexity', tone: 'warning' },
+      { min: 8.00, max: 16.00, label: 'SEVERE', caption: 'Severe Operational Complexity', tone: 'danger' }
+    ];
+
+    function bandByLabel(label) {
+      var norm = String(label || '').trim().toUpperCase();
+      return BANDS.filter(function (b) { return b.label === norm; })[0] || null;
+    }
+
+    function gaugePercent(s) {
+      var log2 = Math.log(s) / Math.LN2; // -4..4
+      var clamped = Math.max(-4, Math.min(4, log2));
+      return Math.round(((clamped + 4) / 8) * 100);
+    }
+
+    return { bandByLabel: bandByLabel, gaugePercent: gaugePercent };
+  })();
+
+  function currency(n) {
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+
+  /* =====================================================================
+   * Proposal — 5 branded service cards (verbatim from app/index.html;
+   * see that file for the full doc comments on each table).
+   * =================================================================== */
+  var SERVICE_CARDS = [
+    { icon: '🏠', title: 'Market-to-Move-In™',
+      desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
+      items: [
+        'Comparable Marketing Analysis &amp; Real Estate Consulting',
+        'Property Analysis &amp; Market Preparation',
+        'Unit Marketing with Photos / 3D Tour',
+        'Property Showing',
+        'Comprehensive Resident Screening',
+        'Pet Policy &amp; Pet Screening Services',
+        'Collect Security Deposit',
+        'Lease Negotiation &amp; Preparation',
+        'Confirm Utilities Transfer',
+        'Move-in Inspection'
+      ] },
+    { icon: '🔧', title: 'VendorCare™',
+      desc: 'Protect your property\'s condition through proactive maintenance planning, responsive repair coordination, and trusted vendor oversight.',
+      items: ['24/7 Maintenance &amp; Repair Coordination'] },
+    { icon: '💰', title: 'CashFlow Command™',
+      desc: 'Maintain consistent cash flow with disciplined financial management, transparent reporting, and compliance-focused administration.',
+      items: [
+        'Automated Rent Collection',
+        'Monthly Billing &amp; Collection',
+        'Automatic ACH Electronic Bank Deposit Service',
+        'Detailed Monthly Statements &amp; Accounting',
+        'Annual 1099 Preparation',
+        'Scalable Management Systems',
+        'Resident Benefit Packages',
+        'Lease Enforcement',
+        'Legal Compliance &amp; Protection',
+        'Eviction Oversight'
+      ] },
+    { icon: '🚚', title: 'Move-Out-to-Ready™',
+      desc: 'Whether a resident renews or moves out, we coordinate every transition to protect your investment and minimize vacancy.',
+      items: [
+        'Move-out Inspection',
+        'Move Out Coordination &amp; Security Deposit',
+        'Coordinate Rent Ready Work',
+        'Confirm Utilities Transfer',
+        'Coordinate Tenant Communications',
+        'Negotiate Lease Renewals &amp; Agreements'
+      ] }
+  ];
+
+  var ASSET_SHIELD = {
+    icon: '🛡️', title: 'AssetShield™',
+    desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
+    items: [
+      'Annual Inspections',
+      'Pet Placement Protection',
+      'Lease Placement Protection',
+      'Eviction Protection'
+    ]
+  };
+
+  var CATEGORY_KEY_BY_NAME = {
+    'Tenant Friction': 'tenantFriction',
+    'Turnover Pressure': 'turnoverPressure',
+    'Maintenance Burden': 'maintenanceBurden',
+    'Compliance Burden': 'complianceBurden'
+  };
+
+  var ASSET_SHIELD_TRIGGERS = {
+    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection'] },
+    turnoverPressure: { Severe: ['Lease Placement Protection'] },
+    maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
+  };
+
+  var ASSET_SHIELD_RATIONALE = {
+    'Eviction Protection': 'Tenant friction on this property is running high, which raises the odds of needing to pursue an eviction — this covers that process if it becomes necessary.',
+    'Lease Placement Protection': 'Given how severe turnover is on this property, this reduces the cost of re-leasing units that turn over repeatedly.',
+    'Annual Inspections': 'Maintenance demand here is elevated — proactive inspections catch issues before they escalate into larger, costlier repairs.'
+  };
+
+  var ASSET_SHIELD_OPT_IN_NOTES = {
+    'Pet Placement Protection': "Accepting pets can be a difficult decision — we're committed to making it easier for you."
+  };
+
+  function computeBadgedAssetShieldItems(categories) {
+    var badged = new Set();
+    categories.forEach(function (cat) {
+      var key = CATEGORY_KEY_BY_NAME[cat.category];
+      var forKey = key && ASSET_SHIELD_TRIGGERS[key];
+      var forLabel = forKey && forKey[cat.label];
+      if (forLabel) forLabel.forEach(function (item) { badged.add(item); });
+    });
+    return badged;
+  }
+
+  function buildServiceCard(card, badgedSet) {
+    var wrap = document.createElement('div');
+    wrap.className = 'service-card';
+
+    var head = document.createElement('div');
+    head.className = 'service-card__head';
+    var icon = document.createElement('span');
+    icon.className = 'service-card__icon';
+    icon.textContent = card.icon;
+    var title = document.createElement('h3');
+    title.className = 'service-card__title';
+    title.textContent = card.title;
+    head.appendChild(icon);
+    head.appendChild(title);
+    wrap.appendChild(head);
+
+    var desc = document.createElement('p');
+    desc.className = 'service-card__desc';
+    desc.textContent = card.desc;
+    wrap.appendChild(desc);
+
+    var details = document.createElement('details');
+    details.className = 'service-card__details';
+    var badgedCount = badgedSet ? badgedSet.size : 0;
+    if (badgedCount > 0) details.setAttribute('open', '');
+    var summary = document.createElement('summary');
+    summary.className = 'service-card__summary';
+    summary.textContent = badgedCount > 0 ? ('View Included Services · ' + badgedCount + ' recommended for you') : 'View Included Services';
+    details.appendChild(summary);
+
+    var items = card.items.slice();
+    if (badgedCount > 0) {
+      items.sort(function (a, b) { return (badgedSet.has(a) ? 0 : 1) - (badgedSet.has(b) ? 0 : 1); });
+    }
+
+    var ul = document.createElement('ul');
+    ul.className = 'service-card__list' + (badgedSet ? ' service-card__list--checks' : '');
+    items.forEach(function (item) {
+      var li = document.createElement('li');
+      if (badgedSet) {
+        li.className = 'service-card__check-row';
+        var isChecked = badgedSet.has(item);
+        var rowWrap = document.createElement('div');
+        rowWrap.className = 'service-card__check-label';
+        var box = document.createElement('span');
+        box.className = 'service-card__checkbox' + (isChecked ? ' is-checked' : '');
+        var textCol = document.createElement('div');
+        textCol.className = 'service-card__check-textcol';
+        var textSpan = document.createElement('span');
+        textSpan.className = 'service-card__check-text' + (isChecked ? ' is-checked' : '');
+        textSpan.innerHTML = item;
+        textCol.appendChild(textSpan);
+        if (isChecked && ASSET_SHIELD_RATIONALE[item]) {
+          var rationale = document.createElement('p');
+          rationale.className = 'service-card__check-rationale';
+          rationale.textContent = ASSET_SHIELD_RATIONALE[item];
+          textCol.appendChild(rationale);
+        } else if (ASSET_SHIELD_OPT_IN_NOTES[item]) {
+          var optInNote = document.createElement('p');
+          optInNote.className = 'service-card__check-rationale';
+          optInNote.textContent = ASSET_SHIELD_OPT_IN_NOTES[item];
+          textCol.appendChild(optInNote);
+        }
+        rowWrap.appendChild(box);
+        rowWrap.appendChild(textCol);
+        li.appendChild(rowWrap);
+      } else {
+        li.innerHTML = item;
+      }
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+    wrap.appendChild(details);
+
+    return wrap;
+  }
+
+  function runRevealSequence(cards, assetShieldCard, serviceCardsList) {
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    cards.forEach(function (card, i) {
+      if (reduceMotion) { card.classList.add('is-revealed'); return; }
+      card.classList.add('will-reveal');
+      void card.offsetWidth;
+      setTimeout(function () { card.classList.add('is-revealed'); }, i * 130);
+    });
+
+    var cardRevealSpan = reduceMotion ? 0 : (cards.length - 1) * 130 + 420;
+    var checks = assetShieldCard ? assetShieldCard.querySelectorAll('.service-card__checkbox.is-checked') : [];
+    checks.forEach(function (box, i) {
+      if (reduceMotion) return;
+      box.classList.add('will-pop');
+      void box.offsetWidth;
+      setTimeout(function () { box.classList.add('is-popped'); }, cardRevealSpan + i * 150);
+    });
+  }
+
+  function renderProposalServiceCards(report) {
+    var serviceCardsList = document.getElementById('service-cards');
+    var profile = report && report.operationalProfile;
+    var cats = (profile && profile.categories) || [];
+    var badgedItems = computeBadgedAssetShieldItems(cats);
+
+    serviceCardsList.innerHTML = '';
+    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
+    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
+    cards.push(assetShieldCard);
+    runRevealSequence(cards, assetShieldCard, serviceCardsList);
+  }
+
+  function renderReportSummary(report) {
+    var reportSummary = document.getElementById('report-summary');
+    var reportSummaryText = document.getElementById('report-summary-text');
+    var reportConfidence = document.getElementById('report-confidence');
+    var summary = report && report.clientSummary;
+    reportSummary.classList.toggle('hidden', !summary);
+    if (!summary) return;
+    reportSummaryText.textContent = summary;
+    var note = report.confidenceNote;
+    reportConfidence.textContent = note || '';
+    reportConfidence.classList.toggle('hidden', !note);
+  }
+
+  function renderOperationalProfile(report) {
+    var opProfileList = document.getElementById('op-profile-list');
+    var workloadSummary = document.getElementById('workload-summary');
+    var profile = report && report.operationalProfile;
+
+    var definition = profile && profile.operationalIntensityDefinition;
+    workloadSummary.textContent = definition || '';
+    workloadSummary.classList.toggle('hidden', !definition);
+
+    var cats = (profile && profile.categories) || [];
+    var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
+
+    opProfileList.innerHTML = '';
+    withText.forEach(function (c) {
+      var row = document.createElement('details');
+      row.className = 'op-profile-row';
+
+      var head = document.createElement('summary');
+      head.className = 'op-profile-head';
+      var name = document.createElement('span');
+      name.className = 'op-cat-name';
+      name.textContent = c.category || '';
+      head.appendChild(name);
+      if (c.label) {
+        var label = document.createElement('span');
+        label.className = 'op-cat-label';
+        label.setAttribute('data-tone', String(c.label).trim().toLowerCase());
+        label.textContent = c.label;
+        head.appendChild(label);
+      }
+      row.appendChild(head);
+
+      if (c.summary) {
+        var sum = document.createElement('div');
+        sum.className = 'op-cat-summary';
+        sum.textContent = c.summary;
+        row.appendChild(sum);
+      }
+      opProfileList.appendChild(row);
+    });
+  }
+
+  /* =====================================================================
+   * renderProposal — adapted from app/index.html's renderResults(). The
+   * stored proposal JSON carries a pre-computed monthlyFee and feeRate
+   * rather than raw rentPerUnit/unitCount, and only the OIA band LABEL
+   * (not the raw numeric demand score) — see the two approximations noted
+   * inline below.
+   * =================================================================== */
+  function renderProposal(data) {
+    var report = data.report || {};
+    var reportAddress = document.getElementById('report-address');
+    var heroFee = document.getElementById('hero-fee');
+    var heroFeeSub = document.getElementById('hero-fee-sub');
+    var opProfile = document.getElementById('op-profile');
+    var heroBand = document.getElementById('hero-band');
+    var demandMark = document.getElementById('demand-mark');
+
+    reportAddress.textContent = data.propertyName || '';
+    reportAddress.classList.toggle('hidden', !data.propertyName);
+
+    var feeRate = parseFloat(data.feeCalcResponse);
+    var monthlyFee = typeof data.monthlyFee === 'number' ? data.monthlyFee : null;
+    if (!isNaN(feeRate) && monthlyFee !== null) {
+      var feePct = feeRate * 100;
+      // grossMonthly isn't stored directly — back it out from the two
+      // numbers that are (monthlyFee = grossMonthly * feeRate).
+      var grossMonthly = feeRate > 0 ? monthlyFee / feeRate : null;
+      heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
+      heroFeeSub.innerHTML = 'recommended monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span>' +
+        (grossMonthly !== null ? ' on ' + currency(grossMonthly) + ' gross monthly rent' : '');
+    } else {
+      heroFee.textContent = '—';
+      heroFeeSub.textContent = '';
+    }
+
+    var bandLabel = report.operationalProfile && report.operationalProfile.band;
+    var band = bandLabel ? DemandEngine.bandByLabel(bandLabel) : null;
+    if (band) {
+      opProfile.classList.remove('hidden');
+      heroBand.textContent = band.label;
+      heroBand.setAttribute('data-tone', band.tone);
+      // No raw numeric demand score is stored (only the band label) — the
+      // geometric mean of the band's own min/max stands in as the gauge
+      // position, since DemandEngine's scale is log-based (this places the
+      // marker at that band's visual midpoint, not the visitor's exact score).
+      var approxScore = Math.sqrt(band.min * band.max);
+      var pct = DemandEngine.gaugePercent(approxScore);
+      demandMark.style.left = Math.max(3, Math.min(97, pct)) + '%';
+      demandMark.setAttribute('data-tone', band.tone);
+    } else {
+      opProfile.classList.add('hidden');
+    }
+
+    renderReportSummary(report);
+    renderOperationalProfile(report);
+    renderProposalServiceCards(report);
+  }
+
+  /* =====================================================================
+   * CTA — same handlers as app/index.html's Results step.
+   * =================================================================== */
+  document.getElementById('download-report-btn').addEventListener('click', function () {
+    window.print();
+  });
+
+  function goToBooking() {
+    if (!CONFIG.BOOKING_URL) {
+      console.warn('[brichaus-proposal] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
+      return;
+    }
+    window.location.href = CONFIG.BOOKING_URL;
+  }
+  document.getElementById('schedule-btn').addEventListener('bui-click', goToBooking);
+  document.getElementById('unavailable-schedule-btn').addEventListener('bui-click', goToBooking);
+
+  init();
+})();
+</script>
+</body>
+</html>
