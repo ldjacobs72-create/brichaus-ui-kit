@@ -396,7 +396,7 @@
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
   var recognitionWelcome = document.getElementById('recognition-welcome');
 
-  var recognition = { firstName: '', contactId: '', attempts: 0 };
+  var recognition = { firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
   var recognitionEmailValue = '';
   var recognitionPhoneValue = '';
   ['bui-input', 'bui-change'].forEach(function (eventName) {
@@ -428,6 +428,11 @@
           loadProposal();
           return;
         }
+        // Kept so the conflict handoff below can hand a human every email
+        // this visitor actually tried — useful context for figuring out who
+        // they really are, even though it never gets compared against the
+        // real stored email again here (that comparison is server-side only).
+        if (emailAttempt) recognition.wrongEmails.push(emailAttempt);
         recognition.attempts++;
         if (recognition.attempts >= 2) {
           showRecognitionState('phone');
@@ -453,7 +458,8 @@
         formattedAddress: '',
         phone: phone,
         existingFirstName: recognition.firstName,
-        existingContactId: recognition.contactId
+        existingContactId: recognition.contactId,
+        wrongEmailAttempts: recognition.wrongEmails
       })
     })
       .then(function () {

@@ -1237,7 +1237,7 @@
     // Populated by checkContactRecognition() when the selected property
     // already has a known point of contact on file. attempts counts failed
     // email-confirmation tries (2 allowed before the conflict/phone path).
-    recognition: { active: false, firstName: '', contactId: '', attempts: 0 }
+    recognition: { active: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
   };
 
   var DRIVER_STEPS = [
@@ -1670,7 +1670,7 @@
   // whenever the address changes so a stale welcome/phone prompt from a
   // previous selection never lingers on a new one.
   function resetRecognitionPanel() {
-    state.recognition = { active: false, firstName: '', contactId: '', attempts: 0 };
+    state.recognition = { active: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
     recognitionPanel.classList.add('hidden');
     recognitionWelcome.classList.add('hidden');
     recognitionPhone.classList.add('hidden');
@@ -1764,6 +1764,11 @@
           locationContinue.removeAttribute('disabled');
           return;
         }
+        // Kept so the conflict handoff below can hand a human every email
+        // this visitor actually tried — useful context for figuring out who
+        // they really are, even though it's never compared against the real
+        // stored email again here (that comparison is server-side only).
+        if (emailAttempt) state.recognition.wrongEmails.push(emailAttempt);
         state.recognition.attempts++;
         if (state.recognition.attempts >= 2) {
           showRecognitionState('phone');
@@ -1789,7 +1794,8 @@
         formattedAddress: state.address.formattedAddress,
         phone: phone,
         existingFirstName: state.recognition.firstName,
-        existingContactId: state.recognition.contactId
+        existingContactId: state.recognition.contactId,
+        wrongEmailAttempts: state.recognition.wrongEmails
       })
     })
       .then(function () {
