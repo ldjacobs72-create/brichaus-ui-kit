@@ -146,13 +146,43 @@
      only the question text (easy to click through without registering
      you're now rating a different category). */
   #brichaus-assessment .driver-category {
-    display: flex; align-items: center; gap: var(--bui-space-2); margin-bottom: 6px;
+    display: flex; align-items: center; gap: var(--bui-space-3); margin-bottom: 10px;
   }
-  #brichaus-assessment .driver-category__icon { font-size: 22px; line-height: 1; }
+  #brichaus-assessment .driver-category__icon { font-size: 26px; line-height: 1; }
+  /* The driver name is the primary visual anchor of each of the 4
+     questions (see the comment above) — bold and full-size next to its
+     icon, not a small uppercase kicker, so it reads as a heading rather
+     than a label. driver-question below is deliberately regular-weight so
+     it doesn't compete with this for attention. */
   #brichaus-assessment .driver-category__name {
-    font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--bui-color-text-faint);
+    font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em;
+    color: var(--bui-color-text);
   }
+  #brichaus-assessment .driver-question {
+    font-weight: 400;
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+    margin: 0 0 var(--bui-space-3);
+  }
+  /* Appended only into the one flipped/selected card (see
+     addDriverConfirmButton()) so the visitor can move on without looking
+     away to the Continue button below. */
+  #brichaus-assessment .driver-confirm-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #C1633F;
+    color: #fff;
+    font-family: var(--bui-font-family);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  #brichaus-assessment .driver-confirm-btn:hover { background: #AC5333; }
   /* Selecting a driver option flips that one card to reveal the same
      nuanced reference text the final report uses (see DRIVER_REFERENCE).
      0deg->90deg->0deg (not a full 180) so the text is never mirrored/
@@ -375,6 +405,53 @@
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .address-verifying__spinner { animation: none; }
   }
+  /* Contact step's "your report is already coming together" panel — see
+     the doc comment on its markup for why each row is allowed to claim
+     "done". */
+  #brichaus-assessment .report-progress {
+    margin: var(--bui-space-4) 0;
+    padding: 14px 16px;
+    background: #F6F7F9;
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #brichaus-assessment .report-progress__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .report-progress__row.is-done { color: var(--bui-color-text); }
+  #brichaus-assessment .report-progress__row.is-active { font-weight: 600; color: var(--bui-color-text); }
+  #brichaus-assessment .report-progress__icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--bui-color-success-bg);
+    color: var(--bui-color-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  #brichaus-assessment .report-progress__spinner {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bui-color-border);
+    border-top-color: #C1633F;
+    animation: bui-address-verifying-spin 700ms linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .report-progress__spinner { animation: none; }
+  }
   #brichaus-assessment .recognition-panel {
     margin-top: var(--bui-space-4);
     padding: var(--bui-space-4);
@@ -566,6 +643,16 @@
 
   /* multifamily market-by-type card (Snapshot step) */
   #brichaus-assessment .market-card { margin-top: var(--bui-space-3); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
+  /* Distinguishes the market-rent table (other properties' rates, for
+     comparison) from the rent figure the visitor just typed above it --
+     without this, the two rows of dollar amounts read as the same kind of
+     number. */
+  #brichaus-assessment .market-card-note {
+    margin: 2px 0 var(--bui-space-3);
+    font-size: 11.5px;
+    font-style: italic;
+    color: var(--bui-color-text-faint);
+  }
   #brichaus-assessment .snapshot-preview-intro {
     margin: var(--bui-space-3) 0 0;
     font-size: var(--bui-font-size-sm);
@@ -990,6 +1077,7 @@
              single-unit gauge/chips/comps). -->
         <div id="snapshot-preview-market" class="market-card hidden">
           <div class="snapshot-title">Market rent by unit type<span id="snapshot-preview-market-zip" class="market-zip"></span></div>
+          <p class="market-card-note">For comparison only — nearby market rates by bedroom count, not what you entered above.</p>
           <div class="market-type-list" id="snapshot-preview-market-list"></div>
         </div>
       </div>
@@ -1007,7 +1095,7 @@
         <bui-progress-bar tone="header" label="4. Projected Revenue" value="36"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Here's what this property could generate</h2>
+        <h2>Here's what this property should generate at full occupancy</h2>
         <p>Next, let's look at how day-to-day operations affect how much of this revenue you actually keep.</p>
 
         <!-- Revenue-first hero: projected annual rent, computed from the
@@ -1042,7 +1130,7 @@
           <span class="driver-category__icon" id="driver-category-icon"></span>
           <span class="driver-category__name" id="driver-category-name"></span>
         </div>
-        <p style="font-weight:700; font-size: var(--bui-font-size-md); color: var(--bui-color-text); margin: 0 0 var(--bui-space-3);" id="driver-question"></p>
+        <p class="driver-question" id="driver-question"></p>
         <bui-progress-bar variant="segmented" id="driver-sub-progress" label="Driver" value="1" max="4"></bui-progress-bar>
         <div style="margin-top: var(--bui-space-4);">
           <bui-choice-group id="driver-choice-group" name="driver">
@@ -1071,8 +1159,32 @@
         <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Where should we send your report?</h2>
-        <p>We're finishing your operational demand score and recommended fee — just need to know where to send it.</p>
+        <h2>Your report is coming together</h2>
+        <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
+
+        <!-- Genuinely-true progress, not staged theater: property/market data
+             and a preliminary operational score are already known by this
+             point in the flow (RentCast quicklook + DemandEngine both ran
+             client-side back on earlier steps) — only the fee, which the
+             live pipeline computes once the Contact-linked Property record
+             exists, is still pending. Framing what's already done this way
+             is meant to make Get My Report read as an unlock, not the start
+             of a fresh wait. -->
+        <div class="report-progress">
+          <div class="report-progress__row is-done">
+            <span class="report-progress__icon">&#10003;</span>
+            <span>Property &amp; market data collected</span>
+          </div>
+          <div class="report-progress__row is-done">
+            <span class="report-progress__icon">&#10003;</span>
+            <span>Operational workload scored</span>
+          </div>
+          <div class="report-progress__row is-active">
+            <span class="report-progress__spinner" aria-hidden="true"></span>
+            <span>Calculating your recommended fee…</span>
+          </div>
+        </div>
+
         <div class="field-row">
           <bui-input id="contact-name-input" label="First Name"></bui-input>
           <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
@@ -2157,7 +2269,22 @@
   }
 
   function renderRentPlaceholder() {
+    var isMF = state.propertyType === 'multi';
     var value = computeRentPlaceholder(state.rentCast, state.propertyType);
+
+    // Multifamily has no single "market rent" to ballpark against (see
+    // computeRentPlaceholder above) — the per-unit-type table below is
+    // comparison data, not a value to copy into this field, so this needs
+    // its own label/hint spelling that out rather than the SFR copy, which
+    // reads as if it's asking for a market-rate guess.
+    rentInput.setAttribute('label', isMF ? 'Current Avg. Monthly Rent / Unit' : 'Avg. Monthly Rent / Unit');
+    if (isMF) {
+      rentInput.setAttribute('hint', 'Enter what you currently charge across the units in this building — the market rates below are for comparison only.');
+      if (value != null) rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
+      else rentInput.removeAttribute('placeholder');
+      return;
+    }
+
     if (value != null) {
       rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
       rentInput.setAttribute('hint', 'Ballpark only, not a prediction — enter your actual average rent per unit.');
@@ -2259,7 +2386,7 @@
     driverCategoryIcon.textContent = step.icon;
     driverCategoryName.textContent = step.title;
     driverQuestion.textContent = step.question;
-    driverSubProgress.setAttribute('label', step.title + ' Driver');
+    driverSubProgress.setAttribute('label', 'Select the option that best describes your reality');
     driverSubProgress.setAttribute('value', String(driverStepIndex + 1));
     driverHeaderProgress.setAttribute('value', String(45 + driverStepIndex * 10));
 
@@ -2285,6 +2412,31 @@
   // matching card — this is idempotent and safe to call any number of times
   // regardless of whether it's triggered by a real click, a synthetic
   // re-sync event, or renderDriverStep()'s own safety-net call.
+  function removeDriverConfirmButton(card) {
+    var inner = card.querySelector('.bui-choice-card');
+    var btn = inner && inner.querySelector('.driver-confirm-btn');
+    if (btn) btn.remove();
+  }
+
+  // Lets the visitor confirm and move on right from the card they just
+  // flipped, instead of having to look away to the Continue button below —
+  // same effect as clicking Continue, just reachable without moving off
+  // the card. Appended into the flipped card itself (see
+  // showDriverCardReference()), never into the other 3.
+  function addDriverConfirmButton(card) {
+    var inner = card.querySelector('.bui-choice-card');
+    if (!inner || inner.querySelector('.driver-confirm-btn')) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'driver-confirm-btn';
+    btn.textContent = 'Confirm & Continue';
+    btn.addEventListener('click', function (evt) {
+      evt.stopPropagation(); // don't let this re-trigger the card's own click-to-select handler
+      advanceDriverStep();
+    });
+    inner.appendChild(btn);
+  }
+
   function resetDriverCardDescriptions() {
     var cards = Array.prototype.slice.call(driverChoiceGroup.querySelectorAll('bui-choice-card'));
     cards.forEach(function (card) {
@@ -2293,6 +2445,7 @@
       }
       card.classList.remove('is-flipping');
       card.setAttribute('description', card.dataset.originalDescription);
+      removeDriverConfirmButton(card);
     });
   }
 
@@ -2303,6 +2456,7 @@
     if (!card) return;
     if (!animate || window.BUI.prefersReducedMotion()) {
       card.setAttribute('description', nuanced);
+      addDriverConfirmButton(card);
       return;
     }
     card.classList.add('is-flipping');
@@ -2312,6 +2466,7 @@
       // a stale timeout re-apply nuanced text to a no-longer-selected card.
       if (card.classList.contains('is-flipping')) {
         card.setAttribute('description', nuanced);
+        addDriverConfirmButton(card);
       }
     }, 160);
   }
@@ -2334,7 +2489,7 @@
     renderDriverStep();
   });
 
-  driverContinue.addEventListener('bui-click', function () {
+  function advanceDriverStep() {
     var step = DRIVER_STEPS[driverStepIndex];
     if (!state.drivers[step.key]) return;
 
@@ -2347,7 +2502,9 @@
     } else {
       showStep('contact');
     }
-  });
+  }
+
+  driverContinue.addEventListener('bui-click', advanceDriverStep);
 
   /* =====================================================================
    * Step 9: Get Your Report — captures the name/email/consent this native
