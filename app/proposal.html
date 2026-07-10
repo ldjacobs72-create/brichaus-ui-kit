@@ -6,13 +6,15 @@
 <title>Your Management Proposal</title>
 
 <!--
-  Brichaus Management Proposal Viewer — a standalone page, NOT a GHL Custom
-  HTML embed. Accessed directly via URL as
-  https://<host>/app/proposal.html?placeId=<GooglePlaceID>, e.g. emailed to
-  an owner after their assessment, or linked from a "view your proposal"
-  CTA. Renders the property's stored cr55d_onlineproposaljson (Dataverse)
-  as an interactive page instead of a static file — nothing is permanently
-  stored as a PDF; "download" is just window.print().
+  Brichaus Management Proposal Viewer — pasted as a GHL Custom HTML element
+  on its own funnel/website page, live at
+  https://mgmt.brichausgroup.com/residential-management-proposal/?placeId=<GooglePlaceID>
+  (see PropScore: Main Pipeline's "Update GHL Property Record" step, which
+  writes this exact URL to the property's proposal_link field once an
+  assessment finishes). Renders the property's stored
+  cr55d_onlineproposaljson (Dataverse) as an interactive page instead of a
+  static file — nothing is permanently stored as a PDF; "download" is just
+  window.print().
 
   Gated behind email confirmation (same PropScore: Contact Recognition &
   Conflict workflow the assessment funnel uses, actions "recognize" /
