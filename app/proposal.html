@@ -551,6 +551,9 @@
       .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
       .then(function (data) {
         if (data && data.confirmed) {
+          // Mirror the funnel's handoff so a refresh (or a hop back to the
+          // funnel and forward again) doesn't re-prompt in this tab.
+          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
           loadProposal();
           return;
         }
@@ -621,6 +624,38 @@
         recognition.firstName = data.firstName || '';
         recognition.contactId = data.contactId || '';
         recognitionFirstname.textContent = recognition.firstName;
+        // Silent-confirm handoff: the assessment funnel (same origin)
+        // stores the email the visitor already confirmed there, so this
+        // page shouldn't ask for it a second time in the same tab. It is
+        // still verified server-side with the exact same confirmEmail
+        // action a manual entry would use — this only skips the typing,
+        // never the check. Any failure falls back to the normal gate.
+        var handedOff = '';
+        try { handedOff = sessionStorage.getItem('bui-confirmed-email') || ''; } catch (e) { /* non-fatal */ }
+        if (handedOff) {
+          fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: handedOff })
+          })
+            .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
+            .then(function (confirmData) {
+              if (confirmData && confirmData.confirmed) {
+                loadProposal();
+              } else {
+                // Different property/owner than the one confirmed in the
+                // funnel — drop the stale handoff and gate normally.
+                try { sessionStorage.removeItem('bui-confirmed-email'); } catch (e) { /* non-fatal */ }
+                showRecognitionState('welcome');
+                showPanel('gate');
+              }
+            })
+            .catch(function () {
+              showRecognitionState('welcome');
+              showPanel('gate');
+            });
+          return;
+        }
         showRecognitionState('welcome');
         showPanel('gate');
       })
