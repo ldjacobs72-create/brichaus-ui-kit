@@ -28,21 +28,19 @@
   pinned to @main. Component files are self-contained and additive — see
   the root README for the include-pattern rules.
 
-  REQUIRED GHL SURVEY SETTING: "Action After Submit" must be set to stay
-  on the page (a message/no-op), not a redirect. This app calls GHL's own
-  native submit control mid-assessment (see CONFIG.GHL_SUBMIT_SELECTOR
-  below) to create the Contact-linked Property record n8n's pipeline
-  searches for — a redirect at that point navigates away and kills this
-  app before it can call the scoring webhook or show results at all.
-
-  MUST BE A SURVEY, NOT A FORM — confirmed the hard way (twice): GHL's
-  Form builder does not support placing Custom Object fields on a Form
-  at all — only a Survey element can hold them, and only a Survey's own
-  native submission creates the Contact+Property association this whole
-  design depends on. There is no other automated way to create that
-  association; the only alternative is creating records manually inside
-  GHL. Don't attempt a Form-based rebuild again — this exact rabbit hole
-  has already cost real time twice.
+  GHL'S NATIVE SURVEY SUBMISSION IS NO LONGER USED. It was how the
+  Contact-linked Property record got created (submitNative() clicking the
+  hidden submit control), until live debugging on 2026-07-10 proved GHL
+  no longer honors synthetic (isTrusted: false) clicks — fields populated
+  and consent checked, yet no record was ever created. Rather than keep
+  fighting GHL's front-end security, record creation moved server-side:
+  the n8n pipeline (PropScore: Main Pipeline) creates the Property record,
+  upserts the Contact, links them via GHL's associations API ("Owner ↔
+  Owned property"), and logs a timestamped consent note — fed by the
+  FirstName/Email/Consent fields this widget sends in its scoring webhook
+  payload. The Survey element is still required on the page (it hosts the
+  consent checkbox with its real GHL-configured legal copy, relocated
+  into the widget's card) but its submission is never triggered.
 -->
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
@@ -892,25 +890,22 @@
   }
   #brichaus-assessment .hidden { display: none !important; }
 
-  /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
-     Kept in the DOM — BUI.ghl.submitNative() needs to .click() it — but
-     never shown to the visitor; this widget's own step flow is the only
-     visible continue/submit affordance on the page. A plain CSS rule
-     (not scoped to #brichaus-assessment, since GHL renders this control
-     outside this app's own container) so it's hidden the moment it's
-     ever inserted into the DOM, with no JS timing/polling race at all —
-     deliberately kept as CSS rather than a JS-applied class for exactly
-     that reason. Keep this selector in sync with CONFIG.GHL_SUBMIT_SELECTOR
-     above by hand (CSS can't reference a JS config value).
+  /* GHL's own native Survey submit control. No longer clicked by this
+     app (record creation is server-side in n8n now — see the top-of-file
+     doc comment) but still hidden so the visitor never sees a second,
+     nonfunctional submit button. A plain CSS rule (not scoped to
+     #brichaus-assessment, since GHL renders this control outside this
+     app's own container) so it's hidden the moment it's ever inserted
+     into the DOM, with no JS timing/polling race at all.
 
      position: fixed at the viewport's own corner (0,0) rather than
      position: absolute pushed to some huge document-relative offset —
      an earlier version used left: -99999px, which left the element at
      its natural (very-far-down) vertical position, still document-
-     scrollable-to. Clicking it apparently triggers GHL's own internal
-     focus/scroll handling, which jumped the whole page there. A fixed
-     element pinned inside the viewport bounds is already "in view" by
-     definition, so nothing can ever need to scroll to reach it. */
+     scrollable-to; anything calling focus()/scrollIntoView() on it would
+     jump the whole page there. A fixed element pinned inside the
+     viewport bounds is already "in view" by definition, so nothing can
+     ever need to scroll to reach it. */
   .ghl-submit-btn {
     position: fixed !important;
     top: 0 !important;
@@ -927,12 +922,11 @@
      keeping visible (the consent checkbox + its label) has been
      physically relocated out of it into the widget's own card — nothing
      of value is left inside. Same viewport-fixed technique as
-     .ghl-submit-btn above (see its comment for why), not display:none,
-     so BUI.ghl.submitNative() clicking the submit button nested inside
-     it keeps working reliably. `ghl-form-wrap` reads as a generic GHL
-     platform class (not scoped to this specific Survey instance) — if
-     this same funnel page ever gains a second, unrelated native
-     form/survey, this rule would hide that one too. */
+     .ghl-submit-btn above (see its comment for why), not display:none.
+     `ghl-form-wrap` reads as a generic GHL platform class (not scoped
+     to this specific Survey instance) — if this same funnel page ever
+     gains a second, unrelated native form/survey, this rule would hide
+     that one too. */
   .ghl-form-wrap {
     position: fixed !important;
     top: 0 !important;
@@ -1414,11 +1408,9 @@
       googlePlaceId: 'gBfCUbkbTAIPc0Lgp3O2',
       propertyName: 'gPrTpbXnXzkti10wJpUk',
       // Standard GHL Contact fields — collected on the "Get Your Report"
-      // step, right before the native submit fires. Required for the
-      // native submission to create a valid Contact at all; without a
-      // name/email captured somewhere first, that submission would either
-      // fail native validation or create an unusable, unidentifiable
-      // Contact record.
+      // step. These native-field mirrors are now best-effort only: the
+      // actual Contact is created server-side by the n8n pipeline from
+      // buildWebhookPayload()'s FirstName/Email, not by a GHL submission.
       firstName: 'first_name',
       email: 'email'
     },
@@ -1438,52 +1430,18 @@
     // more than once.
     GHL_TERMS_FIELD: 'terms_and_conditions',
 
-    // This page's native GHL Survey submit control — back to the same
-    // role="button" div with a ghl-btn/ghl-submit-btn class this Survey
-    // had originally (the plain-text-div-with-no-class and the real
-    // <button type="submit"> seen in between both belonged to the Form
-    // rebuild that turned out to be a dead end — see the top-of-file doc
-    // comment). n8n's pipeline only ever searches for a Property record
-    // by googlePlaceId and updates it — it never creates one, because a
-    // record created via direct API call has no linked Contact (see
-    // integrations/ghl-bridge.js submitNative doc). Only GHL's own native
-    // Survey submission creates that link, so this app has to trigger the
-    // real submission itself, once name/email/consent are captured on the
-    // "Get Your Report" step, before it calls WEBHOOK_URL — otherwise the
-    // record n8n searches for doesn't exist yet and the update silently
-    // no-ops.
-    GHL_SUBMIT_SELECTOR: '.ghl-submit-btn',
-
-    // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
-    // it doesn't confirm the record has actually been persisted (and
-    // search-indexed) server-side by the time control returns. This is a
-    // buffer before calling WEBHOOK_URL so n8n's search-by-googlePlaceId
-    // (Search GHL Property Record) has a real, findable record by the time
-    // it runs. Was trimmed to 400ms for perceived latency, then confirmed
-    // live to be too short — real test submissions came back from n8n's
-    // search as "no matching record" (status 200, zero results, not an
-    // error) even though the native submission itself fired correctly (no
-    // "submit control not found" console warning). Restored to the
-    // original 900ms. If this specific value ever proves insufficient
-    // again, raise it further before suspecting anything else — this is
-    // still a fixed guess, not a real "has GHL indexed it yet" check.
-    GHL_SUBMIT_SETTLE_MS: 900,
-
-    // writeField (ghl-bridge.js) writes a value immediately, then schedules
-    // a defensive SECOND write ~50ms later because GHL's own hydration/
-    // re-render can clobber the first one — "a value that looks right on
-    // screen can still submit empty." submitNativeThenAssess() used to
-    // click GHL_SUBMIT_SELECTOR in the same tick as syncGhlField, racing
-    // that defensive rewrite: if GHL clobbered the first write, the click
-    // fired before the safety write landed, submitting a blank
-    // googlePlaceId/propertyName. Confirmed live: three separate test
-    // submissions all fired GHL's webhook (proving the click itself
-    // worked) but created no matching Property record at all — not
-    // findable by placeId OR by address text — consistent with GHL never
-    // receiving a real property name to create the record with. This is
-    // the wait before clicking submit, comfortably past writeField's 50ms
-    // retry delay.
-    GHL_PRE_SUBMIT_WRITE_MS: 150,
+    // There is deliberately NO GHL_SUBMIT_SELECTOR / settle-delay config
+    // anymore. The native Survey submission used to be this widget's way
+    // of creating the Contact-linked Property record, and an entire family
+    // of timing/selector bugs lived here because of it. Confirmed dead
+    // live on 2026-07-10 (GHL ignores synthetic clicks — isTrusted:
+    // false), so record creation moved server-side: the n8n pipeline now
+    // creates the Property record, upserts the Contact, links the two via
+    // GHL's associations API, and logs a consent note, all from the
+    // FirstName/Email/Consent fields sent in buildWebhookPayload(). If
+    // records ever stop appearing in GHL again, debug the n8n pipeline
+    // (PropScore: Main Pipeline → Create GHL Property Record and the
+    // nodes after it) — there is nothing left to debug on this page.
 
     // The Fee Calculation flow's request schema also expects these add-on
     // toggles (see power-automate-build-spec.md). This funnel's 9 steps
@@ -1565,7 +1523,7 @@
     // No pre-selected value for any driver — the visitor must actively pick
     // one before Continue enables (see renderDriverStep/driverContinue).
     drivers: { tenant: '', turnover: '', maintenance: '', compliance: '' },
-    contact: { firstName: '', email: '' },
+    contact: { firstName: '', email: '', consentTs: '' },
     result: null, // populated once the webhook responds (or demo fallback)
     // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
     // comparables come from the enriched RentCast quicklook and feed the
@@ -2571,8 +2529,16 @@
   // live testing since this sandbox has no network path to the live page.
   window.BUI.ghl.whenFieldReady(CONFIG.GHL_TERMS_FIELD, function (el) {
     termsFieldEl = el;
-    el.addEventListener('change', refreshContactContinue);
-    el.addEventListener('click', refreshContactContinue);
+    function onTermsChange() {
+      // Stamp the consent moment (not the submit moment) — this exact
+      // timestamp is what gets recorded on the GHL contact for compliance.
+      if (el.checked && !state.contact.consentTs) {
+        state.contact.consentTs = new Date().toISOString();
+      }
+      refreshContactContinue();
+    }
+    el.addEventListener('change', onTermsChange);
+    el.addEventListener('click', onTermsChange);
 
     var container = el.closest('.checkbox-container') || el.parentElement;
     var slot = document.getElementById('terms-slot');
@@ -2587,42 +2553,25 @@
 
   contactContinue.addEventListener('bui-click', function () {
     if (contactContinue.hasAttribute('disabled')) return;
-    contactContinue.setAttribute('disabled', ''); // guard against a second click firing a second native submit
-    submitNativeThenAssess();
+    contactContinue.setAttribute('disabled', ''); // guard against a double-click firing a second webhook call
+    startAssessment();
   });
 
-  // Fires GHL's own native Survey submission — creating the Contact-linked
-  // Property record n8n will search for — then waits GHL_SUBMIT_SETTLE_MS
-  // for it to actually persist before calling WEBHOOK_URL. See
-  // GHL_SUBMIT_SELECTOR above for why this can't happen any earlier or
-  // any later than right here. Shows the loading step immediately, before
-  // that wait, rather than after it — the click should never sit there
-  // looking unresponsive while nothing on screen has changed yet.
-  function submitNativeThenAssess() {
+  // GHL's native Survey submission is deliberately NOT fired here anymore.
+  // It was the old way the Contact-linked Property record got created, via
+  // submitNative() clicking GHL's hidden submit control — confirmed dead
+  // live on 2026-07-10: fields populated and consent checked, but GHL no
+  // longer honors the synthetic (isTrusted: false) click, so no record was
+  // ever created. Record creation now happens server-side in the n8n
+  // pipeline via the GHL API (create + contact upsert + owner association
+  // + consent note), fed by the FirstName/Email/Consent fields this widget
+  // sends in buildWebhookPayload(). Nothing here depends on GHL's page
+  // internals anymore, and no settle delay is needed before scoring.
+  function startAssessment() {
     showStep('loading');
     checklist.current = 1;
     buildProgress.setAttribute('value', '0');
-
-    // Defensive re-write immediately before submitting — googlePlaceId and
-    // propertyName were first written back at the Location step, possibly
-    // minutes ago. GHL's Vue Survey has been observed remounting fields'
-    // DOM nodes on its own re-renders elsewhere on this project, which
-    // would silently lose an earlier .value write (a freshly mounted node
-    // starts blank). Re-syncing right here, right before the value is
-    // actually needed, closes that gap regardless of the exact cause.
-    syncGhlField('googlePlaceId', state.address.placeId);
-    syncGhlField('propertyName', state.address.propertyName);
-
-    // Wait past writeField's own 50ms defensive rewrite (see GHL_PRE_SUBMIT_WRITE_MS)
-    // before clicking submit, so GHL can't clobber the first write and have
-    // the click fire on a blank field.
-    setTimeout(function () {
-      var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
-      if (!submitted) {
-        console.warn('[brichaus-assessment] Native GHL submit control not found (' + CONFIG.GHL_SUBMIT_SELECTOR + ') — the Property record was not created via GHL submission before scoring.');
-      }
-      setTimeout(runAssessment, submitted ? CONFIG.GHL_SUBMIT_SETTLE_MS : 0);
-    }, CONFIG.GHL_PRE_SUBMIT_WRITE_MS);
+    runAssessment();
   }
 
   /* =====================================================================
@@ -2644,6 +2593,16 @@
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
       PropertyName: state.address.propertyName || state.address.formattedAddress,
+      // Contact + consent — the n8n pipeline (not GHL's native survey
+      // submission) now creates the GHL Contact, the Property record, and
+      // their association from these. Consent is structurally always true
+      // here (the Continue button is disabled until the terms checkbox is
+      // checked) but sent explicitly, with the moment it was given, so the
+      // backend records a real compliance trail rather than inferring it.
+      FirstName: state.contact.firstName,
+      Email: state.contact.email,
+      Consent: !!(termsFieldEl && termsFieldEl.checked),
+      ConsentTimestamp: state.contact.consentTs || new Date().toISOString(),
       // Opt into the two-phase report only when we have somewhere to poll for
       // the narrative. Without REPORT_STATUS_URL the pipeline responds
       // synchronously with the full report, so we must not request async.
