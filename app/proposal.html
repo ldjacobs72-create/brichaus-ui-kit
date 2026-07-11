@@ -162,6 +162,14 @@
     line-height: 1;
     flex-shrink: 0;
   }
+  /* Footnote for the "Initial Proposal in Minutes*" guarantee above. */
+  #brichaus-proposal .trust-disclaimer {
+    margin: var(--bui-space-3) auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #9AA1AB;
+  }
 
   /* ---- Email-confirmation gate (ported from app/index.html's
      recognition panel) ---- */
@@ -378,8 +386,33 @@
   #brichaus-proposal .report-download:hover { color: var(--bui-color-accent-hover); }
   #brichaus-proposal .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
 
+  /* ===== Embedded booking calendar (revealed by "Schedule your
+     consultation" — see revealScheduleEmbed()). Same treatment as
+     app/index.html's Schedule step: a safe min-height, then GHL's
+     form_embed.js helper drives the real height via postMessage. */
+  #brichaus-proposal .schedule-embed { margin-top: var(--bui-space-5); text-align: left; }
+  #brichaus-proposal .booking-embed iframe {
+    display: block;
+    width: 100%;
+    min-height: 700px;
+    border: none;
+    overflow: hidden;
+  }
+  #brichaus-proposal .booking-fallback {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    text-align: center;
+  }
+  #brichaus-proposal .booking-fallback a {
+    color: var(--bui-color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   @media print {
     #brichaus-proposal .recognition-panel,
+    #brichaus-proposal .schedule-embed,
     #brichaus-proposal .report-cta { display: none !important; }
   }
 
@@ -501,6 +534,20 @@
           <p class="cta-followup-note">Questions about this proposal? We're happy to walk through it with you.</p>
           <button type="button" id="download-report-btn" class="report-download">Download this proposal (PDF)</button>
         </div>
+
+        <!-- Embedded booking calendar — the SAME experience the funnel's
+             Schedule step gives (see app/index.html), so the emailed
+             proposal-link CTA and the live funnel both end in one place.
+             Hidden until "Schedule your consultation" is clicked; the
+             iframe src is set lazily at that moment (see
+             revealScheduleEmbed()) so non-schedulers never load it. -->
+        <div id="schedule-embed" class="schedule-embed hidden">
+          <div class="report-kicker">Pick a Time That Works for You</div>
+          <div class="booking-embed">
+            <iframe id="booking-iframe" title="Schedule your consultation" scrolling="no"></iframe>
+          </div>
+          <p class="booking-fallback">Calendar not loading? <a id="booking-fallback-link" href="#" target="_blank" rel="noopener">Open the scheduling page directly</a>.</p>
+        </div>
       </div>
     </bui-card>
   </div>
@@ -511,8 +558,10 @@
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Response Within 24 Hours</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Initial Proposal in Minutes*</span>
   </div>
+  <!-- The asterisk's disclaimer — same footnote as the funnel page. -->
+  <p class="trust-disclaimer">*Most proposals are ready in under 2 minutes. If a data source is temporarily unavailable, we'll follow up with your proposal within 24 hours.</p>
 
 </div>
 
@@ -570,6 +619,10 @@
   var recognitionWelcome = document.getElementById('recognition-welcome');
 
   var recognition = { firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+  // The email that actually passed the server-side confirmEmail check —
+  // kept for prefilling the embedded booking calendar (never trusted for
+  // anything gate-related; the gate is server-verified).
+  var confirmedEmail = '';
   var recognitionEmailValue = '';
   var recognitionPhoneValue = '';
   ['bui-input', 'bui-change'].forEach(function (eventName) {
@@ -598,6 +651,7 @@
       .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
       .then(function (data) {
         if (data && data.confirmed) {
+          confirmedEmail = emailAttempt;
           // Mirror the funnel's handoff so a refresh (or a hop back to the
           // funnel and forward again) doesn't re-prompt in this tab.
           try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
@@ -688,6 +742,7 @@
             .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
             .then(function (confirmData) {
               if (confirmData && confirmData.confirmed) {
+                confirmedEmail = handedOff;
                 loadProposal();
               } else {
                 // Different property/owner than the one confirmed in the
@@ -1094,15 +1149,44 @@
     window.print();
   });
 
-  function goToBooking() {
+  // Reveals the embedded booking calendar below the report and loads it
+  // on first click only — same lazy-src + form_embed.js auto-resize
+  // pattern as app/index.html's Schedule step (see its ensureBookingEmbed
+  // doc comment). Prefills the calendar from the recognized/confirmed
+  // visitor (GHL calendars read first_name/email query params).
+  var scheduleEmbedReady = false;
+  function revealScheduleEmbed() {
+    if (!CONFIG.BOOKING_URL) {
+      console.warn('[brichaus-proposal] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
+      return;
+    }
+    var embed = document.getElementById('schedule-embed');
+    if (!scheduleEmbedReady) {
+      scheduleEmbedReady = true;
+      var params = [];
+      if (recognition.firstName) params.push('first_name=' + encodeURIComponent(recognition.firstName));
+      if (confirmedEmail) params.push('email=' + encodeURIComponent(confirmedEmail));
+      var url = CONFIG.BOOKING_URL + (params.length ? (CONFIG.BOOKING_URL.indexOf('?') === -1 ? '?' : '&') + params.join('&') : '');
+      document.getElementById('booking-iframe').src = url;
+      document.getElementById('booking-fallback-link').href = url;
+      var resizer = document.createElement('script');
+      resizer.src = 'https://link.msgsndr.com/js/form_embed.js';
+      document.body.appendChild(resizer);
+    }
+    embed.classList.remove('hidden');
+    embed.scrollIntoView({ behavior: window.BUI.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
+  document.getElementById('schedule-btn').addEventListener('bui-click', revealScheduleEmbed);
+
+  // The "proposal isn't ready yet" panel has no report to keep the visitor
+  // on, so its schedule button still navigates straight to the calendar.
+  document.getElementById('unavailable-schedule-btn').addEventListener('bui-click', function () {
     if (!CONFIG.BOOKING_URL) {
       console.warn('[brichaus-proposal] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
       return;
     }
     window.location.href = CONFIG.BOOKING_URL;
-  }
-  document.getElementById('schedule-btn').addEventListener('bui-click', goToBooking);
-  document.getElementById('unavailable-schedule-btn').addEventListener('bui-click', goToBooking);
+  });
 
   init();
 })();

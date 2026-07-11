@@ -76,23 +76,6 @@
     margin: 0 auto;
     padding: var(--bui-space-4) var(--bui-space-4) var(--bui-space-6);
   }
-  #brichaus-assessment .assessment-intro {
-    text-align: center;
-    max-width: 620px;
-    margin: 0 auto var(--bui-space-5);
-  }
-  #brichaus-assessment .assessment-intro h1 {
-    margin: 0 0 8px;
-    font-size: 30px;
-    font-weight: 700;
-    color: #2B2F36;
-  }
-  #brichaus-assessment .assessment-intro p {
-    margin: 0 auto;
-    max-width: 520px;
-    font-size: 16px;
-    color: #6B7280;
-  }
   /* The card clips its own corners so the header bar's flush square top
      corners (padding zeroed below) never poke past the card's own radius. */
   #brichaus-assessment .bui-card { overflow: hidden; }
@@ -350,9 +333,41 @@
     line-height: 1;
     flex-shrink: 0;
   }
+  /* Footnote for the "Initial Proposal in Minutes*" guarantee above. */
+  #brichaus-assessment .trust-disclaimer {
+    margin: var(--bui-space-3) auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #9AA1AB;
+  }
 
   #brichaus-assessment .loading-card, #brichaus-assessment .results-card {
     text-align: center;
+  }
+
+  /* ===== Schedule step: embedded GHL booking calendar ===== */
+  /* The iframe starts at a safe fixed height; GHL's own form_embed.js
+     helper (lazily injected by ensureBookingEmbed()) then drives the
+     real height via postMessage as the calendar renders/expands, so
+     scrolling stays on the page, not trapped inside the frame. */
+  #brichaus-assessment .booking-embed iframe {
+    display: block;
+    width: 100%;
+    min-height: 700px;
+    border: none;
+    overflow: hidden;
+  }
+  #brichaus-assessment .booking-fallback {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    text-align: center;
+  }
+  #brichaus-assessment .booking-fallback a {
+    color: var(--bui-color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   #brichaus-assessment .results-actions {
     display: flex;
@@ -977,9 +992,6 @@
      live: Step 2's address field was squeezed to a sliver). */
   @media (max-width: 640px) {
     #brichaus-assessment { padding-left: 8px; padding-right: 8px; }
-    #brichaus-assessment .assessment-intro { margin-bottom: var(--bui-space-4); }
-    #brichaus-assessment .assessment-intro h1 { font-size: 24px; }
-    #brichaus-assessment .assessment-intro p { font-size: 15px; }
     #brichaus-assessment .step-body-pad { padding: 26px 16px 24px; }
     #brichaus-assessment .step-intro { padding: 26px 16px 0; }
     #brichaus-assessment .step-footer { padding: 18px 16px 24px; }
@@ -999,13 +1011,9 @@
 <body>
 <div id="brichaus-assessment">
 
-  <!-- Persistent title/subtitle above the stepped card -- stays on screen
-       across every step (showStep() only ever toggles .hidden on
-       [data-step] sections, never touches siblings like this one). -->
-  <div class="assessment-intro">
-    <h1>Property Management Assessment</h1>
-    <p>Get a data-backed management proposal for your property in minutes — no cost, no obligation.</p>
-  </div>
+  <!-- No page title/subtitle above the card — dropped per owner review
+       (it ate too much screen space, especially on phones); the stepped
+       card's own header bar carries the context instead. -->
 
   <!-- ============ STEP: property type ============ -->
   <section data-step="property-type">
@@ -1267,7 +1275,11 @@
   <section data-step="loading" class="hidden">
     <bui-card variant="elevated" padding="sm" class="loading-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="10. Finalizing Your Report" value="91"></bui-progress-bar>
+        <!-- Post-question screens drop the step numbering on purpose (per
+             owner review): the numbered "1..9" count belongs to questions
+             the visitor answers; once they've answered the last one, the
+             remaining screens are delivery, not steps to complete. -->
+        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
         <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
@@ -1293,7 +1305,7 @@
   <section data-step="results" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="11. Your Management Proposal Report" value="100"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Your Management Proposal Report" value="100"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
         <div id="demo-banner" class="demo-banner hidden">
@@ -1390,14 +1402,49 @@
     </bui-card>
   </section>
 
+  <!-- ============ STEP: schedule (embedded booking calendar) ============ -->
+  <!-- The final funnel screen. "Schedule your consultation" on the report
+       used to navigate the tab to BOOKING_URL (losing the report); now it
+       advances HERE and the same calendar renders inline in an iframe —
+       the visitor never leaves the funnel and can step Back to the report.
+       The iframe's src is set lazily by ensureBookingEmbed() on first
+       visit (with the visitor's name/email as prefill params), never in
+       markup, so nobody pays the calendar's load cost unless they ask
+       for it. -->
+  <section data-step="schedule" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Schedule Your Consultation" value="100"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Pick a time that works for you</h2>
+        <p>Choose a slot below and we'll walk through your proposal together.</p>
+      </div>
+      <div class="step-body-pad" style="padding-top: var(--bui-space-4);">
+        <div class="booking-embed">
+          <iframe id="booking-iframe" title="Schedule your consultation" scrolling="no"></iframe>
+        </div>
+        <p class="booking-fallback">Calendar not loading? <a id="booking-fallback-link" href="#" target="_blank" rel="noopener">Open the scheduling page directly</a>.</p>
+      </div>
+      <div class="step-footer">
+        <bui-button variant="secondary" data-back="results">Back to Report</bui-button>
+        <span class="spacer"></span>
+      </div>
+    </bui-card>
+  </section>
+
   <!-- Persistent trust row below the stepped card -- same "always visible,
-       never toggled by showStep()" pattern as .assessment-intro above. -->
+       never toggled by showStep()" pattern -- a plain sibling of the
+       [data-step] sections. -->
   <div class="trust-panel">
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Results in Minutes &mdash; or We Follow Up Within 24 Hours</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Initial Proposal in Minutes*</span>
   </div>
+  <!-- The asterisk's disclaimer — the fallback promise lives down here so
+       the guarantee row itself stays short. -->
+  <p class="trust-disclaimer">*Most proposals are ready in under 2 minutes. If a data source is temporarily unavailable, we'll follow up with your proposal within 24 hours.</p>
 
 </div>
 
@@ -1451,13 +1498,13 @@
     // synchronously with the full report, ~30s).
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
 
-    // Where "Schedule Consultation" sends the visitor — a same-funnel GHL
-    // page (this navigates the CURRENT tab, not a new one; see scheduleBtn's
-    // handler below). The live report is intentionally not preserved across
-    // that navigation — the visitor's copy comes from the emailed PDF
-    // instead (see power-automate-build-spec.md for the PDF-generation +
-    // email pipeline this depends on). Leave blank to no-op with a console
-    // warning instead of navigating to a dead link.
+    // The GHL booking calendar. No longer a navigation target — the
+    // "Schedule your consultation" CTA now advances to the funnel's own
+    // Schedule step, where this URL loads INSIDE an iframe (see
+    // ensureBookingEmbed()), so the visitor keeps their live report one
+    // Back-click away. The same URL doubles as the "open directly"
+    // fallback link under the embed. Leave blank to no-op with a console
+    // warning instead of showing a dead calendar.
     BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
 
     // Native GHL field `name` attributes this page mirrors values into via
@@ -1667,7 +1714,8 @@
     driver: root.querySelector('[data-step="driver"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
-    results: root.querySelector('[data-step="results"]')
+    results: root.querySelector('[data-step="results"]'),
+    schedule: root.querySelector('[data-step="schedule"]')
   };
 
   var propertyTypeChoiceGroup = document.getElementById('property-type-choice-group');
@@ -3440,16 +3488,41 @@
     window.print();
   });
 
+  // Loads the GHL booking calendar into the Schedule step's iframe, once.
+  // Runs on the first "Schedule your consultation" click rather than at
+  // startup so visitors who never schedule never pay the calendar's load
+  // cost. Prefills the widget from the contact details already collected
+  // (GHL calendars read first_name/email query params), and injects GHL's
+  // own form_embed.js helper, which listens for the iframe's postMessage
+  // and grows it to the calendar's real height — without it the embed sits
+  // at the CSS min-height with the calendar clipped inside.
+  var bookingEmbedReady = false;
+  function ensureBookingEmbed() {
+    if (bookingEmbedReady) return;
+    bookingEmbedReady = true;
+    var iframe = document.getElementById('booking-iframe');
+    var params = [];
+    if (state.contact.firstName) params.push('first_name=' + encodeURIComponent(state.contact.firstName));
+    if (state.contact.email) params.push('email=' + encodeURIComponent(state.contact.email));
+    var url = CONFIG.BOOKING_URL + (params.length ? (CONFIG.BOOKING_URL.indexOf('?') === -1 ? '?' : '&') + params.join('&') : '');
+    iframe.src = url;
+    document.getElementById('booking-fallback-link').href = url;
+    var resizer = document.createElement('script');
+    resizer.src = 'https://link.msgsndr.com/js/form_embed.js';
+    document.body.appendChild(resizer);
+  }
+
   scheduleBtn.addEventListener('bui-click', function () {
     if (!CONFIG.BOOKING_URL) {
       console.warn('[brichaus-assessment] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
       return;
     }
-    // Same-tab navigation — a real transition to the next funnel page, not a
-    // popup. The live report is deliberately not preserved across this
-    // navigation; the visitor's durable copy is the emailed PDF (see
-    // BOOKING_URL's doc comment above).
-    window.location.href = CONFIG.BOOKING_URL;
+    ensureBookingEmbed();
+    showStep('schedule');
+  });
+
+  root.querySelector('[data-back="results"]').addEventListener('bui-click', function () {
+    showStep('results');
   });
 
   /* =====================================================================
