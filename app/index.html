@@ -410,8 +410,8 @@
     align-items: flex-start !important;
     gap: var(--bui-space-2) !important;
     font-family: var(--bui-font-family) !important;
-    font-size: 12px !important;
-    line-height: 1.5 !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
   }
   #brichaus-assessment .terms-slot .checkbox-container input[type="checkbox"] {
     margin-top: 3px !important;
@@ -422,10 +422,12 @@
   }
   #brichaus-assessment .terms-slot .checkbox-container label {
     font-family: var(--bui-font-family) !important;
-    /* Slightly under the kit's sm size — this is dense legal copy, not UI
-       text, and it shouldn't compete with the name/email fields above. */
-    font-size: 12px !important;
-    color: var(--bui-color-text-muted) !important;
+    /* Fine-print treatment (per owner review): well under the kit's sm
+       size and in the faint ink, but still comfortably legible — dense
+       legal copy shouldn't compete with the name/email fields above. */
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+    color: var(--bui-color-text-faint) !important;
   }
   #brichaus-assessment .demo-banner {
     background: var(--bui-color-warning-bg);
@@ -544,6 +546,18 @@
     margin: 0 0 var(--bui-space-3);
     font-size: var(--bui-font-size-md);
     color: var(--bui-color-text);
+  }
+  /* Number of Units field, relocated inside the Multifamily choice card
+     (see ensureUnitCountInCard). The card centers its text; the field
+     reads better left-aligned. */
+  #brichaus-assessment .bui-choice-card #unit-count-field { text-align: left; }
+  /* Map pin confirming the selected address (see showAddressMap). */
+  #brichaus-assessment .address-map {
+    height: 220px;
+    margin-top: var(--bui-space-3);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    overflow: hidden;
   }
   #brichaus-assessment #expansion-capture bui-button {
     margin-top: var(--bui-space-3);
@@ -1061,7 +1075,7 @@
         <bui-progress-bar tone="header" label="1. Property Type" value="9"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>What type of rental property is this?</h2>
+        <h2>What kind of rental property are we looking at?</h2>
         <p>This determines how we read comparable rents for your address.</p>
         <bui-choice-group id="property-type-choice-group" name="property-type">
           <bui-choice-card value="single" label="Single Family"
@@ -1077,6 +1091,11 @@
           <bui-choice-card value="commercial" label="Commercial" disabled
             description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
         </bui-choice-group>
+        <!-- Rendered here but RELOCATED into the Multifamily card's own
+             body the first time Multifamily is selected (see
+             ensureUnitCountInCard) — the question belongs visually to the
+             card that raised it. Kept in markup at this level so the page
+             still works if the relocation target ever goes away. -->
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
         </div>
@@ -1122,6 +1141,12 @@
             <bui-button id="expansion-notify-btn" variant="slate">Keep Me Posted</bui-button>
           </div>
         </div>
+
+        <!-- Satellite pin of the selected address — a visual second check
+             that the suggestion Google matched is really their property
+             (see showAddressMap; hidden until a place with coordinates is
+             selected, and again the moment the visitor types a new one). -->
+        <div id="address-map" class="address-map hidden"></div>
 
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-welcome" class="recognition-state hidden">
@@ -1259,20 +1284,23 @@
         <bui-progress-bar variant="segmented" id="driver-sub-progress" label="Driver" value="1" max="4"></bui-progress-bar>
         <div style="margin-top: var(--bui-space-4);">
           <bui-choice-group id="driver-choice-group" name="driver">
-            <bui-choice-card value="streamlined" label="Streamlined"
-              description="Minimal issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+            <bui-choice-card value="streamlined" label="Minimal"
+              description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
             <bui-choice-card value="standard" label="Standard"
               description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
             <bui-choice-card value="active" label="Active"
               description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-            <bui-choice-card value="intensive" label="Intensive"
+            <bui-choice-card value="intensive" label="Intense"
               description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
           </bui-choice-group>
         </div>
       </div>
+      <!-- No Continue here on purpose: picking an option flips the card and
+           reveals its own "Confirm & Continue" button (see
+           addDriverConfirmButton) — a second footer Continue was redundant. -->
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" id="driver-back">Back</bui-button>
-        <bui-button id="driver-continue" variant="slate" disabled>Continue</bui-button>
+        <span class="spacer"></span>
       </div>
     </bui-card>
   </section>
@@ -1306,7 +1334,7 @@
           </div>
           <div class="report-progress__row is-active">
             <span class="report-progress__spinner" aria-hidden="true"></span>
-            <span>Calculating your recommended fee…</span>
+            <span>Waiting for your confirmation…</span>
           </div>
         </div>
 
@@ -1341,7 +1369,7 @@
         <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Located your property,Validating comps one last time,Scoring operational demand,Calculating your fee,Generating your report"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your report"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
@@ -1714,7 +1742,8 @@
     unitCount: 1,
     rentPerUnit: 0,
     // No pre-selected value for any driver — the visitor must actively pick
-    // one before Continue enables (see renderDriverStep/driverContinue).
+    // one, which reveals the in-card Confirm & Continue button (the only
+    // way forward; see addDriverConfirmButton).
     drivers: { tenant: '', turnover: '', maintenance: '', compliance: '' },
     contact: { firstName: '', email: '', consentTs: '' },
     result: null, // populated once the webhook responds (or demo fallback)
@@ -1837,7 +1866,6 @@
   var driverHeaderProgress = document.getElementById('driver-header-progress');
   var driverSubProgress = document.getElementById('driver-sub-progress');
   var driverChoiceGroup = document.getElementById('driver-choice-group');
-  var driverContinue = document.getElementById('driver-continue');
   var driverBack = document.getElementById('driver-back');
 
   var contactNameInput = document.getElementById('contact-name-input');
@@ -1975,8 +2003,34 @@
     propertyTypeContinue.toggleAttribute('disabled', !type || !unitsOk);
   }
 
+  // Moves the Number of Units field INSIDE the Multifamily card's body the
+  // first time it's needed (the card's inner div doesn't exist until the
+  // component initializes, so this can't run at parse time). The stop-
+  // propagation guards keep interactions with the field from re-triggering
+  // the card's own click-to-select handler or the group's arrow-key
+  // navigation (a space/arrow typed in the input would otherwise be
+  // swallowed as a card-selection keystroke).
+  // bui-input/bui-change are in this list because the units field now sits
+  // INSIDE the choice group: its own value events would otherwise bubble up
+  // and be misread by the group's bui-change handler below as a card change
+  // (hiding this very field mid-interaction). The app's direct listeners on
+  // #unit-count-input still fire — they're on the dispatch target itself,
+  // before propagation is what gets stopped.
+  ['click', 'mousedown', 'keydown', 'bui-input', 'bui-change'].forEach(function (name) {
+    unitCountField.addEventListener(name, function (evt) { evt.stopPropagation(); });
+  });
+  function ensureUnitCountInCard() {
+    var inner = propertyTypeChoiceGroup.querySelector('bui-choice-card[value="multi"] .bui-choice-card');
+    if (!inner || unitCountField.parentElement === inner) return;
+    inner.appendChild(unitCountField);
+  }
+
   propertyTypeChoiceGroup.addEventListener('bui-change', function (evt) {
+    // Belt to the stopPropagation suspenders above: only the group's OWN
+    // selection change matters here, never a bubbled child event.
+    if (evt.target !== propertyTypeChoiceGroup) return;
     var isMulti = evt.detail.value === 'multi';
+    if (isMulti) ensureUnitCountInCard();
     unitCountField.classList.toggle('hidden', !isMulti);
     refreshPropertyTypeContinue();
   });
@@ -2066,6 +2120,61 @@
   });
   // -----------------------------------------------------------------------
 
+  // --- Address confirmation map -----------------------------------------
+  // Drops a pin on a small satellite map under the address field as a
+  // second check that the matched place is really their property. Uses the
+  // Maps JS API already loaded for autocomplete (no extra key/API). Every
+  // failure path just keeps the map hidden — it's a nice-to-have, never a
+  // blocker.
+  var addressMapDiv = document.getElementById('address-map');
+  var addressMap = null;
+  var addressMarker = null;
+
+  function hideAddressMap() {
+    addressMapDiv.classList.add('hidden');
+  }
+
+  function showAddressMap(loc) {
+    // Place.location is a LatLng (lat()/lng() methods) in the live API but
+    // may be a plain {lat, lng} in other shapes — accept both.
+    var lat = loc && (typeof loc.lat === 'function' ? loc.lat() : loc.lat);
+    var lng = loc && (typeof loc.lng === 'function' ? loc.lng() : loc.lng);
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+      hideAddressMap();
+      return;
+    }
+    if (!(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
+      hideAddressMap();
+      return;
+    }
+    var center = { lat: lat, lng: lng };
+    google.maps.importLibrary('maps').then(function (lib) {
+      if (!lib || typeof lib.Map !== 'function') { hideAddressMap(); return; }
+      addressMapDiv.classList.remove('hidden');
+      if (!addressMap) {
+        addressMap = new lib.Map(addressMapDiv, {
+          center: center,
+          zoom: 18,
+          mapTypeId: 'hybrid', // satellite + labels: the roof itself is the confirmation
+          disableDefaultUI: true,
+          zoomControl: true,
+          clickableIcons: false,
+          gestureHandling: 'cooperative' // one-finger page scroll still works on mobile
+        });
+      } else {
+        addressMap.setCenter(center);
+      }
+      // Classic Marker (no mapId requirement, unlike AdvancedMarkerElement).
+      if (typeof google.maps.Marker === 'function') {
+        if (!addressMarker) addressMarker = new google.maps.Marker({ map: addressMap, position: center });
+        else addressMarker.setPosition(center);
+      }
+    }).catch(function () {
+      hideAddressMap();
+    });
+  }
+  // -----------------------------------------------------------------------
+
   addressInput.addEventListener('bui-address-select', function (evt) {
     var place = evt.detail.place || {};
     state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
@@ -2079,6 +2188,9 @@
     addressInput.setAttribute('error', '');
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
+    // Shown for every selection — in-area or not, "is that pin my
+    // property?" is the same secondary check.
+    showAddressMap(place.location);
 
     // Out-of-area properties stop here: no Continue, and no RentCast/
     // recognition spend on an assessment that will never run.
@@ -2120,6 +2232,7 @@
     state.address.stateCode = '';
     state.address.stateName = '';
     hideServiceAreaGate();
+    hideAddressMap();
     locationContinue.setAttribute('disabled', '');
     addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
     syncGhlField('googlePlaceId', '');
@@ -2128,11 +2241,13 @@
     resetRecognitionPanel();
   });
 
-  // The gate reflects a SELECTED address; the moment the visitor starts
-  // typing something new it's stale. bui-change (the handler above) only
-  // fires on commit (blur/Enter), so clear on the per-keystroke event too.
+  // The gate and pin map reflect a SELECTED address; the moment the visitor
+  // starts typing something new they're stale. bui-change (the handler
+  // above) only fires on commit (blur/Enter), so clear on the per-keystroke
+  // event too.
   addressInput.addEventListener('bui-input', function () {
     hideServiceAreaGate();
+    hideAddressMap();
   });
 
   // Enter, pressed a second time once an address is already selected (the
@@ -2689,7 +2804,6 @@
 
     var current = state.drivers[step.key];
     driverChoiceGroup.value = current;
-    driverContinue.toggleAttribute('disabled', !current);
 
     // Safety net: don't depend on whether the value assignment above
     // happened to dispatch a synthetic 'bui-change' (BuiChoiceGroup only
@@ -2716,10 +2830,10 @@
   }
 
   // Lets the visitor confirm and move on right from the card they just
-  // flipped, instead of having to look away to the Continue button below —
-  // same effect as clicking Continue, just reachable without moving off
-  // the card. Appended into the flipped card itself (see
-  // showDriverCardReference()), never into the other 3.
+  // flipped — this is the ONLY way forward on the driver steps (the footer
+  // deliberately has no Continue of its own; it was redundant with this).
+  // Appended into the flipped card itself (see showDriverCardReference()),
+  // never into the other 3.
   function addDriverConfirmButton(card) {
     var inner = card.querySelector('.bui-choice-card');
     if (!inner || inner.querySelector('.driver-confirm-btn')) return;
@@ -2772,7 +2886,6 @@
     var step = DRIVER_STEPS[driverStepIndex];
     var isNewChoice = state.drivers[step.key] !== evt.detail.value;
     state.drivers[step.key] = evt.detail.value;
-    driverContinue.removeAttribute('disabled');
     resetDriverCardDescriptions();
     if (evt.detail.value) showDriverCardReference(step.key, evt.detail.value, isNewChoice);
   });
@@ -2801,7 +2914,6 @@
     }
   }
 
-  driverContinue.addEventListener('bui-click', advanceDriverStep);
 
   /* =====================================================================
    * Step 9: Get Your Report — captures the name/email/consent this native
