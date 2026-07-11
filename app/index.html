@@ -79,6 +79,16 @@
   /* The card clips its own corners so the header bar's flush square top
      corners (padding zeroed below) never poke past the card's own radius. */
   #brichaus-assessment .bui-card { overflow: hidden; }
+  /* EXCEPT the address step: the autocomplete listbox is position:absolute
+     inside the card, so overflow:hidden was clipping it at the card's
+     bottom edge (only ~1.5 suggestions visible on phones). Let this one
+     card overflow and instead round the header bar itself so its square
+     top corners still don't poke past the card radius. */
+  #brichaus-assessment [data-step="location"] .bui-card { overflow: visible; }
+  #brichaus-assessment [data-step="location"] .bui-card__header {
+    border-radius: var(--bui-radius-lg) var(--bui-radius-lg) 0 0;
+    overflow: hidden;
+  }
   #brichaus-assessment .bui-card[data-variant="elevated"] {
     box-shadow: 0 1px 2px rgba(20, 24, 32, 0.04), 0 24px 48px -16px rgba(20, 24, 32, 0.16);
   }
@@ -400,7 +410,7 @@
     align-items: flex-start !important;
     gap: var(--bui-space-2) !important;
     font-family: var(--bui-font-family) !important;
-    font-size: var(--bui-font-size-sm) !important;
+    font-size: 12px !important;
     line-height: 1.5 !important;
   }
   #brichaus-assessment .terms-slot .checkbox-container input[type="checkbox"] {
@@ -412,7 +422,9 @@
   }
   #brichaus-assessment .terms-slot .checkbox-container label {
     font-family: var(--bui-font-family) !important;
-    font-size: var(--bui-font-size-sm) !important;
+    /* Slightly under the kit's sm size — this is dense legal copy, not UI
+       text, and it shouldn't compete with the name/email fields above. */
+    font-size: 12px !important;
     color: var(--bui-color-text-muted) !important;
   }
   #brichaus-assessment .demo-banner {
@@ -1107,8 +1119,8 @@
         <bui-progress-bar tone="header" label="3. Property Snapshot" value="27"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Tell us a little about your property</h2>
-        <p>This helps us calculate your potential revenue and recommended management fee.</p>
+        <h2>Current Rent vs. Market</h2>
+        <p>This helps us understand what it may take to reach the gross potential rent for your property.</p>
         <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number"></bui-input>
 
         <div id="market-rent-hint" class="market-rent-hint hidden"></div>
@@ -1161,22 +1173,22 @@
     </bui-card>
   </section>
 
-  <!-- ============ STEP: projected annual revenue (transition into operations) ============ -->
+  <!-- ============ STEP: estimated annual revenue (transition into operations) ============ -->
   <section data-step="revenue" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="4. Projected Revenue" value="36"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="36"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Here's what this property should generate at full occupancy</h2>
-        <p>Next, let's look at how day-to-day operations affect how much of this revenue you actually keep.</p>
+        <h2>Here's the income your property should generate each year</h2>
+        <p>0% Vacancy, No Evictions, No Surprises.</p>
 
-        <!-- Revenue-first hero: projected annual rent, computed from the
+        <!-- Revenue-first hero: estimated annual rent, computed from the
              committed rent/unit-count (not live inputs — those live on the
              prior steps, already behind us by the time this renders). -->
         <div class="revenue-hero">
           <span class="revenue-hero__orb" aria-hidden="true"></span>
-          <div class="revenue-hero__kicker">Projected Annual Rent</div>
+          <div class="revenue-hero__kicker">Estimated Annual Rent</div>
           <div class="revenue-hero__amount num" id="revenue-annual">—</div>
           <div class="revenue-hero__sub" id="revenue-sub"></div>
         </div>
@@ -1662,10 +1674,10 @@
   };
 
   var DRIVER_STEPS = [
-    { key: 'tenant', title: 'Tenant Management', icon: '👥', question: 'How would you describe the overall tenant management demands of your property?' },
-    { key: 'turnover', title: 'Turnover', icon: '🔄', question: 'How would you describe the unit turnover activity for your property?' },
-    { key: 'maintenance', title: 'Maintenance', icon: '🔧', question: 'How would you describe the overall maintenance demands of your property?' },
-    { key: 'compliance', title: 'Compliance', icon: '⚖️', question: 'How would you describe the compliance and regulatory demands of your property?' }
+    { key: 'tenant', title: 'Tenant Friction', icon: '👥', question: 'How would you describe the overall tenant management demands of your property?' },
+    { key: 'turnover', title: 'Turnover Pressure', icon: '🔄', question: 'How would you describe the unit turnover activity for your property?' },
+    { key: 'maintenance', title: 'Maintenance Burden', icon: '🔧', question: 'How would you describe the overall maintenance demands of your property?' },
+    { key: 'compliance', title: 'Compliance & Administration', icon: '⚖️', question: 'How would you describe the compliance and regulatory demands of your property?' }
   ];
   var driverStepIndex = 0;
 
