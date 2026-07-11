@@ -1357,7 +1357,6 @@
              reusing the same navy .revenue-hero treatment as the Projected
              Revenue step, followed by the 5 branded service cards. -->
         <div class="proposal-section">
-          <div class="report-kicker">Our Proposal</div>
           <div class="revenue-hero">
             <span class="revenue-hero__orb" aria-hidden="true"></span>
             <div class="revenue-hero__kicker">Full Service Management</div>
@@ -2999,8 +2998,12 @@
     }
     demoBanner.classList.toggle('hidden', !(result.isDemo || isIllustrative));
 
-    // Header address — from the selected place, falling back to the derived name.
-    var addr = state.address.formattedAddress || state.address.propertyName || '';
+    // Report title — the derived property name (computePropertyName:
+    // Google displayName or "<number> <street>"), NOT the full
+    // formattedAddress with city/state/zip/country, which read as clutter
+    // in the title slot. Falls back to the formatted address only when no
+    // name could be derived.
+    var addr = state.address.propertyName || state.address.formattedAddress || '';
     reportAddress.textContent = addr;
     reportAddress.classList.toggle('hidden', !addr);
 

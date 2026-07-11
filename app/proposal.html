@@ -56,12 +56,6 @@
     max-width: 620px;
     margin: 0 auto var(--bui-space-5);
   }
-  #brichaus-proposal .proposal-intro h1 {
-    margin: 0 0 8px;
-    font-size: 30px;
-    font-weight: 700;
-    color: #2B2F36;
-  }
   #brichaus-proposal .proposal-intro p {
     margin: 0 auto;
     max-width: 520px;
@@ -428,7 +422,6 @@
      640px breakpoint, not 420: modern phones are 390-430 CSS px wide. */
   @media (max-width: 640px) {
     #brichaus-proposal { padding-left: 8px; padding-right: 8px; }
-    #brichaus-proposal .proposal-intro h1 { font-size: 24px; }
     #brichaus-proposal .proposal-intro p { font-size: 15px; }
     #brichaus-proposal .step-body-pad { padding: 26px 16px 24px; }
     #brichaus-proposal .proposal-panel { padding: 28px 18px; }
@@ -439,15 +432,12 @@
 <body>
 <div id="brichaus-proposal">
 
-  <!-- Persistent title/subtitle above every state -- same pattern as
-       app/index.html's .assessment-intro (showPanel() only ever toggles
-       .hidden on [data-state] elements, never touches this sibling). -->
+  <!-- No page-level "Your Management Proposal" banner — dropped per owner
+       review (the report's own address-as-title header carries it now).
+       Only the gate instruction remains, and showPanel() hides it once
+       the report (or an error state) shows, so a stale "confirm your
+       email" prompt never lingers over the loaded proposal. -->
   <div class="proposal-intro">
-    <h1>Your Management Proposal</h1>
-    <!-- Only meaningful while the email gate / link check is on screen —
-         showPanel() hides it once the report (or an error state) shows,
-         so a stale "confirm your email" prompt never lingers over the
-         loaded proposal. -->
     <p id="proposal-intro-sub">Confirm your email below to view your personalized property management proposal.</p>
   </div>
 
@@ -505,7 +495,6 @@
              tucked into a collapsed disclosure at the end for readers who
              want the detail. -->
         <div class="proposal-section">
-          <div class="report-kicker">Our Proposal</div>
           <div class="revenue-hero">
             <span class="revenue-hero__orb" aria-hidden="true"></span>
             <div class="revenue-hero__kicker">Full Service Management</div>
