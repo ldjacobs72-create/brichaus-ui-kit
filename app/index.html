@@ -551,14 +551,46 @@
      (see ensureUnitCountInCard). The card centers its text; the field
      reads better left-aligned. */
   #brichaus-assessment .bui-choice-card #unit-count-field { text-align: left; }
-  /* Map pin confirming the selected address (see showAddressMap). */
-  #brichaus-assessment .address-map {
+  /* Map pin confirming the selected address (see showAddressMap). The
+     wrapper owns the frame; the two panes inside (satellite map and
+     Street View panorama) fill it and swap via .hidden. */
+  #brichaus-assessment .address-map-wrap {
+    position: relative;
     height: 220px;
     margin-top: var(--bui-space-3);
     border: 1px solid var(--bui-color-border);
     border-radius: var(--bui-radius-md);
     overflow: hidden;
   }
+  #brichaus-assessment .address-map-pane { height: 100%; }
+  #brichaus-assessment .map-view-toggle {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 1;
+    display: flex;
+    background: #FFFFFF;
+    border: 1px solid var(--bui-color-border);
+    border-radius: 999px;
+    box-shadow: 0 1px 4px rgba(20, 24, 32, 0.14);
+    overflow: hidden;
+  }
+  #brichaus-assessment .map-view-toggle button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 5px 12px;
+    font-family: var(--bui-font-family);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--bui-color-text-muted);
+    line-height: 1;
+  }
+  #brichaus-assessment .map-view-toggle button.is-active {
+    background: var(--bui-color-accent-bg);
+    color: var(--bui-color-accent);
+  }
+  #brichaus-assessment .map-view-toggle button.hidden { display: none; }
   #brichaus-assessment #expansion-capture bui-button {
     margin-top: var(--bui-space-3);
   }
@@ -1145,8 +1177,19 @@
         <!-- Satellite pin of the selected address — a visual second check
              that the suggestion Google matched is really their property
              (see showAddressMap; hidden until a place with coordinates is
-             selected, and again the moment the visitor types a new one). -->
-        <div id="address-map" class="address-map hidden"></div>
+             selected, and again the moment the visitor types a new one).
+             The Street View toggle only appears when imagery exists within
+             ~50m of the pin (see the availability check in showAddressMap);
+             the panorama itself loads on first tap, never automatically —
+             dynamic Street View bills at roughly double a map load. -->
+        <div id="address-map-wrap" class="address-map-wrap hidden">
+          <div class="map-view-toggle" role="group" aria-label="Map view">
+            <button type="button" id="map-toggle-map" class="is-active">Satellite</button>
+            <button type="button" id="map-toggle-pano" class="hidden">Street View</button>
+          </div>
+          <div id="address-map" class="address-map-pane"></div>
+          <div id="address-pano" class="address-map-pane hidden"></div>
+        </div>
 
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-welcome" class="recognition-state hidden">
@@ -2122,35 +2165,75 @@
 
   // --- Address confirmation map -----------------------------------------
   // Drops a pin on a small satellite map under the address field as a
-  // second check that the matched place is really their property. Uses the
-  // Maps JS API already loaded for autocomplete (no extra key/API). Every
-  // failure path just keeps the map hidden — it's a nice-to-have, never a
-  // blocker.
+  // second check that the matched place is really their property, with a
+  // Street View toggle when imagery exists near the pin. Uses the Maps JS
+  // API already loaded for autocomplete (no extra key/API). Every failure
+  // path just keeps things hidden — it's a nice-to-have, never a blocker.
+  var addressMapWrap = document.getElementById('address-map-wrap');
   var addressMapDiv = document.getElementById('address-map');
+  var addressPanoDiv = document.getElementById('address-pano');
+  var mapToggleMap = document.getElementById('map-toggle-map');
+  var mapTogglePano = document.getElementById('map-toggle-pano');
   var addressMap = null;
   var addressMarker = null;
+  var addressPanorama = null;
+  var streetViewSvc = null;
+  // The pano + camera position found for the CURRENT selection (see the
+  // availability check below); null means no Street View for this address.
+  var panoForSelection = null;
+
+  function setMapView(view) {
+    var pano = view === 'pano';
+    addressMapDiv.classList.toggle('hidden', pano);
+    addressPanoDiv.classList.toggle('hidden', !pano);
+    mapToggleMap.classList.toggle('is-active', !pano);
+    mapTogglePano.classList.toggle('is-active', pano);
+  }
 
   function hideAddressMap() {
-    addressMapDiv.classList.add('hidden');
+    addressMapWrap.classList.add('hidden');
+    mapTogglePano.classList.add('hidden');
+    panoForSelection = null;
+    setMapView('map');
+  }
+
+  // Great-circle bearing (degrees clockwise from north) from the Street
+  // View camera to the property, so the panorama opens facing the house
+  // instead of down the street. Small enough to inline — not worth pulling
+  // in the whole geometry library for one formula.
+  function headingBetween(from, to) {
+    var lat1 = from.lat * Math.PI / 180;
+    var lat2 = to.lat * Math.PI / 180;
+    var dLng = (to.lng - from.lng) * Math.PI / 180;
+    var y = Math.sin(dLng) * Math.cos(lat2);
+    var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function toPlainLatLng(loc) {
+    // LatLng objects expose lat()/lng() methods; other shapes are plain.
+    var lat = loc && (typeof loc.lat === 'function' ? loc.lat() : loc.lat);
+    var lng = loc && (typeof loc.lng === 'function' ? loc.lng() : loc.lng);
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return null;
+    return { lat: lat, lng: lng };
   }
 
   function showAddressMap(loc) {
-    // Place.location is a LatLng (lat()/lng() methods) in the live API but
-    // may be a plain {lat, lng} in other shapes — accept both.
-    var lat = loc && (typeof loc.lat === 'function' ? loc.lat() : loc.lat);
-    var lng = loc && (typeof loc.lng === 'function' ? loc.lng() : loc.lng);
-    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+    var center = toPlainLatLng(loc);
+    if (!center || !(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
       hideAddressMap();
       return;
     }
-    if (!(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
-      hideAddressMap();
-      return;
-    }
-    var center = { lat: lat, lng: lng };
+    // Every selection starts back on the satellite view with the Street
+    // View option withheld until the availability check for THIS address
+    // comes back positive.
+    mapTogglePano.classList.add('hidden');
+    panoForSelection = null;
+    setMapView('map');
+
     google.maps.importLibrary('maps').then(function (lib) {
       if (!lib || typeof lib.Map !== 'function') { hideAddressMap(); return; }
-      addressMapDiv.classList.remove('hidden');
+      addressMapWrap.classList.remove('hidden');
       if (!addressMap) {
         addressMap = new lib.Map(addressMapDiv, {
           center: center,
@@ -2172,7 +2255,55 @@
     }).catch(function () {
       hideAddressMap();
     });
+
+    // Street View availability: only offer the toggle when imagery exists
+    // within ~50m of the pin — never a black "no imagery here" panorama.
+    var placeIdAtCheck = state.address.placeId;
+    google.maps.importLibrary('streetView').then(function (lib) {
+      if (!lib || typeof lib.StreetViewService !== 'function') return;
+      if (!streetViewSvc) streetViewSvc = new lib.StreetViewService();
+      return streetViewSvc.getPanorama({ location: center, radius: 50, source: 'outdoor' }).then(function (res) {
+        // A slower lookup must never resurface the toggle for an address
+        // the visitor has already replaced (same staleness guard as
+        // checkContactRecognition).
+        if (placeIdAtCheck !== state.address.placeId) return;
+        var data = res && res.data;
+        var cameraLoc = data && data.location && toPlainLatLng(data.location.latLng);
+        if (!data || !data.location || !data.location.pano || !cameraLoc) return;
+        panoForSelection = {
+          panoId: data.location.pano,
+          heading: headingBetween(cameraLoc, center),
+          lib: lib
+        };
+        mapTogglePano.classList.remove('hidden');
+      });
+    }).catch(function () { /* no imagery / lookup failed — satellite-only */ });
   }
+
+  mapToggleMap.addEventListener('click', function () { setMapView('map'); });
+  mapTogglePano.addEventListener('click', function () {
+    if (!panoForSelection) return;
+    var opts = {
+      pano: panoForSelection.panoId,
+      pov: { heading: panoForSelection.heading, pitch: 0 },
+      addressControl: false,
+      motionTracking: false,
+      motionTrackingControl: false,
+      fullscreenControl: false,
+      zoomControl: false
+    };
+    try {
+      if (!addressPanorama) {
+        addressPanorama = new panoForSelection.lib.StreetViewPanorama(addressPanoDiv, opts);
+      } else {
+        addressPanorama.setPano(panoForSelection.panoId);
+        addressPanorama.setPov(opts.pov);
+      }
+    } catch (e) {
+      return; // stay on satellite rather than show a broken pane
+    }
+    setMapView('pano');
+  });
   // -----------------------------------------------------------------------
 
   addressInput.addEventListener('bui-address-select', function (evt) {
