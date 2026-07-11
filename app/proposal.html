@@ -1100,8 +1100,14 @@
     var heroBand = document.getElementById('hero-band');
     var demandMark = document.getElementById('demand-mark');
 
-    reportAddress.textContent = data.propertyName || '';
-    reportAddress.classList.toggle('hidden', !data.propertyName);
+    // Dataverse's new_propertyname historically holds the FULL formatted
+    // address (street, city, state, zip) on most rows — as a title, only
+    // the street line reads well, so take everything before the first
+    // comma. Short names ("1815 Desert Willow Way", named buildings)
+    // have no comma and pass through untouched.
+    var rawName = data.propertyName || '';
+    reportAddress.textContent = rawName.split(',')[0].trim();
+    reportAddress.classList.toggle('hidden', !rawName);
 
     var feeRate = parseFloat(data.feeCalcResponse);
     var monthlyFee = typeof data.monthlyFee === 'number' ? data.monthlyFee : null;
