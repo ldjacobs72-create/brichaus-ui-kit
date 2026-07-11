@@ -3026,6 +3026,14 @@
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
       PropertyName: state.address.propertyName || state.address.formattedAddress,
+      // Property type, two granularities: the visitor's own Step-1 answer
+      // (coarse, always present) and RentCast's classification from the
+      // quicklook (granular — "Condo", "Townhouse", etc.; empty when the
+      // quicklook failed). n8n writes both to the GHL Property record
+      // (property_type / property_type_rentcast) and Dataverse so records
+      // can be filtered by type.
+      PropertyType: state.propertyType === 'multi' ? 'Multifamily' : 'Single Family',
+      RentCastPropertyType: state.rentCast.propertyType || '',
       // Contact + consent — the n8n pipeline (not GHL's native survey
       // submission) now creates the GHL Contact, the Property record, and
       // their association from these. Consent is structurally always true
