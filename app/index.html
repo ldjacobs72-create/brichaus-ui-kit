@@ -113,15 +113,10 @@
      See the mobile breakpoint below for why this needed its own class
      instead of staying an inline style. */
   #brichaus-assessment .step-body-pad { padding: 52px 56px 44px; }
-  /* On narrow phones the wide 56px/52px/44px premium padding reads as huge
-     dead space around comparatively little content — trim it back down,
-     same principle as the original tighter-on-mobile rule this replaces. */
-  @media (max-width: 420px) {
-    #brichaus-assessment { padding-left: 10px; padding-right: 10px; }
-    #brichaus-assessment .step-body-pad { padding: 28px 16px 24px; }
-    #brichaus-assessment .step-intro { padding: 28px 16px 0; }
-    #brichaus-assessment .step-footer { padding: 20px 16px 24px; }
-  }
+  /* The consolidated mobile block lives at the very END of this stylesheet
+     — see the comment there. (It used to sit here and silently lose to the
+     later-in-source desktop base rules for .step-intro/.step-footer at
+     equal specificity, which is why phones kept the huge 56px padding.) */
   #brichaus-assessment .field-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -226,9 +221,6 @@
   #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__fill {
     background: #C1633F;
   }
-  @media (max-width: 420px) {
-    #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
-  }
 
   /* "Continue" is always variant="slate" (see button.js's own variant
      guide) -- restyled here to the brand's rust action color across every
@@ -326,9 +318,6 @@
     background: #4C5768;
     font-size: 13px;
   }
-  @media (max-width: 420px) {
-    #brichaus-assessment #property-type-choice-group .bui-choice-grid { grid-template-columns: 1fr; }
-  }
 
   /* ===== Premium visual pass: trust panel below the card ===== */
   #brichaus-assessment .trust-panel {
@@ -343,26 +332,20 @@
   #brichaus-assessment .trust-item {
     display: flex;
     align-items: center;
-    gap: 9px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #3F4754;
+    gap: 8px;
+    font-size: 13px;
+    color: #4B5563;
     white-space: nowrap;
-    background: #FFFFFF;
-    border: 1px solid #E3E5E9;
-    border-radius: 999px;
-    padding: 10px 16px;
-    box-shadow: 0 2px 8px rgba(20, 24, 32, 0.06);
   }
   #brichaus-assessment .trust-item__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: #4C5768;
-    color: #FFFFFF;
+    background: #EEF1F5;
+    color: #4C5768;
     font-size: 11px;
     line-height: 1;
     flex-shrink: 0;
@@ -983,6 +966,33 @@
     height: 1px !important;
     opacity: 0 !important;
     pointer-events: none !important;
+  }
+
+  /* ===== Mobile (whole funnel) =====
+     Kept as the LAST rules in this stylesheet on purpose: several of the
+     selectors below tie at equal specificity with their desktop base rules
+     above, so source order is what makes these win on phones. Breakpoint
+     is 640px, not 420 — modern phones are 390-430 CSS px wide and a 420px
+     cutoff left most of them with the full desktop padding (confirmed
+     live: Step 2's address field was squeezed to a sliver). */
+  @media (max-width: 640px) {
+    #brichaus-assessment { padding-left: 8px; padding-right: 8px; }
+    #brichaus-assessment .assessment-intro { margin-bottom: var(--bui-space-4); }
+    #brichaus-assessment .assessment-intro h1 { font-size: 24px; }
+    #brichaus-assessment .assessment-intro p { font-size: 15px; }
+    #brichaus-assessment .step-body-pad { padding: 26px 16px 24px; }
+    #brichaus-assessment .step-intro { padding: 26px 16px 0; }
+    #brichaus-assessment .step-footer { padding: 18px 16px 24px; }
+    /* Back + Continue share the full row width; the huge desktop side
+       padding on the rust Continue would otherwise overflow small rows. */
+    #brichaus-assessment .step-footer .spacer { display: none; }
+    #brichaus-assessment .step-footer bui-button { flex: 1; }
+    #brichaus-assessment .step-footer .bui-btn { width: 100%; }
+    #brichaus-assessment .bui-btn[data-variant="slate"] { padding: 0 20px; }
+    #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
+    /* Name/Email side-by-side pair on the contact step stacks. */
+    #brichaus-assessment .field-row { grid-template-columns: 1fr; }
+    #brichaus-assessment .trust-panel { gap: 12px 20px; }
   }
 </style>
 </head>
