@@ -528,6 +528,26 @@
   #brichaus-assessment .recognition-state bui-button {
     margin-top: var(--bui-space-3);
   }
+  /* Service-area gate (see SERVICE_AREA config + the address-select
+     handler): shown in place of the normal flow when the selected
+     property is outside the active markets. Same panel treatment as the
+     recognition panel above so out-of-area reads as information, not an
+     error. */
+  #brichaus-assessment .service-area-gate {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-info-bg);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .service-area-message {
+    margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment #expansion-capture bui-button {
+    margin-top: var(--bui-space-3);
+  }
   #brichaus-assessment .income-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1090,6 +1110,19 @@
           Locating your property…
         </div>
 
+        <!-- Service-area gate — appears instead of the normal flow when the
+             selected address is outside the active markets. Expansion-market
+             states additionally offer the stay-in-touch email capture (fed
+             to the recognition webhook's expansionLead action, which tags a
+             GHL contact for the expansion pipeline). -->
+        <div id="service-area-gate" class="service-area-gate hidden">
+          <p id="service-area-message" class="service-area-message"></p>
+          <div id="expansion-capture" class="hidden">
+            <bui-input id="expansion-email-input" label="Email" type="email"></bui-input>
+            <bui-button id="expansion-notify-btn" variant="slate">Keep Me Posted</bui-button>
+          </div>
+        </div>
+
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-welcome" class="recognition-state hidden">
             <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your existing management proposal.</p>
@@ -1499,6 +1532,22 @@
     // as it did before this existed).
     CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
 
+    // Service-area gating, checked the moment an address is selected
+    // (before any RentCast/recognition calls are spent on it).
+    // - active: full assessment runs normally.
+    // - expansion: no assessment; the gate offers a stay-in-touch email
+    //   capture that lands as a tagged GHL contact (expansionLead action
+    //   on the recognition webhook) to build the launch pipeline.
+    // - anything else: a polite not-served message, nothing captured.
+    // States are USPS codes from Google's administrative_area_level_1.
+    // If Google returns no state at all (rare), the funnel FAILS OPEN and
+    // proceeds normally — better to occasionally assess an out-of-area
+    // property than to block a real prospect on missing data.
+    SERVICE_AREA: {
+      active: ['AR', 'CA'],
+      expansion: ['TX', 'OK', 'FL', 'GA', 'LA']
+    },
+
     // Standalone saved-proposal viewer (app/proposal.html), same domain as
     // this funnel page. A recognized visitor who confirms their email gets
     // a "View My Proposal" shortcut to it instead of being forced through
@@ -1660,7 +1709,7 @@
    * App state
    * =================================================================== */
   var state = {
-    address: { formattedAddress: '', placeId: '', propertyName: '' },
+    address: { formattedAddress: '', placeId: '', propertyName: '', stateCode: '', stateName: '' },
     propertyType: '', // 'single' | 'multi' — set on the Property Type step, before address/quicklook
     unitCount: 1,
     rentPerUnit: 0,
@@ -1949,15 +1998,102 @@
     showStep('property-type');
   });
 
+  // --- Service-area gate ------------------------------------------------
+  var serviceAreaGate = document.getElementById('service-area-gate');
+  var serviceAreaMessage = document.getElementById('service-area-message');
+  var expansionCapture = document.getElementById('expansion-capture');
+  var expansionEmailInput = document.getElementById('expansion-email-input');
+  var expansionNotifyBtn = document.getElementById('expansion-notify-btn');
+
+  function serviceAreaTier(stateCode) {
+    if (!stateCode) return 'active'; // fail open — see SERVICE_AREA doc comment
+    if (CONFIG.SERVICE_AREA.active.indexOf(stateCode) !== -1) return 'active';
+    if (CONFIG.SERVICE_AREA.expansion.indexOf(stateCode) !== -1) return 'expansion';
+    return 'unserved';
+  }
+
+  function hideServiceAreaGate() {
+    serviceAreaGate.classList.add('hidden');
+    expansionCapture.classList.add('hidden');
+  }
+
+  function showServiceAreaGate(tier, stateName) {
+    var label = stateName || 'your area';
+    if (tier === 'expansion') {
+      serviceAreaMessage.textContent = "We're not managing properties in " + label +
+        " quite yet — it's one of our next markets. Leave your email and you'll be the first to know when we launch.";
+      expansionCapture.classList.remove('hidden');
+    } else {
+      serviceAreaMessage.textContent = "We don't currently manage properties in " + label +
+        ". We focus on Arkansas and California today.";
+      expansionCapture.classList.add('hidden');
+    }
+    serviceAreaGate.classList.remove('hidden');
+  }
+
+  var expansionEmailValue = '';
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    expansionEmailInput.addEventListener(eventName, function (evt) {
+      expansionEmailValue = (evt.detail.value || '').trim();
+    });
+  });
+
+  expansionNotifyBtn.addEventListener('bui-click', function () {
+    var email = expansionEmailValue;
+    if (!email || email.indexOf('@') === -1) {
+      expansionEmailInput.setAttribute('error', 'Please enter a valid email.');
+      return;
+    }
+    expansionEmailInput.setAttribute('error', '');
+    var stateName = state.address.stateName || state.address.stateCode || 'your area';
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'expansionLead',
+        email: email,
+        state: state.address.stateCode || '',
+        formattedAddress: state.address.formattedAddress || '',
+        googlePlaceId: state.address.placeId || ''
+      })
+    }).catch(function (err) {
+      // Deliberately fire-and-forget: the thank-you below is shown either
+      // way — a lost lead ping shouldn't turn into a visitor-facing error.
+      console.warn('[brichaus-assessment] expansionLead capture failed:', err);
+    });
+    expansionCapture.classList.add('hidden');
+    serviceAreaMessage.textContent = "Thanks — you're on the list! We'll reach out as soon as we open in " + stateName + ".";
+  });
+  // -----------------------------------------------------------------------
+
   addressInput.addEventListener('bui-address-select', function (evt) {
     var place = evt.detail.place || {};
     state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
     state.address.placeId = evt.detail.placeId || '';
     state.address.propertyName = computePropertyName(place, state.address.formattedAddress);
+    var stateComponent = (place.addressComponents || []).filter(function (c) {
+      return c && c.types && c.types.indexOf('administrative_area_level_1') !== -1;
+    })[0];
+    state.address.stateCode = stateComponent ? (stateComponent.shortText || '') : '';
+    state.address.stateName = stateComponent ? (stateComponent.longText || stateComponent.shortText || '') : '';
     addressInput.setAttribute('error', '');
-    locationContinue.toggleAttribute('disabled', !state.address.placeId);
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
+
+    // Out-of-area properties stop here: no Continue, and no RentCast/
+    // recognition spend on an assessment that will never run.
+    var tier = serviceAreaTier(state.address.stateCode);
+    if (tier !== 'active') {
+      // Order matters: resetRecognitionPanel() re-derives Continue's
+      // disabled state from placeId (which IS set here) — so the
+      // gate's disable must come after it, not before.
+      resetRecognitionPanel();
+      locationContinue.setAttribute('disabled', '');
+      showServiceAreaGate(tier, state.address.stateName);
+      return;
+    }
+    hideServiceAreaGate();
+    locationContinue.toggleAttribute('disabled', !state.address.placeId);
     fetchRentCastQuicklook(state.address.formattedAddress);
     checkContactRecognition();
   });
@@ -1981,12 +2117,22 @@
     state.address.formattedAddress = typed;
     state.address.placeId = '';
     state.address.propertyName = '';
+    state.address.stateCode = '';
+    state.address.stateName = '';
+    hideServiceAreaGate();
     locationContinue.setAttribute('disabled', '');
     addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
     syncGhlField('googlePlaceId', '');
     syncGhlField('propertyName', '');
     if (typed) fetchRentCastQuicklook(typed);
     resetRecognitionPanel();
+  });
+
+  // The gate reflects a SELECTED address; the moment the visitor starts
+  // typing something new it's stale. bui-change (the handler above) only
+  // fires on commit (blur/Enter), so clear on the per-keystroke event too.
+  addressInput.addEventListener('bui-input', function () {
+    hideServiceAreaGate();
   });
 
   // Enter, pressed a second time once an address is already selected (the
