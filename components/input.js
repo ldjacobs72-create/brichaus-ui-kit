@@ -90,7 +90,7 @@
 
   class BuiInput extends HTMLElement {
     static get observedAttributes() {
-      return ['label', 'type', 'name', 'placeholder', 'hint', 'error', 'required', 'disabled', 'value', 'prefix', 'suffix'];
+      return ['label', 'type', 'name', 'placeholder', 'hint', 'error', 'required', 'disabled', 'value', 'prefix', 'suffix', 'inputmode'];
     }
 
     connectedCallback() {
@@ -201,6 +201,12 @@
       this._label.style.display = this.getAttribute('label') ? '' : 'none';
 
       input.type = this.getAttribute('type') || 'text';
+      // Forwarded so number-ish fields can summon the phone's numeric pad
+      // (inputmode="numeric"/"decimal") — type="number" alone doesn't
+      // reliably do that on iOS.
+      var inputmode = this.getAttribute('inputmode');
+      if (inputmode) input.setAttribute('inputmode', inputmode);
+      else input.removeAttribute('inputmode');
       input.name = this.getAttribute('name') || '';
       input.placeholder = this.getAttribute('placeholder') || '';
       if (this.hasAttribute('value') && input.value === '') input.value = this.getAttribute('value');

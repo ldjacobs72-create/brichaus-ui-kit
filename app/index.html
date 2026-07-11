@@ -1051,7 +1051,7 @@
             description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
         </bui-choice-group>
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-input id="unit-count-input" label="Number of Units" type="number" min="2" placeholder="e.g. 8"></bui-input>
+          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
         </div>
       </div>
       <div slot="footer" class="step-footer">
@@ -1121,7 +1121,7 @@
       <div class="step-intro">
         <h2>Current Rent vs. Market</h2>
         <p>This helps us understand what it may take to reach the gross potential rent for your property.</p>
-        <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number"></bui-input>
+        <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number" inputmode="decimal"></bui-input>
 
         <div id="market-rent-hint" class="market-rent-hint hidden"></div>
 
@@ -3310,6 +3310,9 @@
     'Tenant Friction': 'tenantFriction',
     'Turnover Pressure': 'turnoverPressure',
     'Maintenance Burden': 'maintenanceBurden',
+    // Current pipeline label + the pre-rename one — cached proposals
+    // (report-status cache, Dataverse snapshots) still carry the old string.
+    'Compliance & Administration': 'complianceBurden',
     'Compliance Burden': 'complianceBurden'
   };
 
