@@ -196,11 +196,18 @@
      Operational Workload + Proposal service cards + CTA. Evidence/comps/
      RentCast blocks are intentionally NOT ported — that raw data isn't part
      of the stored proposal JSON.) ---- */
+  /* The property address IS the report's title (per owner review — a
+     generic "Your Management Proposal Report" heading was redundant with
+     the page chrome): big and dark so it's obvious which property this
+     is, with a quieter "Management Proposal" line beneath it. */
   #brichaus-proposal .report-address {
-    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
-    color: var(--bui-color-text-faint); margin: 0 0 4px;
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
+    color: #2B2F36; margin: 0 0 2px;
   }
-  #brichaus-proposal .report-h2 { margin: 0 0 var(--bui-space-4); font-size: 1.3rem; letter-spacing: -0.01em; }
+  #brichaus-proposal .report-subtitle {
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-4);
+  }
   #brichaus-proposal .report-kicker {
     font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
     color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
@@ -491,7 +498,7 @@
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div class="step-body-pad">
         <p id="report-address" class="report-address hidden"></p>
-        <h2 class="report-h2">Your Management Proposal Report</h2>
+        <p class="report-subtitle">Management Proposal</p>
 
         <!-- Report order (per owner review): fee first, then the service
              cards, then Operational Workload; the narrative analysis is
@@ -873,7 +880,7 @@
 
   var ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
-    desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
+    desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
     items: [
       'Annual Inspections',
       'Pet Placement Protection',
@@ -1115,7 +1122,7 @@
       // numbers that are (monthlyFee = grossMonthly * feeRate).
       var grossMonthly = feeRate > 0 ? monthlyFee / feeRate : null;
       heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
-      heroFeeSub.innerHTML = 'recommended monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span>' +
+      heroFeeSub.innerHTML = 'estimated monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span>' +
         (grossMonthly !== null ? ' on ' + currency(grossMonthly) + ' gross monthly rent' : '');
     } else {
       heroFee.textContent = '—';

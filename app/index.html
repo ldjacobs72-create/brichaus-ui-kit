@@ -793,11 +793,18 @@
   #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
 
   /* ===== Results — answer-first report layout ===== */
+  /* The property address IS the report's title (per owner review — a
+     generic "Your Management Proposal Report" heading was redundant with
+     the header bar): big and dark so it's obvious which property this is,
+     with a quieter "Management Proposal" line beneath it. */
   #brichaus-assessment .report-address {
-    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
-    color: var(--bui-color-text-faint); margin: 0 0 4px;
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
+    color: #2B2F36; margin: 0 0 2px;
   }
-  #brichaus-assessment .report-h2 { margin: 0 0 var(--bui-space-4); font-size: 1.3rem; letter-spacing: -0.01em; }
+  #brichaus-assessment .report-subtitle {
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-4);
+  }
   #brichaus-assessment .report-kicker {
     font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
     color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
@@ -1325,7 +1332,7 @@
         </div>
 
         <p id="report-address" class="report-address hidden"></p>
-        <h2 class="report-h2">Your Management Proposal Report</h2>
+        <p class="report-subtitle">Management Proposal</p>
 
         <!-- 1. Operational Workload — leads the report. Band + meter are
              always computable client-side (even in demo mode), so this stays
@@ -3003,7 +3010,7 @@
     // (.revenue-hero__total) already used for "$X/mo total" on the
     // Projected Revenue step.
     heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
-    heroFeeSub.innerHTML = 'recommended monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span> on ' + currency(grossMonthly) + ' gross monthly rent';
+    heroFeeSub.innerHTML = 'estimated monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span> on ' + currency(grossMonthly) + ' gross monthly rent';
 
     // Workload band + meter: always computable client-side (even in demo
     // mode / a failed webhook), so this section stays visible unconditionally
@@ -3294,7 +3301,7 @@
   // Power Automate's fee formula has no field to price them at all.
   var ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
-    desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
+    desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
     items: [
       'Annual Inspections',
       'Pet Placement Protection',
