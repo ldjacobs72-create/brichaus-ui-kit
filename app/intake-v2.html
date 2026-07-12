@@ -1,0 +1,3851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brichaus Property Intelligence Assessment</title>
+
+<!--
+  Brichaus Property Intelligence Assessment — the embedded app referenced
+  in the funnel architecture as "Embedded Brichaus Assessment App". Paste
+  this whole file's <body> contents (plus the two <script> blocks) into a
+  GHL "Custom HTML" element on the funnel page.
+
+  This MUST be pasted inline, not loaded in an <iframe>. BUI.ghl (see
+  ghl-bridge.js) syncs computed values into this page's own native GHL
+  fields by DOM lookup — that only works if this app shares the same
+  document as those fields. An iframe would sandbox it into a different
+  document and silently break every hidden-field write.
+
+  Google Maps is intentionally NOT loaded from here — GHL supplies the API
+  key via a merge tag that only resolves in GHL's own page HTML, so that
+  script tag belongs in the page's header code, not in this file or in
+  any externally-hosted .js. See README.md "Google Places in GHL". Until
+  that script tag is present, the address field below degrades to a plain
+  text input — expected, not a bug.
+
+  Everything else loads from this kit's public GitHub repo via jsDelivr,
+  pinned to @main. Component files are self-contained and additive — see
+  the root README for the include-pattern rules.
+
+  GHL'S NATIVE SURVEY SUBMISSION IS NO LONGER USED. It was how the
+  Contact-linked Property record got created (submitNative() clicking the
+  hidden submit control), until live debugging on 2026-07-10 proved GHL
+  no longer honors synthetic (isTrusted: false) clicks — fields populated
+  and consent checked, yet no record was ever created. Rather than keep
+  fighting GHL's front-end security, record creation moved server-side:
+  the n8n pipeline (PropScore: Main Pipeline) creates the Property record,
+  upserts the Contact, links them via GHL's associations API ("Owner ↔
+  Owned property"), and logs a timestamped consent note — fed by the
+  FirstName/Email/Consent fields this widget sends in its scoring webhook
+  payload. The Survey element is still required on the page (it hosts the
+  consent checkbox with its real GHL-configured legal copy, relocated
+  into the widget's card) but its submission is never triggered.
+-->
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/address-input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/card.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/progress-bar.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/choice-card.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/dial-gauge.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/loading.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/integrations/ghl-bridge.js"></script>
+
+<style>
+  /* ===== Premium visual pass: page canvas, intro title, card chrome =====
+     This <style> tag is pasted whole into the host GHL page (see the
+     top-of-file paste instructions) — the funnel page carries no other
+     content of its own, so styling body directly is the intended full-page
+     canvas for this widget, not a leak into unrelated page regions. */
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: #ffffff;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(90deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
+      radial-gradient(circle at 50% 0%, #ffffff 0%, #eef0f3 100%);
+    background-attachment: fixed;
+  }
+  #brichaus-assessment {
+    font-family: var(--bui-font-family);
+    color: var(--bui-color-text);
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--bui-space-4) var(--bui-space-4) var(--bui-space-6);
+  }
+  /* The card clips its own corners so the header bar's flush square top
+     corners (padding zeroed below) never poke past the card's own radius. */
+  #brichaus-assessment .bui-card { overflow: hidden; }
+  /* EXCEPT the address step: the autocomplete listbox is position:absolute
+     inside the card, so overflow:hidden was clipping it at the card's
+     bottom edge (only ~1.5 suggestions visible on phones). Let this one
+     card overflow and instead round the header bar itself so its square
+     top corners still don't poke past the card radius. */
+  #brichaus-assessment [data-step="location"] .bui-card { overflow: visible; }
+  #brichaus-assessment [data-step="location"] .bui-card__header {
+    border-radius: var(--bui-radius-lg) var(--bui-radius-lg) 0 0;
+    overflow: hidden;
+  }
+  #brichaus-assessment .bui-card[data-variant="elevated"] {
+    box-shadow: 0 1px 2px rgba(20, 24, 32, 0.04), 0 24px 48px -16px rgba(20, 24, 32, 0.16);
+  }
+  /* This app's own .step-intro/.step-footer/.step-body-pad classes below now
+     own ALL body/header/footer padding directly -- zero the card
+     component's own "sm" padding so the two don't compound. */
+  #brichaus-assessment .bui-card[data-padding="sm"] .bui-card__header,
+  #brichaus-assessment .bui-card[data-padding="sm"] .bui-card__body,
+  #brichaus-assessment .bui-card[data-padding="sm"] .bui-card__footer {
+    padding: 0;
+  }
+  /* Loading/Results steps' own content padding — paired with padding="sm" on
+     their <bui-card> (12px) so the two don't double up the way an unset
+     (default "md", 24px) card padding plus this div's own padding used to.
+     See the mobile breakpoint below for why this needed its own class
+     instead of staying an inline style. */
+  #brichaus-assessment .step-body-pad { padding: 52px 56px 44px; }
+  /* The consolidated mobile block lives at the very END of this stylesheet
+     — see the comment there. (It used to sit here and silently lose to the
+     later-in-source desktop base rules for .step-intro/.step-footer at
+     equal specificity, which is why phones kept the huge 56px padding.) */
+  #brichaus-assessment .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--bui-space-4);
+  }
+  #brichaus-assessment .step-intro {
+    padding: 52px 56px 0;
+  }
+  #brichaus-assessment .step-intro h2 {
+    margin: 0 0 14px;
+    font-size: 1.375rem;
+  }
+  #brichaus-assessment .step-intro p {
+    margin: 0 0 28px;
+    color: var(--bui-color-text-muted);
+    font-size: var(--bui-font-size-md);
+  }
+  /* Gives each of the 4 sequential driver questions its own glanceable
+     identity — otherwise every screen shows the same 4 choice cards and
+     only the question text (easy to click through without registering
+     you're now rating a different category). */
+  #brichaus-assessment .driver-category {
+    display: flex; align-items: center; gap: var(--bui-space-3); margin-bottom: 10px;
+  }
+  #brichaus-assessment .driver-category__icon { font-size: 26px; line-height: 1; }
+  /* The driver name is the primary visual anchor of each of the 4
+     questions (see the comment above) — bold and full-size next to its
+     icon, not a small uppercase kicker, so it reads as a heading rather
+     than a label. driver-question below is deliberately regular-weight so
+     it doesn't compete with this for attention. */
+  #brichaus-assessment .driver-category__name {
+    font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em;
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment .driver-question {
+    font-weight: 400;
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+    margin: 0 0 var(--bui-space-3);
+  }
+  /* Appended only into the one flipped/selected card (see
+     addDriverConfirmButton()) so the visitor can move on without looking
+     away to the Continue button below. */
+  #brichaus-assessment .driver-confirm-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #C1633F;
+    color: #fff;
+    font-family: var(--bui-font-family);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  #brichaus-assessment .driver-confirm-btn:hover { background: #AC5333; }
+  /* Selecting a driver option flips that one card to reveal the same
+     nuanced reference text the final report uses (see DRIVER_REFERENCE).
+     0deg->90deg->0deg (not a full 180) so the text is never mirrored/
+     backwards mid-animation — no second "back face" to keep upright. The
+     description swap itself happens in JS at the 90deg midpoint, driven by
+     bui-choice-card's own public "description" attribute (not the
+     component's internals — see choice-card.js's _syncAttrs()). */
+  @keyframes bui-driver-card-flip {
+    0% { transform: rotateY(0deg); }
+    50% { transform: rotateY(90deg); }
+    100% { transform: rotateY(0deg); }
+  }
+  #brichaus-assessment bui-choice-card.is-flipping .bui-choice-card {
+    animation: bui-driver-card-flip 340ms ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment bui-choice-card.is-flipping .bui-choice-card { animation: none; }
+  }
+  #brichaus-assessment .step-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--bui-space-3);
+    padding: 28px 56px 44px;
+  }
+  #brichaus-assessment .step-footer .spacer { flex: 1; }
+
+  /* ===== Premium visual pass: header/progress bar, Continue button ===== */
+  #brichaus-assessment .bui-progress[data-tone="header"] {
+    background: #4C5768;
+  }
+  #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row {
+    padding: 18px 56px;
+  }
+  #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__value {
+    color: #B7BEC9;
+    font-size: 13px;
+    font-weight: 400;
+  }
+  #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__track {
+    height: 6px;
+    background: #3E4756;
+  }
+  #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__fill {
+    background: #C1633F;
+  }
+
+  /* "Continue" is always variant="slate" (see button.js's own variant
+     guide) -- restyled here to the brand's rust action color across every
+     step, rather than recoloring the shared slate token used elsewhere
+     (step headers, card borders) for forward-navigation semantics. */
+  #brichaus-assessment .bui-btn[data-variant="slate"] {
+    height: 52px;
+    padding: 0 40px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    background: #C1633F;
+    border-color: #C1633F;
+    color: #FFFFFF;
+    box-shadow: 0 4px 14px rgba(193, 99, 63, 0.35);
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  }
+  #brichaus-assessment .bui-btn[data-variant="slate"]:hover:not(:disabled) {
+    background: #AC5333;
+    border-color: #AC5333;
+    transform: translateY(-1px);
+  }
+  #brichaus-assessment .bui-btn[data-variant="slate"]:disabled {
+    background: #DCDFE4;
+    border-color: #DCDFE4;
+    color: #9AA0AA;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  /* ===== Premium visual pass: Property Type choice cards ===== */
+  #brichaus-assessment #property-type-choice-group .bui-choice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+  @media (max-width: 720px) {
+    #brichaus-assessment #property-type-choice-group .bui-choice-grid { grid-template-columns: 1fr; }
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card {
+    border: 1.5px solid #E3E5E9;
+    background: #FFFFFF;
+    border-radius: 14px;
+    padding: 28px;
+    height: 100%;
+    box-sizing: border-box;
+    transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+  /* Commercial (disabled) card: same footprint as its siblings, marked with
+     an overlay badge instead of the meta slot. The component's own disabled
+     style fades the whole card to 0.5 opacity, which would wash out the
+     badge too — so opacity is reset and the muting is done here instead. */
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] {
+    position: relative;
+    overflow: hidden;
+    opacity: 1;
+    background: #FAFBFC;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__label,
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__description {
+    color: #A6ACB6;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.45);
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::after {
+    content: 'COMING SOON';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-6deg);
+    padding: 6px 14px;
+    border: 1.5px solid #C6CAD2;
+    border-radius: 999px;
+    background: #FFFFFF;
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    box-shadow: 0 2px 8px rgba(20, 24, 32, 0.08);
+    white-space: nowrap;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[aria-checked="true"] {
+    border: 2px solid #4C5768;
+    background: #EEF1F5;
+    box-shadow: 0 8px 20px rgba(20, 24, 32, 0.10);
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card__check {
+    top: 12px;
+    right: 12px;
+    width: 24px;
+    height: 24px;
+    background: #4C5768;
+    font-size: 13px;
+  }
+
+  /* ===== Premium visual pass: trust panel below the card ===== */
+  #brichaus-assessment .trust-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px 32px;
+    margin: var(--bui-space-6) auto 0;
+    max-width: 800px;
+  }
+  #brichaus-assessment .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #4B5563;
+    white-space: nowrap;
+  }
+  #brichaus-assessment .trust-item__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #EEF1F5;
+    color: #4C5768;
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  /* Footnote for the "Initial Proposal in Minutes*" guarantee above. */
+  #brichaus-assessment .trust-disclaimer {
+    margin: var(--bui-space-3) auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #9AA1AB;
+  }
+
+  #brichaus-assessment .loading-card, #brichaus-assessment .results-card {
+    text-align: center;
+  }
+
+  /* ===== Schedule step: embedded GHL booking calendar ===== */
+  /* The iframe starts at a safe fixed height; GHL's own form_embed.js
+     helper (lazily injected by ensureBookingEmbed()) then drives the
+     real height via postMessage as the calendar renders/expands, so
+     scrolling stays on the page, not trapped inside the frame. */
+  #brichaus-assessment .booking-embed iframe {
+    display: block;
+    width: 100%;
+    min-height: 700px;
+    border: none;
+    overflow: hidden;
+  }
+  #brichaus-assessment .booking-fallback {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    text-align: center;
+  }
+  #brichaus-assessment .booking-fallback a {
+    color: var(--bui-color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  #brichaus-assessment .results-actions {
+    display: flex;
+    gap: var(--bui-space-3);
+    justify-content: center;
+    margin-top: var(--bui-space-4);
+    flex-wrap: wrap;
+  }
+  #brichaus-assessment .market-rent-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--bui-space-2);
+    margin-top: var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .terms-slot {
+    margin-top: var(--bui-space-3);
+  }
+  /* GHL's own consent checkbox + its real legal-copy label get relocated
+     here (see whenFieldReady(CONFIG.GHL_TERMS_FIELD) in the app script) —
+     not recreated, the actual native element, just moved into this card
+     instead of left wherever GHL renders it by default. Restyled to read
+     as part of this card rather than GHL's own native theme; GHL's own
+     class names are left in place (only overriding what fights this
+     card's look), since removing them risks losing whatever behavior is
+     actually tied to them. */
+  #brichaus-assessment .terms-slot .checkbox-container {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: var(--bui-space-2) !important;
+    font-family: var(--bui-font-family) !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+  #brichaus-assessment .terms-slot .checkbox-container input[type="checkbox"] {
+    margin-top: 3px !important;
+    flex-shrink: 0 !important;
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: var(--bui-color-accent) !important;
+  }
+  #brichaus-assessment .terms-slot .checkbox-container label {
+    font-family: var(--bui-font-family) !important;
+    /* Fine-print treatment (per owner review): well under the kit's sm
+       size and in the faint ink, but still comfortably legible — dense
+       legal copy shouldn't compete with the name/email fields above. */
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+    color: var(--bui-color-text-faint) !important;
+  }
+  #brichaus-assessment .demo-banner {
+    background: var(--bui-color-warning-bg);
+    color: var(--bui-color-warning);
+    border: 1px solid var(--bui-color-warning);
+    border-radius: var(--bui-radius-sm);
+    font-size: var(--bui-font-size-sm);
+    font-weight: 600;
+    padding: var(--bui-space-2) var(--bui-space-3);
+    margin-bottom: var(--bui-space-4);
+    text-align: center;
+  }
+  #brichaus-assessment .address-verifying {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--bui-space-3);
+    font-size: 12.5px;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .address-verifying__spinner {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bui-color-border);
+    border-top-color: #C1633F;
+    animation: bui-address-verifying-spin 700ms linear infinite;
+  }
+  @keyframes bui-address-verifying-spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .address-verifying__spinner { animation: none; }
+  }
+  /* Contact step's "your report is already coming together" panel — see
+     the doc comment on its markup for why each row is allowed to claim
+     "done". */
+  #brichaus-assessment .report-progress {
+    margin: var(--bui-space-4) 0;
+    padding: 14px 16px;
+    background: #F6F7F9;
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #brichaus-assessment .report-progress__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .report-progress__row.is-done { color: var(--bui-color-text); }
+  #brichaus-assessment .report-progress__row.is-active { font-weight: 600; color: var(--bui-color-text); }
+  #brichaus-assessment .report-progress__icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--bui-color-success-bg);
+    color: var(--bui-color-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  #brichaus-assessment .report-progress__spinner {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bui-color-border);
+    border-top-color: #C1633F;
+    animation: bui-address-verifying-spin 700ms linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .report-progress__spinner { animation: none; }
+  }
+  #brichaus-assessment .recognition-panel {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-info-bg);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .recognition-message {
+    margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment .recognition-error {
+    margin: 4px 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-danger);
+  }
+  #brichaus-assessment .recognition-state bui-button {
+    margin-top: var(--bui-space-3);
+  }
+  /* Service-area gate (see SERVICE_AREA config + the address-select
+     handler): shown in place of the normal flow when the selected
+     property is outside the active markets. Same panel treatment as the
+     recognition panel above so out-of-area reads as information, not an
+     error. */
+  #brichaus-assessment .service-area-gate {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-info-bg);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .service-area-message {
+    margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  /* Number of Units field, relocated inside the Multifamily choice card
+     (see ensureUnitCountInCard). The card centers its text; the field
+     reads better left-aligned. */
+  #brichaus-assessment .bui-choice-card #unit-count-field { text-align: left; }
+  /* Map pin confirming the selected address (see showAddressMap). */
+  #brichaus-assessment .address-map {
+    height: 220px;
+    margin-top: var(--bui-space-3);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    overflow: hidden;
+  }
+  #brichaus-assessment #expansion-capture bui-button {
+    margin-top: var(--bui-space-3);
+  }
+  #brichaus-assessment .income-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    padding: var(--bui-space-4);
+    text-align: center;
+    margin-top: var(--bui-space-4);
+  }
+  #brichaus-assessment .income-grid > div + div {
+    border-left: 1px solid var(--bui-color-border);
+  }
+  #brichaus-assessment .income-grid .stat-label {
+    font-size: 10.5px;
+    color: var(--bui-color-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  #brichaus-assessment .income-grid .stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  #brichaus-assessment .insights-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bui-space-3);
+    text-align: left;
+    margin-top: var(--bui-space-4);
+  }
+  #brichaus-assessment .insights-list .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--bui-color-accent);
+    margin-top: 6px; flex-shrink: 0;
+  }
+  #brichaus-assessment .insights-list .row { display: flex; gap: 11px; }
+  #brichaus-assessment .insights-list .title { font-weight: 700; font-size: 13.5px; }
+  #brichaus-assessment .insights-list .desc { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; }
+  #brichaus-assessment .property-snapshot {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    padding: var(--bui-space-4);
+  }
+  #brichaus-assessment .snapshot-title, #brichaus-assessment .comparables-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    margin-bottom: var(--bui-space-3);
+  }
+  #brichaus-assessment .snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: var(--bui-space-3);
+  }
+  #brichaus-assessment .multifamily-note {
+    margin: var(--bui-space-3) 0 0;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--bui-color-text-faint);
+  }
+  #brichaus-assessment .comparables-section {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+  }
+  #brichaus-assessment .comparables-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bui-space-2);
+  }
+  #brichaus-assessment .comparable-row {
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-sm);
+    padding: var(--bui-space-2) var(--bui-space-3);
+  }
+  #brichaus-assessment .comparable-address { font-weight: 600; font-size: 13px; }
+  #brichaus-assessment .comparable-meta { font-size: 12px; color: var(--bui-color-text-muted); margin-top: 2px; }
+  /* Multifamily: per-unit-type market rent rows (label / median rent / sample). */
+  #brichaus-assessment .market-zip { font-weight: 400; color: var(--bui-color-text-faint); }
+  #brichaus-assessment .market-type-list { display: flex; flex-direction: column; gap: var(--bui-space-2); }
+  #brichaus-assessment .market-type-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: baseline;
+    gap: var(--bui-space-3);
+    padding: var(--bui-space-2) var(--bui-space-3);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-sm);
+  }
+  #brichaus-assessment .market-type-label { font-weight: 600; font-size: 13px; }
+  #brichaus-assessment .market-type-rent { font-weight: 700; font-size: 14px; color: var(--bui-color-accent); }
+  #brichaus-assessment .market-type-count { font-size: 11px; color: var(--bui-color-text-faint); white-space: nowrap; }
+  #brichaus-assessment .market-type-row.is-thin { opacity: 0.6; }
+  #brichaus-assessment .market-type-row.is-thin .market-type-rent { color: var(--bui-color-text-muted); }
+  #brichaus-assessment .market-type-foot { margin: var(--bui-space-3) 0 0; font-size: 11px; color: var(--bui-color-text-faint); }
+
+  /* ---- Revenue-first Property Snapshot ---- */
+  #brichaus-assessment .revenue-hero {
+    position: relative; overflow: hidden;
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4) var(--bui-space-5);
+    border-radius: var(--bui-radius-md);
+    background: #1c2230; color: #fff;
+  }
+  #brichaus-assessment .revenue-hero__orb {
+    position: absolute; top: -40px; right: -30px; width: 150px; height: 150px;
+    border-radius: 50%; background: #3f4c60; opacity: 0.45; pointer-events: none;
+  }
+  #brichaus-assessment .revenue-hero__kicker {
+    position: relative; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: #9aa4b0; margin-bottom: 6px;
+  }
+  #brichaus-assessment .revenue-hero__amount {
+    position: relative; font-size: 2.6rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
+  }
+  #brichaus-assessment .revenue-hero__sub {
+    position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4;
+  }
+  #brichaus-assessment .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
+
+  /* rent vs market gauge */
+  #brichaus-assessment .rvm-card {
+    margin-top: var(--bui-space-3); padding: var(--bui-space-3) var(--bui-space-4);
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .rvm-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--bui-space-3); }
+  #brichaus-assessment .rvm-title { font-weight: 650; font-size: 14px; }
+  #brichaus-assessment .rvm-verdict { font-size: 12.5px; font-weight: 700; }
+  #brichaus-assessment .rvm-verdict[data-tone="accent"] { color: var(--bui-color-accent); }
+  #brichaus-assessment .rvm-verdict[data-tone="danger"] { color: #b5583f; }
+  #brichaus-assessment .rvm-verdict[data-tone="slate"] { color: var(--bui-color-text-muted); }
+  #brichaus-assessment .rvm-track {
+    position: relative; height: 8px; border-radius: 999px; background: #eceef2; margin: 6px 0;
+  }
+  #brichaus-assessment .rvm-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px; background: var(--bui-color-accent); opacity: 0.35; }
+  #brichaus-assessment .rvm-tick { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--bui-color-text-muted); transform: translateX(-1px); }
+  #brichaus-assessment .rvm-marker { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--bui-color-accent); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transform: translate(-50%, -50%); }
+  #brichaus-assessment .rvm-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--bui-color-text-faint); }
+  #brichaus-assessment .rvm-scale span:nth-child(2) { color: var(--bui-color-text-muted); }
+
+  /* property chips */
+  #brichaus-assessment .snapshot-chips { display: flex; flex-wrap: wrap; gap: var(--bui-space-2); margin-top: var(--bui-space-3); }
+  #brichaus-assessment .snapshot-chip {
+    font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    background: #f4f6f8; border: 1px solid var(--bui-color-border); color: var(--bui-color-text-muted);
+  }
+
+  /* comps card */
+  #brichaus-assessment .comps-card {
+    margin-top: var(--bui-space-3); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); overflow: hidden;
+  }
+  #brichaus-assessment .comps-card__head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: var(--bui-space-3) var(--bui-space-4); background: #f6f7f9; border-bottom: 1px solid var(--bui-color-border);
+  }
+  #brichaus-assessment .comps-card__count { font-weight: 700; font-size: 13px; }
+  #brichaus-assessment .comps-card__avg { font-size: 12px; color: var(--bui-color-text-muted); }
+  #brichaus-assessment .comps-card__avg strong { color: var(--bui-color-text); }
+  #brichaus-assessment .comp-card-row { display: flex; justify-content: space-between; align-items: center; gap: var(--bui-space-3); padding: var(--bui-space-3) var(--bui-space-4); border-bottom: 1px solid var(--bui-color-border); }
+  #brichaus-assessment .comp-card-addr { font-size: 13px; color: var(--bui-color-text); }
+  #brichaus-assessment .comp-card-price { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  #brichaus-assessment .comps-viewall {
+    display: block; width: 100%; text-align: center; padding: var(--bui-space-3);
+    background: none; border: none; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: 13px; font-weight: 650; color: var(--bui-color-accent);
+  }
+  #brichaus-assessment .comps-viewall:hover { text-decoration: underline; }
+
+  /* multifamily market-by-type card (Snapshot step) */
+  #brichaus-assessment .market-card { margin-top: var(--bui-space-3); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
+  /* Distinguishes the market-rent table (other properties' rates, for
+     comparison) from the rent figure the visitor just typed above it --
+     without this, the two rows of dollar amounts read as the same kind of
+     number. */
+  #brichaus-assessment .market-card-note {
+    margin: 2px 0 var(--bui-space-3);
+    font-size: 11.5px;
+    font-style: italic;
+    color: var(--bui-color-text-faint);
+  }
+  #brichaus-assessment .snapshot-preview-intro {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+  }
+  /* Plain-English AI summary reads as a lead paragraph directly under the
+     hero answer — a light accent rule, not a heavy boxed card. */
+  #brichaus-assessment .report-summary {
+    text-align: left;
+    margin-top: var(--bui-space-4);
+    padding-left: var(--bui-space-3);
+    border-left: 3px solid var(--bui-color-accent);
+  }
+  #brichaus-assessment .report-summary-text {
+    margin: 0;
+    font-size: var(--bui-font-size-md);
+    line-height: 1.6;
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment .report-confidence {
+    margin: var(--bui-space-2) 0 0;
+    font-size: 11.5px;
+    color: var(--bui-color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #brichaus-assessment .report-confidence::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bui-color-accent); flex: 0 0 auto;
+  }
+  #brichaus-assessment .op-profile {
+    text-align: left;
+  }
+  #brichaus-assessment .workload-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--bui-space-3); margin-bottom: var(--bui-space-2);
+  }
+  /* Sizes the existing .demand-meter as a flex sibling of the band pill here
+     — no new meter markup, the meter DOM just relocated into this section. */
+  #brichaus-assessment .demand-meter { flex: 1; max-width: 190px; }
+  #brichaus-assessment .workload-summary {
+    margin: 0 0 var(--bui-space-3); font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55;
+  }
+  #brichaus-assessment .op-profile-row { border-top: 1px solid var(--bui-color-border); }
+  #brichaus-assessment .op-profile-row:first-child { border-top: none; }
+  #brichaus-assessment .op-profile-head {
+    display: flex;
+    align-items: center;
+    gap: var(--bui-space-2);
+    padding: var(--bui-space-3) 0;
+    cursor: pointer;
+    list-style: none;
+  }
+  #brichaus-assessment .op-profile-head::-webkit-details-marker { display: none; }
+  #brichaus-assessment .op-profile-head::after {
+    content: '›'; margin-left: auto; font-size: 14px; font-weight: 700;
+    color: var(--bui-color-text-faint); transition: transform var(--bui-transition-base, 150ms ease);
+  }
+  #brichaus-assessment .op-profile-row[open] > .op-profile-head::after { transform: rotate(90deg); }
+  #brichaus-assessment .op-profile-head:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
+  #brichaus-assessment .op-cat-name { font-weight: 700; font-size: 13px; }
+  #brichaus-assessment .op-cat-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--bui-color-text-muted);
+    border: 1px solid var(--bui-color-border);
+  }
+  /* Tone keys off the real OIA label vocabulary (Low/Normal/High/Severe) —
+     the previous streamlined/active/intensive tones never matched what the
+     pipeline actually returns, so these chips never picked up a color. */
+  #brichaus-assessment .op-cat-label[data-tone="low"] { color: var(--bui-color-success); border-color: var(--bui-color-success); background: var(--bui-color-success-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="normal"] { color: var(--bui-color-info); border-color: var(--bui-color-info); background: var(--bui-color-info-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="high"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
+  #brichaus-assessment .op-cat-label[data-tone="severe"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
+  #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
+
+  /* ===== Results — answer-first report layout ===== */
+  /* The property address IS the report's title (per owner review — a
+     generic "Your Management Proposal Report" heading was redundant with
+     the header bar): big and dark so it's obvious which property this is,
+     with a quieter "Management Proposal" line beneath it. */
+  #brichaus-assessment .report-address {
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
+    color: #2B2F36; margin: 0 0 2px;
+  }
+  #brichaus-assessment .report-subtitle {
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-4);
+  }
+  #brichaus-assessment .report-kicker {
+    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
+    color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
+  }
+  #brichaus-assessment .report-band-pill {
+    font-size: 0.95rem; font-weight: 750; letter-spacing: 0.02em; margin-bottom: var(--bui-space-3);
+    color: var(--bui-color-accent);
+  }
+  #brichaus-assessment .report-band-pill[data-tone="slate"] { color: var(--bui-color-slate); }
+  #brichaus-assessment .report-band-pill[data-tone="accent"] { color: var(--bui-color-accent); }
+  #brichaus-assessment .report-band-pill[data-tone="warning"] { color: var(--bui-color-warning); }
+  #brichaus-assessment .report-band-pill[data-tone="danger"] { color: var(--bui-color-danger); }
+  #brichaus-assessment .demand-meter__track {
+    position: relative; height: 7px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--bui-color-slate) 0%, var(--bui-color-accent) 45%, var(--bui-color-warning) 72%, var(--bui-color-danger) 100%);
+  }
+  #brichaus-assessment .demand-meter__mark {
+    position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--bui-color-surface); border: 3px solid var(--bui-color-accent);
+    transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  #brichaus-assessment .demand-meter__mark[data-tone="slate"] { border-color: var(--bui-color-slate); }
+  #brichaus-assessment .demand-meter__mark[data-tone="accent"] { border-color: var(--bui-color-accent); }
+  #brichaus-assessment .demand-meter__mark[data-tone="warning"] { border-color: var(--bui-color-warning); }
+  #brichaus-assessment .demand-meter__mark[data-tone="danger"] { border-color: var(--bui-color-danger); }
+  #brichaus-assessment .demand-meter__scale { display: flex; justify-content: space-between; margin-top: 6px; }
+  #brichaus-assessment .demand-meter__scale span {
+    font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bui-color-text-faint);
+  }
+  #brichaus-assessment .evidence { text-align: left; margin-top: var(--bui-space-5); }
+  #brichaus-assessment .evidence-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--bui-space-3);
+  }
+  #brichaus-assessment .evidence-card {
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3);
+  }
+  #brichaus-assessment .evidence-specs { display: flex; flex-direction: column; }
+  #brichaus-assessment .evidence-spec {
+    display: flex; justify-content: space-between; gap: var(--bui-space-2);
+    font-size: 12px; padding: 3px 0;
+  }
+  #brichaus-assessment .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
+  #brichaus-assessment .evidence-spec span:last-child { font-weight: 650; }
+  #brichaus-assessment .report-cta { margin-top: var(--bui-space-5); }
+  #brichaus-assessment .cta-followup-note {
+    margin: var(--bui-space-2) 0 0; font-size: 11.5px; color: var(--bui-color-text-muted);
+    text-align: center;
+  }
+  #brichaus-assessment .report-download {
+    display: block; width: 100%; margin-top: var(--bui-space-3); padding: 4px;
+    background: none; border: none; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-accent); text-decoration: underline; text-underline-offset: 2px;
+  }
+  #brichaus-assessment .report-download:hover { color: var(--bui-color-accent-hover); }
+  #brichaus-assessment .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
+
+  /* ===== Proposal section — the results-card's ambient text-align:center
+     (see .loading-card, .results-card above) needs overriding here, same as
+     .op-profile already does for the Workload section above it. ===== */
+  #brichaus-assessment .proposal-section { text-align: left; margin-top: var(--bui-space-5); }
+  #brichaus-assessment .service-list { display: flex; flex-direction: column; gap: var(--bui-space-3); margin-top: var(--bui-space-4); }
+  #brichaus-assessment .service-card { border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
+  #brichaus-assessment .service-card__head { display: flex; align-items: center; gap: var(--bui-space-2); margin-bottom: 6px; }
+  #brichaus-assessment .service-card__icon { font-size: 20px; line-height: 1; }
+  #brichaus-assessment .service-card__title { margin: 0; font-size: 14.5px; font-weight: 700; color: var(--bui-color-text); }
+  #brichaus-assessment .service-card__desc { margin: 0; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55; }
+  #brichaus-assessment .service-card__details { margin-top: 10px; }
+  #brichaus-assessment .service-card__summary {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+    font-size: 12.5px; font-weight: 700; color: var(--bui-color-accent); padding: 2px 0;
+  }
+  #brichaus-assessment .service-card__summary::-webkit-details-marker { display: none; }
+  #brichaus-assessment .service-card__summary::after { content: '›'; margin-left: auto; font-size: 14px; font-weight: 700; transition: transform 150ms ease; }
+  #brichaus-assessment .service-card__details[open] > .service-card__summary::after { transform: rotate(90deg); }
+  #brichaus-assessment .service-card__summary:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
+  #brichaus-assessment .service-card__list { margin: 8px 0 0; padding-left: 20px; }
+  #brichaus-assessment .service-card__list li { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; margin-bottom: 5px; }
+  #brichaus-assessment .service-card__list li:last-child { margin-bottom: 0; }
+  /* AssetShield only: a static, hardcoded checkmark for this property's
+     recommended items — informational, not an editable selection.
+     Individually toggling coverages is deferred to a later phase. */
+  #brichaus-assessment .service-card__list--checks { list-style: none; padding-left: 0; margin-top: 10px; }
+  #brichaus-assessment .service-card__check-row { margin-bottom: 2px; }
+  #brichaus-assessment .service-card__check-row:last-child { margin-bottom: 0; }
+  #brichaus-assessment .service-card__check-label { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+  #brichaus-assessment .service-card__checkbox {
+    flex: 0 0 auto; width: 19px; height: 19px; margin-top: 1px; border-radius: 5px;
+    border: 2px solid var(--bui-color-border-strong); background: var(--bui-color-surface);
+    position: relative; transition: background 120ms ease, border-color 120ms ease;
+  }
+  #brichaus-assessment .service-card__checkbox.is-checked { background: var(--bui-color-accent); border-color: var(--bui-color-accent); }
+  #brichaus-assessment .service-card__checkbox.is-checked::after {
+    content: ''; position: absolute; left: 5px; top: 1px; width: 6px; height: 11px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  #brichaus-assessment .service-card__check-textcol { flex: 1 1 auto; min-width: 0; padding-top: 1px; }
+  #brichaus-assessment .service-card__check-text { display: block; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.45; }
+  #brichaus-assessment .service-card__check-text.is-checked { color: var(--bui-color-text); font-weight: 600; }
+  #brichaus-assessment .service-card__check-rationale {
+    margin: 3px 0 0; font-size: 11.5px; font-weight: 400; color: var(--bui-color-text-muted); line-height: 1.5;
+  }
+
+  /* One-time reveal choreography: all 5 cards fade/slide in in sequence, then
+     AssetShield's checked items pop in. .will-reveal/.will-pop set the
+     "before" state (with the transition already declared, so the browser
+     has it in hand before .is-revealed/.is-popped flips to the "after"
+     state) — see runRevealSequence(). Skipped entirely under
+     prefers-reduced-motion (existing convention, see .loading-detail above). */
+  #brichaus-assessment .service-card.will-reveal {
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 420ms ease, transform 420ms ease;
+  }
+  #brichaus-assessment .service-card.will-reveal.is-revealed { opacity: 1; transform: translateY(0); }
+  #brichaus-assessment .service-card__checkbox.will-pop {
+    transform: scale(0.4); opacity: 0;
+    transition: transform 220ms cubic-bezier(.34, 1.56, .64, 1), opacity 220ms ease;
+  }
+  #brichaus-assessment .service-card__checkbox.will-pop.is-popped { transform: scale(1); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .service-card.will-reveal,
+    #brichaus-assessment .service-card__checkbox.will-pop { transition: none; }
+  }
+
+  /* ===== Supporting evidence — no longer rendered on screen; reserved for
+     the downloadable PDF (window.print()) so the note below stays true.
+     Wrapped, not deleted: hidden on screen, forced visible under print. ===== */
+  #brichaus-assessment .report-pdf-only { display: none; }
+  @media print {
+    #brichaus-assessment .report-pdf-only { display: block !important; }
+  }
+  #brichaus-assessment .pdf-note {
+    font-size: 11.5px; color: var(--bui-color-text-faint); font-style: italic; text-align: center;
+    margin: var(--bui-space-4) 0;
+  }
+  /* Live status line under the finalizing progress bar — updated once per
+     stage (not per tick) with a real, data-backed detail so the wait reads
+     as genuine work rather than a spinner. */
+  #brichaus-assessment .loading-detail {
+    margin: var(--bui-space-3) 0 0;
+    min-height: 1.2em;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    transition: opacity var(--bui-transition-base, 0.25s ease);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .loading-detail { transition: none; }
+  }
+  #brichaus-assessment .hidden { display: none !important; }
+
+  /* GHL's own native Survey submit control. No longer clicked by this
+     app (record creation is server-side in n8n now — see the top-of-file
+     doc comment) but still hidden so the visitor never sees a second,
+     nonfunctional submit button. A plain CSS rule (not scoped to
+     #brichaus-assessment, since GHL renders this control outside this
+     app's own container) so it's hidden the moment it's ever inserted
+     into the DOM, with no JS timing/polling race at all.
+
+     position: fixed at the viewport's own corner (0,0) rather than
+     position: absolute pushed to some huge document-relative offset —
+     an earlier version used left: -99999px, which left the element at
+     its natural (very-far-down) vertical position, still document-
+     scrollable-to; anything calling focus()/scrollIntoView() on it would
+     jump the whole page there. A fixed element pinned inside the
+     viewport bounds is already "in view" by definition, so nothing can
+     ever need to scroll to reach it. */
+  .ghl-submit-btn {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* The Survey's own outer wrapper — found by computing the common
+     ancestor of every native field this page reads/writes, via a live
+     DOM dump. Safe to hide wholesale now that the one thing worth
+     keeping visible (the consent checkbox + its label) has been
+     physically relocated out of it into the widget's own card — nothing
+     of value is left inside. Same viewport-fixed technique as
+     .ghl-submit-btn above (see its comment for why), not display:none.
+     `ghl-form-wrap` reads as a generic GHL platform class (not scoped
+     to this specific Survey instance) — if this same funnel page ever
+     gains a second, unrelated native form/survey, this rule would hide
+     that one too. */
+  .ghl-form-wrap {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* ===== Mobile (whole funnel) =====
+     Kept as the LAST rules in this stylesheet on purpose: several of the
+     selectors below tie at equal specificity with their desktop base rules
+     above, so source order is what makes these win on phones. Breakpoint
+     is 640px, not 420 — modern phones are 390-430 CSS px wide and a 420px
+     cutoff left most of them with the full desktop padding (confirmed
+     live: Step 2's address field was squeezed to a sliver). */
+  @media (max-width: 640px) {
+    #brichaus-assessment { padding-left: 8px; padding-right: 8px; }
+    #brichaus-assessment .step-body-pad { padding: 26px 16px 24px; }
+    #brichaus-assessment .step-intro { padding: 26px 16px 0; }
+    #brichaus-assessment .step-footer { padding: 18px 16px 24px; }
+    /* Back + Continue share the full row width; the huge desktop side
+       padding on the rust Continue would otherwise overflow small rows. */
+    #brichaus-assessment .step-footer .spacer { display: none; }
+    #brichaus-assessment .step-footer bui-button { flex: 1; }
+    #brichaus-assessment .step-footer .bui-btn { width: 100%; }
+    #brichaus-assessment .bui-btn[data-variant="slate"] { padding: 0 20px; }
+    #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
+    /* Name/Email side-by-side pair on the contact step stacks. */
+    #brichaus-assessment .field-row { grid-template-columns: 1fr; }
+    #brichaus-assessment .trust-panel { gap: 12px 20px; }
+  }
+</style>
+</head>
+<body>
+<div id="brichaus-assessment">
+
+  <!-- No page title/subtitle above the card — dropped per owner review
+       (it ate too much screen space, especially on phones); the stepped
+       card's own header bar carries the context instead. -->
+
+  <!-- ============ STEP: property type ============ -->
+  <section data-step="property-type">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="1. Property Type" value="9"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>What kind of rental property are we looking at?</h2>
+        <p>This determines how we read comparable rents for your address.</p>
+        <bui-choice-group id="property-type-choice-group" name="property-type">
+          <bui-choice-card value="single" label="Single Family"
+            description="Single family home, Condo, Townhome."></bui-choice-card>
+          <bui-choice-card value="multi" label="Multifamily"
+            description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
+          <!-- Visible but not yet selectable — the funnel's scoring/fee logic
+               doesn't support commercial yet. The disabled attribute is the
+               component's own (blocks selection); the "Coming Soon" marker is
+               a CSS overlay badge (see the commercial-card rules) rather than
+               the meta slot, so this card stays the same height as the other
+               two. -->
+          <bui-choice-card value="commercial" label="Commercial" disabled
+            description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
+        </bui-choice-group>
+        <!-- Rendered here but RELOCATED into the Multifamily card's own
+             body the first time Multifamily is selected (see
+             ensureUnitCountInCard) — the question belongs visually to the
+             card that raised it. Kept in markup at this level so the page
+             still works if the relocation target ever goes away. -->
+        <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <span class="spacer"></span>
+        <bui-button id="property-type-continue" variant="slate" disabled>Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: property location ============ -->
+  <section data-step="location" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="2. Property Location" value="18"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Where is the property?</h2>
+        <p>We'll use this to pull market rent data and comparables.</p>
+        <bui-address-input
+          id="address-input"
+          label="Property Address"
+          region="us"
+          fields="formattedAddress,addressComponents,location,displayName"
+          hint="Start typing to search.">
+        </bui-address-input>
+
+        <div id="address-verifying" class="address-verifying hidden">
+          <span class="address-verifying__spinner" aria-hidden="true"></span>
+          Locating your property…
+        </div>
+
+        <!-- Service-area gate — appears instead of the normal flow when the
+             selected address is outside the active markets. Expansion-market
+             states additionally offer the stay-in-touch email capture (fed
+             to the recognition webhook's expansionLead action, which tags a
+             GHL contact for the expansion pipeline). -->
+        <div id="service-area-gate" class="service-area-gate hidden">
+          <p id="service-area-message" class="service-area-message"></p>
+          <div id="expansion-capture" class="hidden">
+            <bui-input id="expansion-email-input" label="Email" type="email"></bui-input>
+            <bui-button id="expansion-notify-btn" variant="slate">Keep Me Posted</bui-button>
+          </div>
+        </div>
+
+        <!-- Satellite pin of the selected address — a visual second check
+             that the suggestion Google matched is really their property
+             (see showAddressMap; hidden until a place with coordinates is
+             selected, and again the moment the visitor types a new one). -->
+        <div id="address-map" class="address-map hidden"></div>
+
+        <div id="recognition-panel" class="recognition-panel hidden">
+          <div id="recognition-welcome" class="recognition-state hidden">
+            <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your existing management proposal.</p>
+            <bui-input id="recognition-email-input" label="Email" type="email"></bui-input>
+            <p id="recognition-email-error" class="recognition-error hidden">That doesn't match what we have on file — please try again.</p>
+            <bui-button id="recognition-confirm-btn" variant="slate">Confirm Email</bui-button>
+          </div>
+          <div id="recognition-phone" class="recognition-state hidden">
+            <p class="recognition-message">We couldn't confirm your email. Leave a phone number and we'll have someone reach out to help.</p>
+            <bui-input id="recognition-phone-input" label="Phone Number" type="tel"></bui-input>
+            <bui-button id="recognition-phone-btn" variant="slate">Submit</bui-button>
+          </div>
+          <div id="recognition-done" class="recognition-state hidden">
+            <p id="recognition-done-message" class="recognition-message"></p>
+            <!-- Shown only on a successful email confirmation (not on the
+                 conflict-handoff path, which reuses this same done state) —
+                 jumps straight to the saved proposal instead of forcing a
+                 full re-run of the assessment. -->
+            <bui-button id="recognition-view-proposal" variant="slate" class="hidden">View My Proposal</bui-button>
+          </div>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="property-type">Back</bui-button>
+        <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: property snapshot ============ -->
+  <section data-step="snapshot" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="3. Property Snapshot" value="27"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Current Rent vs. Market</h2>
+        <p>This helps us understand what it may take to reach the gross potential rent for your property.</p>
+        <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number" inputmode="decimal"></bui-input>
+
+        <div id="market-rent-hint" class="market-rent-hint hidden"></div>
+
+        <!-- Single-family: rent-vs-market gauge, property chips, and nearby
+             comps — all from the RentCast quicklook, each self-hiding until its
+             data arrives. Multifamily swaps these for the per-unit-type market
+             table below (a single studio gauge/comps misreads a mixed
+             building). Which one shows is decided by state.propertyType,
+             committed on the Property Type step before this one is ever
+             reached — never inferred from a possibly-stale input here. -->
+        <div id="rent-vs-market" class="rvm-card hidden">
+          <div class="rvm-head">
+            <span class="rvm-title">Your rent vs. market</span>
+            <span class="rvm-verdict" id="rvm-verdict"></span>
+          </div>
+          <div class="rvm-track">
+            <span class="rvm-fill" id="rvm-fill"></span>
+            <span class="rvm-tick" id="rvm-tick"></span>
+            <span class="rvm-marker" id="rvm-marker"></span>
+          </div>
+          <div class="rvm-scale">
+            <span id="rvm-low"></span><span id="rvm-mid"></span><span id="rvm-high"></span>
+          </div>
+        </div>
+
+        <div id="snapshot-chips" class="snapshot-chips hidden"></div>
+
+        <div id="snapshot-comps-card" class="comps-card hidden">
+          <div class="comps-card__head">
+            <span class="comps-card__count" id="comps-count"></span>
+            <span class="comps-card__avg" id="comps-avg"></span>
+          </div>
+          <div class="comps-card__list" id="comps-card-list"></div>
+          <button type="button" class="comps-viewall hidden" id="comps-viewall"></button>
+        </div>
+
+        <!-- Multifamily: per-unit-type market rents (shown instead of the
+             single-unit gauge/chips/comps). -->
+        <div id="snapshot-preview-market" class="market-card hidden">
+          <div class="snapshot-title">Market rent by unit type<span id="snapshot-preview-market-zip" class="market-zip"></span></div>
+          <p class="market-card-note">For comparison only — nearby market rates by bedroom count, not what you entered above.</p>
+          <div class="market-type-list" id="snapshot-preview-market-list"></div>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="location">Back</bui-button>
+        <bui-button id="snapshot-continue" variant="slate">Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: estimated annual revenue (transition into operations) ============ -->
+  <section data-step="revenue" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="36"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Here's the income your property should generate each year</h2>
+        <p>0% Vacancy, No Evictions, No Surprises.</p>
+
+        <!-- Revenue-first hero: estimated annual rent, computed from the
+             committed rent/unit-count (not live inputs — those live on the
+             prior steps, already behind us by the time this renders). -->
+        <div class="revenue-hero">
+          <span class="revenue-hero__orb" aria-hidden="true"></span>
+          <div class="revenue-hero__kicker">Estimated Annual Rent</div>
+          <div class="revenue-hero__amount num" id="revenue-annual">—</div>
+          <div class="revenue-hero__sub" id="revenue-sub"></div>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="snapshot">Back</bui-button>
+        <bui-button id="revenue-continue" variant="slate">Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: operational assessment (4 sequential drivers) ============ -->
+  <section data-step="driver" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="5–8. Operational Assessment" id="driver-header-progress" value="45"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <!-- Each driver gets its own icon + name, distinct at a glance, so
+             clicking through the 4 sequential steps doesn't blur into one
+             repeated screen — the question text is otherwise the only thing
+             that changes between them. -->
+        <div class="driver-category" id="driver-category">
+          <span class="driver-category__icon" id="driver-category-icon"></span>
+          <span class="driver-category__name" id="driver-category-name"></span>
+        </div>
+        <p class="driver-question" id="driver-question"></p>
+        <bui-progress-bar variant="segmented" id="driver-sub-progress" label="Driver" value="1" max="4"></bui-progress-bar>
+        <div style="margin-top: var(--bui-space-4);">
+          <bui-choice-group id="driver-choice-group" name="driver">
+            <bui-choice-card value="streamlined" label="Minimal"
+              description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+            <bui-choice-card value="standard" label="Standard"
+              description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
+            <bui-choice-card value="active" label="Active"
+              description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
+            <bui-choice-card value="intensive" label="Intense"
+              description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
+          </bui-choice-group>
+        </div>
+      </div>
+      <!-- No Continue here on purpose: picking an option flips the card and
+           reveals its own "Confirm & Continue" button (see
+           addDriverConfirmButton) — a second footer Continue was redundant. -->
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" id="driver-back">Back</bui-button>
+        <span class="spacer"></span>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: contact capture (creates the linked Contact + Property record) ============ -->
+  <section data-step="contact" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Your report is coming together</h2>
+        <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
+
+        <!-- Genuinely-true progress, not staged theater: property/market data
+             and a preliminary operational score are already known by this
+             point in the flow (RentCast quicklook + DemandEngine both ran
+             client-side back on earlier steps) — only the fee, which the
+             live pipeline computes once the Contact-linked Property record
+             exists, is still pending. Framing what's already done this way
+             is meant to make Get My Report read as an unlock, not the start
+             of a fresh wait. -->
+        <div class="report-progress">
+          <div class="report-progress__row is-done">
+            <span class="report-progress__icon">&#10003;</span>
+            <span>Property &amp; market data collected</span>
+          </div>
+          <div class="report-progress__row is-done">
+            <span class="report-progress__icon">&#10003;</span>
+            <span>Operational workload scored</span>
+          </div>
+          <div class="report-progress__row is-active">
+            <span class="report-progress__spinner" aria-hidden="true"></span>
+            <span>Waiting for your confirmation…</span>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <bui-input id="contact-name-input" label="First Name"></bui-input>
+          <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
+        </div>
+        <div id="terms-slot" class="terms-slot"></div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="driver">Back</bui-button>
+        <bui-button id="contact-continue" variant="primary" disabled>Get My Report</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: finalizing (webhook call happens here) ============ -->
+  <section data-step="loading" class="hidden">
+    <bui-card variant="elevated" padding="sm" class="loading-card">
+      <div slot="header">
+        <!-- Post-question screens drop the step numbering on purpose (per
+             owner review): the numbered "1..9" count belongs to questions
+             the visitor answers; once they've answered the last one, the
+             remaining screens are delivery, not steps to complete. -->
+        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
+      </div>
+      <div class="step-body-pad">
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
+        <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          Crunching the numbers and preparing your recommendations.
+        </p>
+        <div style="max-width: 340px; margin: 0 auto; text-align: left;">
+          <bui-checklist
+            id="checklist"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your report"
+            current="1">
+          </bui-checklist>
+          <div style="margin-top: var(--bui-space-5);">
+            <bui-progress-bar id="build-progress" label="Progress" value="0"></bui-progress-bar>
+            <p id="loading-detail" class="loading-detail"></p>
+          </div>
+        </div>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: results / report generator ============ -->
+  <section data-step="results" class="hidden">
+    <bui-card variant="elevated" padding="sm" class="results-card">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Your Management Proposal Report" value="100"></bui-progress-bar>
+      </div>
+      <div class="step-body-pad">
+        <div id="demo-banner" class="demo-banner hidden">
+          Demo mode — CONFIG.WEBHOOK_URL isn't set, so the fee below is illustrative only, not a live calculation.
+        </div>
+
+        <p id="report-address" class="report-address hidden"></p>
+        <p class="report-subtitle">Management Proposal</p>
+
+        <!-- 1. Operational Workload — leads the report. Band + meter are
+             always computable client-side (even in demo mode), so this stays
+             visible unconditionally; only the summary sentence and the
+             per-category rows depend on webhook data (see
+             renderOperationalProfile). Each driver collapses to just its
+             name + rating tag; expand to read the narrative. -->
+        <div id="op-profile" class="op-profile hidden">
+          <div class="report-kicker">Operational Workload</div>
+          <div class="workload-head">
+            <div class="report-band-pill" id="hero-band">—</div>
+            <div class="demand-meter">
+              <div class="demand-meter__track"><span class="demand-meter__mark" id="demand-mark"></span></div>
+              <div class="demand-meter__scale"><span>Low</span><span>Severe</span></div>
+            </div>
+          </div>
+          <p id="workload-summary" class="workload-summary hidden"></p>
+          <div id="op-profile-list"></div>
+        </div>
+
+        <!-- 2. Proposal — the recommended fee (% now primary, $/mo secondary)
+             reusing the same navy .revenue-hero treatment as the Projected
+             Revenue step, followed by the 5 branded service cards. -->
+        <div class="proposal-section">
+          <div class="revenue-hero">
+            <span class="revenue-hero__orb" aria-hidden="true"></span>
+            <div class="revenue-hero__kicker">Full Service Management</div>
+            <div class="revenue-hero__amount num" id="hero-fee">—</div>
+            <div class="revenue-hero__sub" id="hero-fee-sub"></div>
+          </div>
+          <div class="service-list" id="service-cards"></div>
+        </div>
+
+        <!-- Supporting evidence — reserved for the downloadable PDF (see
+             .pdf-note below), not shown on screen. Wrapped, not deleted: see
+             .report-pdf-only (screen-hidden, print-visible). -->
+        <div class="report-pdf-only">
+          <!-- Plain-English AI summary. -->
+          <div id="report-summary" class="report-summary hidden">
+            <p class="report-summary-text" id="report-summary-text"></p>
+            <p class="report-confidence hidden" id="report-confidence"></p>
+          </div>
+
+          <!-- Each card hides itself if RentCast returned nothing for that
+               block; the whole section hides if all are empty (see
+               renderEvidence). -->
+          <div id="evidence" class="evidence hidden">
+            <div class="report-kicker">The data behind it</div>
+            <div class="evidence-grid">
+              <div id="property-snapshot" class="evidence-card hidden">
+                <div class="report-kicker">Subject property</div>
+                <div class="evidence-specs" id="snapshot-grid"></div>
+                <p id="multifamily-note" class="multifamily-note hidden">
+                  Representative of one unit — a multifamily building may hold several layouts.
+                </p>
+              </div>
+              <div id="comparables-section" class="evidence-card hidden">
+                <div class="report-kicker">Nearby comparables</div>
+                <div class="comparables-list" id="comparables-list"></div>
+              </div>
+              <!-- Multifamily: market rent by unit type (RentCast /markets), shown
+                   in place of single-unit comps so a mixed-unit building's studios
+                   AND larger units are each represented. -->
+              <div id="market-by-type" class="evidence-card hidden">
+                <div class="report-kicker">Market rent by unit type<span id="market-zip" class="market-zip"></span></div>
+                <div class="market-type-list" id="market-type-list"></div>
+                <p id="market-type-foot" class="market-type-foot hidden"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="pdf-note">Full supporting evidence — market comparables, RentCast data, and unit specs — is included in your downloadable PDF report below.</p>
+
+        <!-- One clear action; download steps back to a quiet link. Schedule
+             navigates the current tab onward in the funnel (see BOOKING_URL
+             doc + scheduleBtn handler) — the note below sets the expectation
+             that the report follows by email rather than staying on screen. -->
+        <div class="report-cta">
+          <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
+          <p class="cta-followup-note">We'll email your full proposal shortly — no need to keep this page open.</p>
+          <button type="button" id="download-report-btn" class="report-download">Download the full report (PDF)</button>
+        </div>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: schedule (embedded booking calendar) ============ -->
+  <!-- The final funnel screen. "Schedule your consultation" on the report
+       used to navigate the tab to BOOKING_URL (losing the report); now it
+       advances HERE and the same calendar renders inline in an iframe —
+       the visitor never leaves the funnel and can step Back to the report.
+       The iframe's src is set lazily by ensureBookingEmbed() on first
+       visit (with the visitor's name/email as prefill params), never in
+       markup, so nobody pays the calendar's load cost unless they ask
+       for it. -->
+  <section data-step="schedule" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Schedule Your Consultation" value="100"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Pick a time that works for you</h2>
+        <p>Choose a slot below and we'll walk through your proposal together.</p>
+      </div>
+      <div class="step-body-pad" style="padding-top: var(--bui-space-4);">
+        <div class="booking-embed">
+          <iframe id="booking-iframe" title="Schedule your consultation" scrolling="no"></iframe>
+        </div>
+        <p class="booking-fallback">Calendar not loading? <a id="booking-fallback-link" href="#" target="_blank" rel="noopener">Open the scheduling page directly</a>.</p>
+      </div>
+      <div class="step-footer">
+        <bui-button variant="secondary" data-back="results">Back to Report</bui-button>
+        <span class="spacer"></span>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- Persistent trust row below the stepped card -- same "always visible,
+       never toggled by showStep()" pattern -- a plain sibling of the
+       [data-step] sections. -->
+  <div class="trust-panel">
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Initial Proposal in Minutes*</span>
+  </div>
+  <!-- The asterisk's disclaimer — the fallback promise lives down here so
+       the guarantee row itself stays short. -->
+  <p class="trust-disclaimer">*Most proposals are ready in under 2 minutes. If a data source is temporarily unavailable, we'll follow up with your proposal within 24 hours.</p>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+   * CONFIG — the only section that needs editing before this goes live.
+   * =================================================================== */
+  var CONFIG = {
+    // Production webhook URL for the n8n "PropScore: Main Pipeline" workflow
+    // (GHL webhook -> normalize -> OIA scoring -> RentCast/Dataverse ->
+    // Power Automate fee calc -> assembled response). Leave blank to run
+    // this page in demo mode with an illustrative, clearly-labeled fee.
+    WEBHOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-scoring',
+
+    // Lightweight n8n webhook that does just the RentCast market-rent
+    // lookup (same RentCast credential/endpoint the main pipeline uses),
+    // with no scoring, AI report, Power Automate, or GHL/Dataverse writes
+    // attached — fired the moment an address is selected so the estimate
+    // is usually already back by the time the visitor reaches the
+    // Snapshot step, instead of waiting for the full pipeline at the end.
+    // Leave blank to skip this entirely (Snapshot step just won't show
+    // the market-rent hint).
+    RENTCAST_QUICKLOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-rentcast-quicklook',
+
+    // Fired the moment an address is selected, alongside the RentCast
+    // quicklook above. Looks up whether this property already has a
+    // known point of contact on file (Dataverse, keyed by googlePlaceId)
+    // and, if so, confirms it's still a valid GHL contact before ever
+    // showing a name — see PropScore: Contact Recognition & Conflict.
+    // Leave blank to skip recognition entirely (funnel behaves exactly
+    // as it did before this existed).
+    CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
+
+    // Service-area gating, checked the moment an address is selected
+    // (before any RentCast/recognition calls are spent on it).
+    // - active: full assessment runs normally.
+    // - expansion: no assessment; the gate offers a stay-in-touch email
+    //   capture that lands as a tagged GHL contact (expansionLead action
+    //   on the recognition webhook) to build the launch pipeline.
+    // - anything else: a polite not-served message, nothing captured.
+    // States are USPS codes from Google's administrative_area_level_1.
+    // If Google returns no state at all (rare), the funnel FAILS OPEN and
+    // proceeds normally — better to occasionally assess an out-of-area
+    // property than to block a real prospect on missing data.
+    SERVICE_AREA: {
+      active: ['AR', 'CA'],
+      expansion: ['TX', 'OK', 'FL', 'GA', 'LA']
+    },
+
+    // Standalone saved-proposal viewer (app/proposal.html), same domain as
+    // this funnel page. A recognized visitor who confirms their email gets
+    // a "View My Proposal" shortcut to it instead of being forced through
+    // the whole assessment again. The confirmed email is handed off via
+    // sessionStorage (same-origin, tab-scoped) so proposal.html's own
+    // gate can confirm it silently instead of asking a second time.
+    PROPOSAL_PAGE_URL: 'https://mgmt.brichausgroup.com/residential-management-proposal/',
+
+    // Poll endpoint for the two-phase report. When the assessment POST sets
+    // AsyncReport:true, the pipeline returns the deterministic answer (fee,
+    // band, market, comps, operational profile) in ~5-8s and generates the AI
+    // narrative in the background. The widget then polls this endpoint by
+    // googlePlaceId until the prose (clientSummary/confidenceNote) is ready and
+    // slots it in. Leave blank to disable async (the pipeline then responds
+    // synchronously with the full report, ~30s).
+    REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
+
+    // The GHL booking calendar. No longer a navigation target — the
+    // "Schedule your consultation" CTA now advances to the funnel's own
+    // Schedule step, where this URL loads INSIDE an iframe (see
+    // ensureBookingEmbed()), so the visitor keeps their live report one
+    // Back-click away. The same URL doubles as the "open directly"
+    // fallback link under the embed. Leave blank to no-op with a console
+    // warning instead of showing a dead calendar.
+    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
+
+    // Native GHL field `name` attributes this page mirrors values into via
+    // BUI.ghl (see ghl-bridge.js), so the native Survey submission on this
+    // same funnel page can create the Contact-linked Property record.
+    // MUST be a Survey element, not a Form — GHL's Form builder doesn't
+    // support Custom Object fields at all (see the top-of-file doc
+    // comment); only a Survey can hold these and create the association.
+    // This is deliberately a SHORT list: unit count, rent, the 4 driver
+    // scores, and the 3 AI-computed outputs (band/fee%/monthly fee) are
+    // NOT here, on purpose — n8n's "Update GHL Property Record" step
+    // writes all of those directly via its own API call after search+
+    // update, so nothing on this page needs to mirror them into a native
+    // field at all. This page only needs to get a valid, Contact-linked,
+    // Property-record-with-a-real-googlePlaceId created in the first
+    // place; everything else about the property is filled in afterward.
+    // No separate "formatted address" field on this Survey — Property
+    // Name is the field that both displays a name AND is the one this
+    // page writes to, to create the record. Google's Places API has no
+    // single "property name" field, so this app derives one — see
+    // computePropertyName() — preferring Google's own place displayName
+    // when it returns one (e.g. a named apartment complex/business), and
+    // otherwise building "<street number> <street name>" from
+    // addressComponents, which reads better as a name than the full
+    // formattedAddress (city/state/zip included).
+    GHL_FIELDS: {
+      googlePlaceId: 'gBfCUbkbTAIPc0Lgp3O2',
+      propertyName: 'gPrTpbXnXzkti10wJpUk',
+      // Standard GHL Contact fields — collected on the "Get Your Report"
+      // step. These native-field mirrors are now best-effort only: the
+      // actual Contact is created server-side by the n8n pipeline from
+      // buildWebhookPayload()'s FirstName/Email, not by a GHL submission.
+      firstName: 'first_name',
+      email: 'email'
+    },
+
+    // Required consent checkbox on this Survey. Deliberately NOT in
+    // GHL_FIELDS/hidden like the other native fields above — its label is
+    // real, GHL-configured legal/consent copy that shouldn't be hidden,
+    // duplicated, or pre-checked on the visitor's behalf. The "Get Your
+    // Report" step relocates the real element (input + label) into its
+    // own card — see #terms-slot in the "Get Your Report" step and the
+    // whenFieldReady callback below — rather than pointing at it from a
+    // distance, and gates its own Continue button on it being checked.
+    // This field's `name` is the stable value ("terms_and_conditions") —
+    // its `id` carries a Vue-generated render path (e.g.
+    // "..._1_v-0-0-2-0-0") that looks like a plausible field identifier
+    // but isn't one; confirmed via a live DOM dump after this got mixed up
+    // more than once.
+    GHL_TERMS_FIELD: 'terms_and_conditions',
+
+    // There is deliberately NO GHL_SUBMIT_SELECTOR / settle-delay config
+    // anymore. The native Survey submission used to be this widget's way
+    // of creating the Contact-linked Property record, and an entire family
+    // of timing/selector bugs lived here because of it. Confirmed dead
+    // live on 2026-07-10 (GHL ignores synthetic clicks — isTrusted:
+    // false), so record creation moved server-side: the n8n pipeline now
+    // creates the Property record, upserts the Contact, links the two via
+    // GHL's associations API, and logs a consent note, all from the
+    // FirstName/Email/Consent fields sent in buildWebhookPayload(). If
+    // records ever stop appearing in GHL again, debug the n8n pipeline
+    // (PropScore: Main Pipeline → Create GHL Property Record and the
+    // nodes after it) — there is nothing left to debug on this page.
+
+    // The Fee Calculation flow's request schema also expects these add-on
+    // toggles (see power-automate-build-spec.md). This funnel's 9 steps
+    // don't collect them, so if another page/step in this GHL funnel does,
+    // put that native field's `name` here and its live value is read at
+    // submit time. Leave blank to always send the neutral default shown.
+    ADDON_FIELDS: {
+      evictionCoverage: '', // default false
+      petCoverage: '',      // default false
+      leasePlacements: '',  // default false
+      leasingFeePct: '',    // default 0
+      inspections: ''       // default false
+    }
+  };
+
+  /* =====================================================================
+   * Operational Demand Engine
+   * Provisional, client-side-only scoring used purely for instant visual
+   * feedback on the gauge before the webhook responds. It is NOT the
+   * source of truth for pricing — the recommended fee shown on the
+   * results step comes from the webhook response (Power Automate owns
+   * that formula). Score = product of the 4 driver multipliers, which is
+   * exactly the 0.0625–16.0 range documented in the funnel design ref.
+   * =================================================================== */
+  var DemandEngine = (function () {
+    var MULTIPLIER = { streamlined: 0.5, standard: 1.0, active: 1.5, intensive: 2.0 };
+
+    function score(drivers) {
+      return ['tenant', 'turnover', 'maintenance', 'compliance'].reduce(function (acc, key) {
+        return acc * (MULTIPLIER[drivers[key]] || 1);
+      }, 1);
+    }
+
+    // Mirrors the exact 6-band scale from the "PropScore: OIA Scoring"
+    // n8n sub-workflow's "Validate & Calculate Intensity" node (band names
+    // and min/max thresholds copied verbatim) so the demo gauge never shows
+    // a different band than the live pipeline would for the same score.
+    // readout-tone only has 4 values on bui-dial-gauge, so adjacent bands
+    // share a tone (Very Low/Low -> slate, Elevated/High -> warning).
+    var BANDS = [
+      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Minimal Operational Complexity', tone: 'slate' },
+      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-Average Operational Complexity', tone: 'slate' },
+      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical Operational Complexity', tone: 'accent' },
+      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-Average Operational Complexity', tone: 'warning' },
+      { min: 3.00, max: 7.99, label: 'HIGH', caption: 'High Operational Complexity', tone: 'warning' },
+      { min: 8.00, max: 16.00, label: 'SEVERE', caption: 'Severe Operational Complexity', tone: 'danger' }
+    ];
+
+    function band(s) {
+      var match = BANDS.filter(function (b) { return s >= b.min && s <= b.max; })[0];
+      return match || BANDS[BANDS.length - 1];
+    }
+
+    // Look up a band by its label (case-insensitive), so the final report can
+    // adopt the server OIA band (title-case, e.g. "Elevated") as the single
+    // source of truth while reusing this table's tone/caption for presentation.
+    function bandByLabel(label) {
+      var norm = String(label || '').trim().toUpperCase();
+      return BANDS.filter(function (b) { return b.label === norm; })[0] || null;
+    }
+
+    function gaugePercent(s) {
+      var log2 = Math.log(s) / Math.LN2; // -4..4
+      var clamped = Math.max(-4, Math.min(4, log2));
+      return Math.round(((clamped + 4) / 8) * 100);
+    }
+
+    return { multiplier: MULTIPLIER, score: score, band: band, bandByLabel: bandByLabel, gaugePercent: gaugePercent };
+  })();
+
+  /* =====================================================================
+   * App state
+   * =================================================================== */
+  var state = {
+    address: { formattedAddress: '', placeId: '', propertyName: '', stateCode: '', stateName: '' },
+    propertyType: '', // 'single' | 'multi' — set on the Property Type step, before address/quicklook
+    unitCount: 1,
+    rentPerUnit: 0,
+    // No pre-selected value for any driver — the visitor must actively pick
+    // one, which reveals the in-card Confirm & Continue button (the only
+    // way forward; see addDriverConfirmButton).
+    drivers: { tenant: '', turnover: '', maintenance: '', compliance: '' },
+    contact: { firstName: '', email: '', consentTs: '' },
+    result: null, // populated once the webhook responds (or demo fallback)
+    // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
+    // comparables come from the enriched RentCast quicklook and feed the
+    // Snapshot-step preview; they stay null until the lookup returns.
+    rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] },
+    // Populated by checkContactRecognition() when the selected property
+    // already has a known point of contact on file. attempts counts failed
+    // email-confirmation tries (2 allowed before the conflict/phone path).
+    recognition: { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
+  };
+
+  var DRIVER_STEPS = [
+    { key: 'tenant', title: 'Tenant Friction', icon: '👥', question: 'How would you describe the overall tenant management demands of your property?' },
+    { key: 'turnover', title: 'Turnover Pressure', icon: '🔄', question: 'How would you describe the unit turnover activity for your property?' },
+    { key: 'maintenance', title: 'Maintenance Burden', icon: '🔧', question: 'How would you describe the overall maintenance demands of your property?' },
+    { key: 'compliance', title: 'Compliance & Administration', icon: '⚖️', question: 'How would you describe the compliance and regulatory demands of your property?' }
+  ];
+  var driverStepIndex = 0;
+
+  // Verbatim from the OIA pipeline's own reference text (n8n "PropScore: OIA
+  // Scoring" -> "Populate Canned Evidence Notes") so the option a visitor
+  // picks here reads with the exact same nuance their final report will use
+  // — streamlined/standard/active/intensive map 1:1 to the OIA workflow's
+  // own Low/Normal/High/Severe labels (same mapping DemandEngine.MULTIPLIER
+  // already uses).
+  var DRIVER_REFERENCE = {
+    tenant: {
+      streamlined: 'Tenant activity is unusually quiet, with rent paid on time and minimal management intervention needed.',
+      standard: 'Tenant communication and day-to-day issues are typical for a property like yours, with occasional routine matters handled through standard practices.',
+      active: 'Tenant-related issues are occurring more than expected — repeated complaints, payment follow-up, conflicts, or lease-enforcement needs beyond the ordinary.',
+      intensive: 'Tenant activity is materially disruptive relative to a typical property — active evictions, legal disputes, serious violations, or persistent conflict.'
+    },
+    turnover: {
+      streamlined: 'Turnover is unusually low — tenants are staying long-term, vacancies are rare, and leasing effort is minimal.',
+      standard: 'Unit turnover is occurring at a typical pace for this property type and market, handled through ordinary leasing activity.',
+      active: 'Turnover on this property is running higher than typical, requiring more frequent leasing, marketing, and rent-ready turnaround than a standard property in this market.',
+      intensive: 'Turnover is a major operating problem here — multiple vacancies, chronic churn, or prolonged difficulty re-leasing units.'
+    },
+    maintenance: {
+      streamlined: 'Maintenance needs are unusually light — the property is in strong condition and service calls are rare.',
+      standard: 'Maintenance needs are routine for a property of this age, size, and condition — ordinary service calls and upkeep.',
+      active: 'Maintenance demand is running above normal — recurring repairs, aging systems, and more frequent vendor coordination than a typical property.',
+      intensive: 'Maintenance represents a major operating burden — serious deferred maintenance, safety issues, major system failures, or a large repair backlog.'
+    },
+    compliance: {
+      streamlined: 'Compliance and administrative requirements are unusually simple — no special rules, added filings, or elevated compliance tasks.',
+      standard: 'Compliance and administrative requirements are typical for this jurisdiction and property type — standard notices and recordkeeping, with no unusual filings or oversight expected.',
+      active: 'Compliance work is running above normal — rent-control tracking, recurring inspections, registration requirements, or HOA coordination beyond the ordinary.',
+      intensive: 'Compliance and regulatory exposure here is significant — active code enforcement, lawsuits, complex local restrictions, or unresolved notices.'
+    }
+  };
+
+  /* =====================================================================
+   * DOM refs
+   * =================================================================== */
+  var root = document.getElementById('brichaus-assessment');
+  var sections = {
+    'property-type': root.querySelector('[data-step="property-type"]'),
+    location: root.querySelector('[data-step="location"]'),
+    snapshot: root.querySelector('[data-step="snapshot"]'),
+    revenue: root.querySelector('[data-step="revenue"]'),
+    driver: root.querySelector('[data-step="driver"]'),
+    contact: root.querySelector('[data-step="contact"]'),
+    loading: root.querySelector('[data-step="loading"]'),
+    results: root.querySelector('[data-step="results"]'),
+    schedule: root.querySelector('[data-step="schedule"]')
+  };
+
+  var propertyTypeChoiceGroup = document.getElementById('property-type-choice-group');
+  var unitCountField = document.getElementById('unit-count-field');
+  var unitCountInput = document.getElementById('unit-count-input');
+  var propertyTypeContinue = document.getElementById('property-type-continue');
+
+  var addressInput = document.getElementById('address-input');
+  var locationContinue = document.getElementById('location-continue');
+  var addressVerifying = document.getElementById('address-verifying');
+
+  var recognitionPanel = document.getElementById('recognition-panel');
+  var recognitionWelcome = document.getElementById('recognition-welcome');
+  var recognitionFirstname = document.getElementById('recognition-firstname');
+  var recognitionEmailInput = document.getElementById('recognition-email-input');
+  var recognitionEmailError = document.getElementById('recognition-email-error');
+  var recognitionConfirmBtn = document.getElementById('recognition-confirm-btn');
+  var recognitionPhone = document.getElementById('recognition-phone');
+  var recognitionPhoneInput = document.getElementById('recognition-phone-input');
+  var recognitionPhoneBtn = document.getElementById('recognition-phone-btn');
+  var recognitionDone = document.getElementById('recognition-done');
+  var recognitionDoneMessage = document.getElementById('recognition-done-message');
+  var recognitionViewProposal = document.getElementById('recognition-view-proposal');
+
+  var rentInput = document.getElementById('rent-input');
+  var snapshotContinue = document.getElementById('snapshot-continue');
+  var marketRentHint = document.getElementById('market-rent-hint');
+  var revenueAnnual = document.getElementById('revenue-annual');
+  var revenueSub = document.getElementById('revenue-sub');
+  var revenueContinue = document.getElementById('revenue-continue');
+  var rentVsMarket = document.getElementById('rent-vs-market');
+  var rvmVerdict = document.getElementById('rvm-verdict');
+  var rvmFill = document.getElementById('rvm-fill');
+  var rvmTick = document.getElementById('rvm-tick');
+  var rvmMarker = document.getElementById('rvm-marker');
+  var rvmLow = document.getElementById('rvm-low');
+  var rvmMid = document.getElementById('rvm-mid');
+  var rvmHigh = document.getElementById('rvm-high');
+  var snapshotChips = document.getElementById('snapshot-chips');
+  var snapshotCompsCard = document.getElementById('snapshot-comps-card');
+  var compsCount = document.getElementById('comps-count');
+  var compsAvg = document.getElementById('comps-avg');
+  var compsCardList = document.getElementById('comps-card-list');
+  var compsViewall = document.getElementById('comps-viewall');
+  var snapshotPreviewMarket = document.getElementById('snapshot-preview-market');
+  var snapshotPreviewMarketZip = document.getElementById('snapshot-preview-market-zip');
+  var snapshotPreviewMarketList = document.getElementById('snapshot-preview-market-list');
+
+  var driverCategoryIcon = document.getElementById('driver-category-icon');
+  var driverCategoryName = document.getElementById('driver-category-name');
+  var driverQuestion = document.getElementById('driver-question');
+  var driverHeaderProgress = document.getElementById('driver-header-progress');
+  var driverSubProgress = document.getElementById('driver-sub-progress');
+  var driverChoiceGroup = document.getElementById('driver-choice-group');
+  var driverBack = document.getElementById('driver-back');
+
+  var contactNameInput = document.getElementById('contact-name-input');
+  var contactEmailInput = document.getElementById('contact-email-input');
+  var contactContinue = document.getElementById('contact-continue');
+  var termsFieldEl = null; // resolved once by whenFieldReady below, reused on each visit to the contact step
+
+  var checklist = document.getElementById('checklist');
+  var buildProgress = document.getElementById('build-progress');
+  var loadingDetail = document.getElementById('loading-detail');
+
+  var demoBanner = document.getElementById('demo-banner');
+  var reportAddress = document.getElementById('report-address');
+  var heroFee = document.getElementById('hero-fee');
+  var heroFeeSub = document.getElementById('hero-fee-sub');
+  var heroBand = document.getElementById('hero-band');
+  var demandMark = document.getElementById('demand-mark');
+  var workloadSummary = document.getElementById('workload-summary');
+  var serviceCardsList = document.getElementById('service-cards');
+  var propertySnapshot = document.getElementById('property-snapshot');
+  var snapshotGrid = document.getElementById('snapshot-grid');
+  var multifamilyNote = document.getElementById('multifamily-note');
+  var comparablesSection = document.getElementById('comparables-section');
+  var comparablesList = document.getElementById('comparables-list');
+  var marketByType = document.getElementById('market-by-type');
+  var marketZip = document.getElementById('market-zip');
+  var marketTypeList = document.getElementById('market-type-list');
+  var marketTypeFoot = document.getElementById('market-type-foot');
+  var reportSummary = document.getElementById('report-summary');
+  var reportSummaryText = document.getElementById('report-summary-text');
+  var reportConfidence = document.getElementById('report-confidence');
+  var opProfile = document.getElementById('op-profile');
+  var opProfileList = document.getElementById('op-profile-list');
+  var evidence = document.getElementById('evidence');
+  var downloadReportBtn = document.getElementById('download-report-btn');
+  var scheduleBtn = document.getElementById('schedule-btn');
+
+  /* =====================================================================
+   * Step navigation
+   * =================================================================== */
+  function showStep(name) {
+    Object.keys(sections).forEach(function (key) {
+      sections[key].classList.toggle('hidden', key !== name);
+    });
+    scrollToTop();
+  }
+
+  // A visitor scrolled down to read the last choice card (or any long step)
+  // would otherwise land mid-scroll on the next screen — most noticeable on
+  // the 4 sequential driver questions, which re-render in place via
+  // renderDriverStep() and never call showStep() at all between them.
+  function scrollToTop() {
+    root.scrollIntoView({ behavior: window.BUI.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  function currency(n) {
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+
+  /* =====================================================================
+   * GHL hidden-field sync — fires whenever the relevant piece of state
+   * changes, so the native fields stay current no matter when this
+   * funnel's own submit button is clicked.
+   * =================================================================== */
+  function syncGhlField(key, value) {
+    var fieldName = CONFIG.GHL_FIELDS[key];
+    if (!fieldName || fieldName.indexOf('REPLACE_') === 0) return;
+    var found = false;
+    window.BUI.ghl.whenFieldReady(fieldName, function () {
+      found = true;
+      window.BUI.ghl.writeField(fieldName, value);
+    }, { maxAttempts: 10 });
+    // whenFieldReady fails silently by design (see ghl-bridge.js) — this
+    // is the one place that actually surfaces a timeout, since a value
+    // simply never reaching GHL is otherwise invisible until someone
+    // notices it missing in a GHL record days later. 300ms default
+    // interval * 10 maxAttempts above, plus a small buffer.
+    setTimeout(function () {
+      if (!found) console.warn('[brichaus-assessment] GHL field "' + fieldName + '" (' + key + ') was never found on the page — "' + value + '" was not written.');
+    }, 3100);
+  }
+
+  function readAddonField(key, fallback) {
+    var fieldName = CONFIG.ADDON_FIELDS[key];
+    if (!fieldName) return fallback;
+    var el = window.BUI.dom.qs('[name="' + fieldName + '"]');
+    if (!el) return fallback;
+    if (el.type === 'checkbox') return el.checked;
+    return el.value;
+  }
+
+  /* =====================================================================
+   * Step 1: Property Location
+   * =================================================================== */
+  function extractAddressComponent(components, type) {
+    if (!components) return '';
+    var match = components.filter(function (c) {
+      return c && c.types && c.types.indexOf(type) !== -1;
+    })[0];
+    return match ? (match.longText || match.shortText || '') : '';
+  }
+
+  // Google's Places API has no single "property name" field. Prefer
+  // building "<street number> <street name>" from addressComponents —
+  // reads better as a property name than the full formattedAddress
+  // (city/state/zip included). displayName is only a fallback for the
+  // rare place with no street_number/route components at all — Google
+  // returns displayName for plain street addresses too, but observed
+  // in practice to just repeat the full formatted address rather than a
+  // distinct short name, so it can't be trusted as the primary source.
+  // `fallback` covers both the no-addressComponents-at-all case and the
+  // manually-typed-address case (no place data at all).
+  function computePropertyName(place, fallback) {
+    var streetNumber = extractAddressComponent(place && place.addressComponents, 'street_number');
+    var streetName = extractAddressComponent(place && place.addressComponents, 'route');
+    if (streetNumber && streetName) return streetNumber + ' ' + streetName;
+
+    var displayName = place && (typeof place.displayName === 'string' ? place.displayName : (place.displayName && place.displayName.text));
+    if (displayName) return displayName;
+
+    return fallback || '';
+  }
+
+  /* =====================================================================
+   * Step 1: Property Type — asked before the address, so by the time the
+   * RentCast quicklook resolves and the Snapshot step first paints, the
+   * widget already knows single-family vs. multifamily. Deciding this from
+   * a unit-count input entered later (the old flow) meant the Snapshot
+   * step's first render read whatever default that input still held,
+   * showing the wrong comp view for a beat before the visitor corrected it.
+   * =================================================================== */
+  function refreshPropertyTypeContinue() {
+    var type = propertyTypeChoiceGroup.value;
+    var unitsOk = type === 'multi' ? (parseInt(unitCountInput.value, 10) || 0) >= 2 : true;
+    propertyTypeContinue.toggleAttribute('disabled', !type || !unitsOk);
+  }
+
+  // Moves the Number of Units field INSIDE the Multifamily card's body the
+  // first time it's needed (the card's inner div doesn't exist until the
+  // component initializes, so this can't run at parse time). The stop-
+  // propagation guards keep interactions with the field from re-triggering
+  // the card's own click-to-select handler or the group's arrow-key
+  // navigation (a space/arrow typed in the input would otherwise be
+  // swallowed as a card-selection keystroke).
+  // bui-input/bui-change are in this list because the units field now sits
+  // INSIDE the choice group: its own value events would otherwise bubble up
+  // and be misread by the group's bui-change handler below as a card change
+  // (hiding this very field mid-interaction). The app's direct listeners on
+  // #unit-count-input still fire — they're on the dispatch target itself,
+  // before propagation is what gets stopped.
+  ['click', 'mousedown', 'keydown', 'bui-input', 'bui-change'].forEach(function (name) {
+    unitCountField.addEventListener(name, function (evt) { evt.stopPropagation(); });
+  });
+  function ensureUnitCountInCard() {
+    var inner = propertyTypeChoiceGroup.querySelector('bui-choice-card[value="multi"] .bui-choice-card');
+    if (!inner || unitCountField.parentElement === inner) return;
+    inner.appendChild(unitCountField);
+  }
+
+  propertyTypeChoiceGroup.addEventListener('bui-change', function (evt) {
+    // Belt to the stopPropagation suspenders above: only the group's OWN
+    // selection change matters here, never a bubbled child event.
+    if (evt.target !== propertyTypeChoiceGroup) return;
+    var isMulti = evt.detail.value === 'multi';
+    if (isMulti) ensureUnitCountInCard();
+    unitCountField.classList.toggle('hidden', !isMulti);
+    refreshPropertyTypeContinue();
+  });
+
+  unitCountInput.addEventListener('bui-input', refreshPropertyTypeContinue);
+  unitCountInput.addEventListener('bui-change', refreshPropertyTypeContinue);
+
+  propertyTypeContinue.addEventListener('bui-click', function () {
+    if (propertyTypeContinue.hasAttribute('disabled')) return;
+    state.propertyType = propertyTypeChoiceGroup.value;
+    state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
+    showStep('location');
+  });
+
+  /* =====================================================================
+   * Step 2: Property Location
+   * =================================================================== */
+  root.querySelector('[data-back="property-type"]').addEventListener('bui-click', function () {
+    showStep('property-type');
+  });
+
+  // --- Service-area gate ------------------------------------------------
+  var serviceAreaGate = document.getElementById('service-area-gate');
+  var serviceAreaMessage = document.getElementById('service-area-message');
+  var expansionCapture = document.getElementById('expansion-capture');
+  var expansionEmailInput = document.getElementById('expansion-email-input');
+  var expansionNotifyBtn = document.getElementById('expansion-notify-btn');
+
+  function serviceAreaTier(stateCode) {
+    if (!stateCode) return 'active'; // fail open — see SERVICE_AREA doc comment
+    if (CONFIG.SERVICE_AREA.active.indexOf(stateCode) !== -1) return 'active';
+    if (CONFIG.SERVICE_AREA.expansion.indexOf(stateCode) !== -1) return 'expansion';
+    return 'unserved';
+  }
+
+  function hideServiceAreaGate() {
+    serviceAreaGate.classList.add('hidden');
+    expansionCapture.classList.add('hidden');
+  }
+
+  function showServiceAreaGate(tier, stateName) {
+    var label = stateName || 'your area';
+    if (tier === 'expansion') {
+      serviceAreaMessage.textContent = "We're not managing properties in " + label +
+        " quite yet — it's one of our next markets. Leave your email and you'll be the first to know when we launch.";
+      expansionCapture.classList.remove('hidden');
+    } else {
+      serviceAreaMessage.textContent = "We don't currently manage properties in " + label +
+        ". We focus on Arkansas and California today.";
+      expansionCapture.classList.add('hidden');
+    }
+    serviceAreaGate.classList.remove('hidden');
+  }
+
+  var expansionEmailValue = '';
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    expansionEmailInput.addEventListener(eventName, function (evt) {
+      expansionEmailValue = (evt.detail.value || '').trim();
+    });
+  });
+
+  expansionNotifyBtn.addEventListener('bui-click', function () {
+    var email = expansionEmailValue;
+    if (!email || email.indexOf('@') === -1) {
+      expansionEmailInput.setAttribute('error', 'Please enter a valid email.');
+      return;
+    }
+    expansionEmailInput.setAttribute('error', '');
+    var stateName = state.address.stateName || state.address.stateCode || 'your area';
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'expansionLead',
+        email: email,
+        state: state.address.stateCode || '',
+        formattedAddress: state.address.formattedAddress || '',
+        googlePlaceId: state.address.placeId || ''
+      })
+    }).catch(function (err) {
+      // Deliberately fire-and-forget: the thank-you below is shown either
+      // way — a lost lead ping shouldn't turn into a visitor-facing error.
+      console.warn('[brichaus-assessment] expansionLead capture failed:', err);
+    });
+    expansionCapture.classList.add('hidden');
+    serviceAreaMessage.textContent = "Thanks — you're on the list! We'll reach out as soon as we open in " + stateName + ".";
+  });
+  // -----------------------------------------------------------------------
+
+  // --- Address confirmation map -----------------------------------------
+  // Drops a pin on a small satellite map under the address field as a
+  // second check that the matched place is really their property. Uses the
+  // Maps JS API already loaded for autocomplete (no extra key/API). Every
+  // failure path just keeps the map hidden — it's a nice-to-have, never a
+  // blocker.
+  var addressMapDiv = document.getElementById('address-map');
+  var addressMap = null;
+  var addressMarker = null;
+
+  function hideAddressMap() {
+    addressMapDiv.classList.add('hidden');
+  }
+
+  function showAddressMap(loc) {
+    // Place.location is a LatLng (lat()/lng() methods) in the live API but
+    // may be a plain {lat, lng} in other shapes — accept both.
+    var lat = loc && (typeof loc.lat === 'function' ? loc.lat() : loc.lat);
+    var lng = loc && (typeof loc.lng === 'function' ? loc.lng() : loc.lng);
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+      hideAddressMap();
+      return;
+    }
+    if (!(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
+      hideAddressMap();
+      return;
+    }
+    var center = { lat: lat, lng: lng };
+    google.maps.importLibrary('maps').then(function (lib) {
+      if (!lib || typeof lib.Map !== 'function') { hideAddressMap(); return; }
+      addressMapDiv.classList.remove('hidden');
+      if (!addressMap) {
+        addressMap = new lib.Map(addressMapDiv, {
+          center: center,
+          zoom: 18,
+          mapTypeId: 'hybrid', // satellite + labels: the roof itself is the confirmation
+          disableDefaultUI: true,
+          zoomControl: true,
+          clickableIcons: false,
+          gestureHandling: 'cooperative' // one-finger page scroll still works on mobile
+        });
+      } else {
+        addressMap.setCenter(center);
+      }
+      // Classic Marker (no mapId requirement, unlike AdvancedMarkerElement).
+      if (typeof google.maps.Marker === 'function') {
+        if (!addressMarker) addressMarker = new google.maps.Marker({ map: addressMap, position: center });
+        else addressMarker.setPosition(center);
+      }
+    }).catch(function () {
+      hideAddressMap();
+    });
+  }
+  // -----------------------------------------------------------------------
+
+  addressInput.addEventListener('bui-address-select', function (evt) {
+    var place = evt.detail.place || {};
+    state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
+    state.address.placeId = evt.detail.placeId || '';
+    state.address.propertyName = computePropertyName(place, state.address.formattedAddress);
+    var stateComponent = (place.addressComponents || []).filter(function (c) {
+      return c && c.types && c.types.indexOf('administrative_area_level_1') !== -1;
+    })[0];
+    state.address.stateCode = stateComponent ? (stateComponent.shortText || '') : '';
+    state.address.stateName = stateComponent ? (stateComponent.longText || stateComponent.shortText || '') : '';
+    addressInput.setAttribute('error', '');
+    syncGhlField('googlePlaceId', state.address.placeId);
+    syncGhlField('propertyName', state.address.propertyName);
+    // Shown for every selection — in-area or not, "is that pin my
+    // property?" is the same secondary check.
+    showAddressMap(place.location);
+
+    // Out-of-area properties stop here: no Continue, and no RentCast/
+    // recognition spend on an assessment that will never run.
+    var tier = serviceAreaTier(state.address.stateCode);
+    if (tier !== 'active') {
+      // Order matters: resetRecognitionPanel() re-derives Continue's
+      // disabled state from placeId (which IS set here) — so the
+      // gate's disable must come after it, not before.
+      resetRecognitionPanel();
+      locationContinue.setAttribute('disabled', '');
+      showServiceAreaGate(tier, state.address.stateName);
+      return;
+    }
+    hideServiceAreaGate();
+    locationContinue.toggleAttribute('disabled', !state.address.placeId);
+    fetchRentCastQuicklook(state.address.formattedAddress);
+    checkContactRecognition();
+  });
+
+  // Only a real Google Place selection may proceed past this step — a
+  // typed/committed address with no placeId used to be accepted as a
+  // fallback (for whenever Google Maps fails to load at all), but that
+  // silently sent an empty GooglePlaceID through the whole pipeline,
+  // breaking the GHL/Dataverse record match downstream (confirmed via a
+  // live execution). Typing now just invalidates whatever was previously
+  // selected and prompts the visitor to pick a suggestion instead;
+  // Continue stays disabled until they do. fromSelection guards against
+  // treating the bui-change this same component fires as a side effect of
+  // a real pick (before bui-address-select above resolves) as if it were
+  // manual typing — without it, every legitimate selection would flash
+  // this same "please pick a suggestion" state for a moment.
+  addressInput.addEventListener('bui-change', function (evt) {
+    if (evt.detail.fromSelection) return;
+    var typed = (evt.detail.value || '').trim();
+    if (state.address.formattedAddress === typed && !state.address.placeId) return; // no-op, e.g. redundant event
+    state.address.formattedAddress = typed;
+    state.address.placeId = '';
+    state.address.propertyName = '';
+    state.address.stateCode = '';
+    state.address.stateName = '';
+    hideServiceAreaGate();
+    hideAddressMap();
+    locationContinue.setAttribute('disabled', '');
+    addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
+    syncGhlField('googlePlaceId', '');
+    syncGhlField('propertyName', '');
+    if (typed) fetchRentCastQuicklook(typed);
+    resetRecognitionPanel();
+  });
+
+  // The gate and pin map reflect a SELECTED address; the moment the visitor
+  // starts typing something new they're stale. bui-change (the handler
+  // above) only fires on commit (blur/Enter), so clear on the per-keystroke
+  // event too.
+  addressInput.addEventListener('bui-input', function () {
+    hideServiceAreaGate();
+    hideAddressMap();
+  });
+
+  // Enter, pressed a second time once an address is already selected (the
+  // suggestion dropdown closed, a real placeId on file, and Continue not
+  // still gated by the recognition check above), advances the step —
+  // mirrors the common "type, Enter, Enter" address-field pattern instead
+  // of forcing a mouse click. Registered on the capture phase so it reads
+  // the dropdown's open/closed state as it was BEFORE the component's own
+  // keydown handler (registered directly on its native <input>, target
+  // phase) runs and possibly closes it by selecting a suggestion — without
+  // that ordering, the very same Enter that just picked a suggestion would
+  // also fire this and try to advance before checkContactRecognition() has
+  // even disabled Continue, let alone resolved.
+  addressInput.addEventListener('keydown', function (evt) {
+    if (evt.key !== 'Enter') return;
+    var listbox = addressInput.querySelector('.bui-address-listbox');
+    var suggestionsOpen = listbox && listbox.dataset.open === 'true';
+    if (suggestionsOpen) return; // let the component's own handler pick a suggestion instead
+    if (state.address.placeId && !locationContinue.hasAttribute('disabled')) {
+      evt.preventDefault();
+      locationContinue.querySelector('.bui-btn').click();
+    }
+  }, true);
+
+  // Fired the moment an address is committed (selection or manual typed
+  // entry) rather than waiting for the full n8n pipeline at the end of
+  // the assessment — by the time the visitor reaches the Snapshot step
+  // this is usually already back. Purely a UX preview: failure here is
+  // silent (see 'error' branch in renderMarketRentHint) and never blocks
+  // anything, unlike the real pipeline call.
+  var rentCastRequestId = 0;
+
+  // Rows with a usable median rent and at least one listing. Shared by the
+  // preview and the final report so both apply the same "has data" bar.
+  function marketRowsWithData(rc) {
+    return (rc.marketByBedrooms || []).filter(function (b) {
+      return b && b.medianRent != null && (b.totalListings || 0) > 0;
+    });
+  }
+
+  // The lookup is only surfaced as a subtle "checking…" line while in flight —
+  // once it resolves, the rent-vs-market gauge (single-family) or the
+  // per-unit-type table (multifamily) carries the market read, so the hint
+  // gets out of the way. A failed/empty lookup stays silent (non-blocking).
+  function renderMarketRentHint() {
+    var rc = state.rentCast;
+    if (rc.status === 'loading') {
+      marketRentHint.classList.remove('hidden');
+      marketRentHint.innerHTML = '<bui-spinner size="sm"></bui-spinner> Checking market rent for this address…';
+    } else {
+      marketRentHint.classList.add('hidden');
+    }
+  }
+
+  // Revenue-first headline: projected annual rent = rent/unit × units × 12.
+  // Lives on its own step (after Property Snapshot), so it reads the
+  // committed state.rentPerUnit/state.unitCount rather than live inputs —
+  // both are already final by the time this step is shown.
+  function renderRevenueHero() {
+    var rent = state.rentPerUnit || 0;
+    var units = state.unitCount || 0;
+    var gross = rent * units;
+    revenueAnnual.textContent = currency(gross * 12);
+    revenueSub.innerHTML = units
+      ? (units + ' unit' + (units === 1 ? '' : 's') + ' × ' + currency(rent) + '/mo × 12  ·  <span class="revenue-hero__total">' + currency(gross) + '/mo total</span>')
+      : '';
+  }
+
+  // One per-unit-type market row (label / median rent / listing count), shared
+  // by the Snapshot-step preview and the final report so they read identically.
+  function buildMarketTypeRow(b) {
+    var label = b.bedrooms === 0 ? 'Studio' : (b.bedrooms + ' BR');
+    var row = document.createElement('div');
+    row.className = 'market-type-row' + (b.lowSample ? ' is-thin' : '');
+    var l = document.createElement('span');
+    l.className = 'market-type-label';
+    l.textContent = label;
+    var v = document.createElement('span');
+    v.className = 'market-type-rent num';
+    v.textContent = currency(b.medianRent) + '/mo';
+    var c = document.createElement('span');
+    c.className = 'market-type-count';
+    var n = b.totalListings;
+    c.textContent = b.lowSample ? (n + ' listing' + (n === 1 ? '' : 's') + ' · thin') : (n + ' listings');
+    row.appendChild(l);
+    row.appendChild(v);
+    row.appendChild(c);
+    return row;
+  }
+
+  function fetchRentCastQuicklook(address) {
+    if (!address || !CONFIG.RENTCAST_QUICKLOOK_URL) return;
+    var requestId = ++rentCastRequestId;
+    state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
+    renderMarketRentHint();
+    renderSnapshotPreview();
+
+    fetch(CONFIG.RENTCAST_QUICKLOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // GooglePlaceID lets the quicklook key its RentCast cache by the same
+      // universal join key the main pipeline uses, so the estimate fetched
+      // here is reused there instead of being re-fetched. Empty when the
+      // address was typed rather than picked (no placeId yet).
+      body: JSON.stringify({ FormattedAddress: address, GooglePlaceID: state.address.placeId || '' })
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('RentCast quicklook responded with status ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (requestId !== rentCastRequestId) return; // superseded by a newer address selection
+        if (data && typeof data.rent === 'number') {
+          state.rentCast = {
+            status: 'ready',
+            rent: data.rent,
+            rentRangeLow: data.rentRangeLow,
+            rentRangeHigh: data.rentRangeHigh,
+            propertyType: data.propertyType || '',
+            unitConfiguration: data.unitConfiguration || null,
+            comparables: Array.isArray(data.comparables) ? data.comparables : [],
+            // Multifamily per-bedroom market table (from the quicklook's /markets
+            // call). The preview shows this instead of the single studio estimate
+            // once 2+ units are entered — see renderSnapshotPreview.
+            marketByBedrooms: Array.isArray(data.marketByBedrooms) ? data.marketByBedrooms : [],
+            marketZip: data.marketZip || '',
+            marketLastUpdated: data.marketLastUpdated || null
+          };
+        } else {
+          state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
+        }
+        renderMarketRentHint();
+        renderSnapshotPreview();
+      })
+      .catch(function (err) {
+        if (requestId !== rentCastRequestId) return;
+        console.warn('[brichaus-assessment] RentCast quicklook failed (non-blocking):', err);
+        state.rentCast = { status: 'error', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
+        renderMarketRentHint();
+        renderSnapshotPreview();
+      });
+  }
+
+  // Resets the recognition panel to its hidden/inactive state — called
+  // whenever the address changes so a stale welcome/phone prompt from a
+  // previous selection never lingers on a new one.
+  function resetRecognitionPanel() {
+    state.recognition = { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+    recognitionPanel.classList.add('hidden');
+    recognitionWelcome.classList.add('hidden');
+    recognitionPhone.classList.add('hidden');
+    recognitionDone.classList.add('hidden');
+    recognitionViewProposal.classList.add('hidden');
+    recognitionEmailError.classList.add('hidden');
+    recognitionEmailValue = '';
+    recognitionPhoneValue = '';
+    locationContinue.toggleAttribute('disabled', !state.address.placeId);
+    addressVerifying.classList.add('hidden');
+  }
+
+  // Same-tab jump to the standalone saved-proposal page for this property.
+  // Only ever visible after a successful email confirmation (see the
+  // confirmEmail handler), never on the conflict-handoff done state.
+  recognitionViewProposal.addEventListener('bui-click', function () {
+    if (!CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId) return;
+    window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
+  });
+
+  var recognitionEmailValue = '';
+  var recognitionPhoneValue = '';
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    recognitionEmailInput.addEventListener(eventName, function (evt) {
+      recognitionEmailValue = (evt.detail.value || '').trim();
+    });
+    recognitionPhoneInput.addEventListener(eventName, function (evt) {
+      recognitionPhoneValue = (evt.detail.value || '').trim();
+    });
+  });
+
+  function showRecognitionState(name) {
+    recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
+    recognitionPhone.classList.toggle('hidden', name !== 'phone');
+    recognitionDone.classList.toggle('hidden', name !== 'done');
+  }
+
+  // Fired alongside the RentCast quicklook on every address selection. Asks
+  // whether this property already has a known point of contact on file —
+  // if so, gates Continue behind an email-confirmation prompt (2 attempts)
+  // before letting the visitor proceed, per the contact-conflict business
+  // rule: an unconfirmed match must not silently reuse or reassign the
+  // property's existing point of contact.
+  function checkContactRecognition() {
+    resetRecognitionPanel();
+    if (!state.address.placeId || !CONFIG.CONTACT_RECOGNITION_URL) return;
+    var placeId = state.address.placeId;
+    // Gate Continue for the duration of the check itself — resetRecognitionPanel()
+    // just enabled it based on placeId alone, but a visitor can click through
+    // well before this fetch resolves (confirmed live: the funnel advanced past
+    // Location before the recognition check came back). A fixed wait timer would
+    // either be too short on a slow connection or needlessly annoying on a fast
+    // one; disabling until the check actually settles is correct either way.
+    locationContinue.setAttribute('disabled', '');
+    // Visible feedback for the disabled-button gap above — otherwise the
+    // visitor just sees Continue go dead with no explanation while this
+    // fetch is in flight. Cleared on every resolution path below (and by
+    // resetRecognitionPanel() if a newer selection supersedes this one).
+    addressVerifying.classList.remove('hidden');
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
+    })
+      .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
+      .then(function (data) {
+        if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        addressVerifying.classList.add('hidden');
+        if (!data || !data.recognized) {
+          locationContinue.removeAttribute('disabled');
+          return;
+        }
+        state.recognition.active = true;
+        state.recognition.firstName = data.firstName || '';
+        state.recognition.contactId = data.contactId || '';
+        recognitionFirstname.textContent = state.recognition.firstName;
+        recognitionPanel.classList.remove('hidden');
+        showRecognitionState('welcome');
+        // Stays disabled — the welcome/confirm-email panel (already gating
+        // Continue) is what re-enables it, either on a confirmed match or
+        // once the recognize-vs-conflict flow reaches its "done" state.
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Contact recognition check failed (non-blocking):', err);
+        // Fail open — a webhook outage should never trap a legitimate visitor
+        // behind a check that can't complete, same principle as the RentCast
+        // quicklook's own non-blocking failure handling.
+        if (placeId === state.address.placeId) {
+          addressVerifying.classList.add('hidden');
+          locationContinue.removeAttribute('disabled');
+        }
+      });
+  }
+
+  recognitionConfirmBtn.addEventListener('bui-click', function () {
+    var placeId = state.address.placeId;
+    var emailAttempt = recognitionEmailValue;
+    recognitionEmailError.classList.add('hidden');
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
+    })
+      .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
+      .then(function (data) {
+        if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        if (data && data.confirmed) {
+          showRecognitionState('done');
+          recognitionDoneMessage.textContent = 'Thanks, ' + state.recognition.firstName + '! View your saved proposal, or continue below to run a fresh assessment on this property.';
+          if (CONFIG.PROPOSAL_PAGE_URL) recognitionViewProposal.classList.remove('hidden');
+          locationContinue.removeAttribute('disabled');
+          // Hand the confirmed email to proposal.html (same origin) so its
+          // own gate can confirm silently instead of asking a second time.
+          // sessionStorage is tab-scoped and can throw in some private
+          // browsing modes — failing just means one extra email prompt.
+          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
+          // A confirmed existing contact shouldn't be re-onboarded at the
+          // "Get Your Report" step: prefill their known name and the email
+          // they just confirmed, and (see refreshContactContinue) skip the
+          // consent-checkbox gate — they already agreed when they first
+          // came through. The backend just associates the new property.
+          state.recognition.confirmed = true;
+          if (!state.contact.firstName) state.contact.firstName = state.recognition.firstName;
+          state.contact.email = emailAttempt;
+          contactNameInput.value = state.contact.firstName;
+          contactEmailInput.value = state.contact.email;
+          refreshContactContinue();
+          return;
+        }
+        // Kept so the conflict handoff below can hand a human every email
+        // this visitor actually tried — useful context for figuring out who
+        // they really are, even though it's never compared against the real
+        // stored email again here (that comparison is server-side only).
+        if (emailAttempt) state.recognition.wrongEmails.push(emailAttempt);
+        state.recognition.attempts++;
+        if (state.recognition.attempts >= 2) {
+          showRecognitionState('phone');
+        } else {
+          recognitionEmailError.classList.remove('hidden');
+        }
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Email confirmation failed:', err);
+        recognitionEmailError.classList.remove('hidden');
+      });
+  });
+
+  recognitionPhoneBtn.addEventListener('bui-click', function () {
+    var phone = recognitionPhoneValue;
+    if (!phone) return;
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'conflict',
+        googlePlaceId: state.address.placeId,
+        formattedAddress: state.address.formattedAddress,
+        phone: phone,
+        existingFirstName: state.recognition.firstName,
+        existingContactId: state.recognition.contactId,
+        wrongEmailAttempts: state.recognition.wrongEmails
+      })
+    })
+      .then(function () {
+        showRecognitionState('done');
+        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly.";
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Conflict handoff failed:', err);
+        showRecognitionState('done');
+        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly.";
+      });
+  });
+
+  // Renders the Snapshot-step RentCast preview from state.rentCast. Reuses
+  // the same buildStatBlock/buildComparableRow helpers and .property-snapshot
+  // /.comparables-section styling as the final report, so the preview and
+  // the report read as one system. Each block hides itself when it has no
+  // data (lookup still loading, errored, or RentCast simply has nothing for
+  // this address), so a partial/failed lookup never leaves an empty frame.
+  // The multifamily caveat keys off the unit count entered on THIS step, so
+  // it re-evaluates as the visitor edits the field (see the units listener).
+  // Single-family: place the owner's rent on a low→high market track, with the
+  // market point (RentCast estimate) ticked and a verdict. "Below market" is the
+  // upside story, so it's the accented one; at/above market stay neutral.
+  function renderRentVsMarket(rc) {
+    var low = rc.rentRangeLow, mid = rc.rent, high = rc.rentRangeHigh;
+    var owner = parseFloat(rentInput.value) || 0;
+    if (mid == null || low == null || high == null || high <= low) {
+      rentVsMarket.classList.add('hidden');
+      return;
+    }
+    rentVsMarket.classList.remove('hidden');
+    var pctOf = function (v) { return Math.max(0, Math.min(100, (v - low) / (high - low) * 100)); };
+    var markerPct = pctOf(owner);
+    rvmFill.style.width = markerPct + '%';
+    rvmMarker.style.left = markerPct + '%';
+    rvmTick.style.left = pctOf(mid) + '%';
+    rvmLow.textContent = currency(low);
+    rvmMid.textContent = 'market ' + currency(mid);
+    rvmHigh.textContent = currency(high);
+    var verdict, tone;
+    if (owner > 0 && owner < low) { verdict = 'Below market'; tone = 'accent'; }
+    else if (owner > high) { verdict = 'Above market'; tone = 'danger'; }
+    else { verdict = 'Right at market'; tone = 'slate'; }
+    rvmVerdict.textContent = verdict;
+    rvmVerdict.setAttribute('data-tone', tone);
+  }
+
+  // Single-family: RentCast property chips (type, layout, size).
+  function renderChips(rc) {
+    var chips = [];
+    if (rc.propertyType) chips.push(rc.propertyType);
+    var cfg = rc.unitConfiguration;
+    if (cfg) {
+      if (cfg.bedrooms != null) chips.push(cfg.bedrooms === 0 ? 'Studio · 0 bd' : (cfg.bedrooms + ' bd'));
+      if (cfg.bathrooms != null) chips.push(cfg.bathrooms + ' ba');
+      if (cfg.squareFootage != null) chips.push(Number(cfg.squareFootage).toLocaleString() + ' sq ft');
+    }
+    snapshotChips.innerHTML = '';
+    chips.forEach(function (t) {
+      var s = document.createElement('span');
+      s.className = 'snapshot-chip';
+      s.textContent = t;
+      snapshotChips.appendChild(s);
+    });
+    snapshotChips.classList.toggle('hidden', !chips.length);
+  }
+
+  function buildCompCardRow(c) {
+    var row = document.createElement('div');
+    row.className = 'comp-card-row';
+    var a = document.createElement('span');
+    a.className = 'comp-card-addr';
+    a.textContent = c.formattedAddress || c.address || 'Comparable property';
+    var p = document.createElement('span');
+    p.className = 'comp-card-price num';
+    p.textContent = currency(c.price) + '/mo';
+    row.appendChild(a);
+    row.appendChild(p);
+    return row;
+  }
+
+  // Single-family: nearby comps with the neighborhood average, collapsed to 3
+  // with a View-all toggle.
+  var compsExpanded = false;
+  function renderComps(rc) {
+    var comps = (rc.comparables || []).filter(function (c) { return c.price != null; });
+    snapshotCompsCard.classList.toggle('hidden', !comps.length);
+    if (!comps.length) return;
+    var avg = Math.round(comps.reduce(function (s, c) { return s + c.price; }, 0) / comps.length);
+    compsCount.textContent = comps.length + ' comp' + (comps.length === 1 ? '' : 's') + ' nearby';
+    compsAvg.innerHTML = 'avg <strong>' + currency(avg) + '</strong>/mo';
+    var shown = compsExpanded ? comps : comps.slice(0, 3);
+    compsCardList.innerHTML = '';
+    shown.forEach(function (c) { compsCardList.appendChild(buildCompCardRow(c)); });
+    if (comps.length > 3) {
+      compsViewall.classList.remove('hidden');
+      compsViewall.textContent = compsExpanded ? 'Show fewer' : ('View all ' + comps.length + ' comparables →');
+    } else {
+      compsViewall.classList.add('hidden');
+    }
+  }
+
+  // Illustrative-only ballpark for the rent field's placeholder — never the
+  // input's value, and never presented as a prediction. Single-family: the
+  // RentCast AVM point estimate for this address. Multifamily has no single
+  // "market rent" (it varies by unit type), so blend the 1BR/2BR medians
+  // 50/50 for a rough anchor; falls back to whichever of the two exists, or
+  // null (no placeholder at all) if neither is available.
+  function computeRentPlaceholder(rc, propertyType) {
+    if (!rc || rc.status !== 'ready') return null;
+    if (propertyType === 'multi') {
+      var rows = marketRowsWithData(rc);
+      var oneBr = rows.filter(function (r) { return r.bedrooms === 1; })[0];
+      var twoBr = rows.filter(function (r) { return r.bedrooms === 2; })[0];
+      if (oneBr && twoBr) return (oneBr.medianRent + twoBr.medianRent) / 2;
+      if (oneBr) return oneBr.medianRent;
+      if (twoBr) return twoBr.medianRent;
+      return null;
+    }
+    return typeof rc.rent === 'number' ? rc.rent : null;
+  }
+
+  function renderRentPlaceholder() {
+    var isMF = state.propertyType === 'multi';
+    var value = computeRentPlaceholder(state.rentCast, state.propertyType);
+
+    // Multifamily has no single "market rent" to ballpark against (see
+    // computeRentPlaceholder above) — the per-unit-type table below is
+    // comparison data, not a value to copy into this field, so this needs
+    // its own label/hint spelling that out rather than the SFR copy, which
+    // reads as if it's asking for a market-rate guess.
+    rentInput.setAttribute('label', isMF ? 'Current Avg. Monthly Rent / Unit' : 'Avg. Monthly Rent / Unit');
+    if (isMF) {
+      rentInput.setAttribute('hint', 'Enter what you currently charge across the units in this building — the market rates below are for comparison only.');
+      if (value != null) rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
+      else rentInput.removeAttribute('placeholder');
+      return;
+    }
+
+    if (value != null) {
+      rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
+      rentInput.setAttribute('hint', 'Ballpark only, not a prediction — enter your actual average rent per unit.');
+    } else {
+      rentInput.removeAttribute('placeholder');
+      rentInput.removeAttribute('hint');
+    }
+  }
+
+  // Orchestrates the Snapshot-step market read. Multifamily (chosen on the
+  // Property Type step, before the address/quicklook ever ran) with real
+  // per-type data shows the per-unit-type table and suppresses the
+  // single-unit gauge/chips/comps (which misread a mixed building).
+  // Single-family shows the gauge + chips + comps.
+  function renderSnapshotPreview() {
+    var rc = state.rentCast;
+    var isMF = state.propertyType === 'multi';
+    var market = marketRowsWithData(rc);
+    var showMarket = isMF && market.length > 0;
+
+    renderRentPlaceholder();
+
+    snapshotPreviewMarket.classList.toggle('hidden', !showMarket);
+    if (showMarket) {
+      snapshotPreviewMarketZip.textContent = rc.marketZip ? (' · ZIP ' + rc.marketZip) : '';
+      snapshotPreviewMarketList.innerHTML = '';
+      market.forEach(function (b) { snapshotPreviewMarketList.appendChild(buildMarketTypeRow(b)); });
+    }
+
+    if (showMarket || rc.status !== 'ready') {
+      rentVsMarket.classList.add('hidden');
+      snapshotChips.classList.add('hidden');
+      snapshotCompsCard.classList.add('hidden');
+    } else {
+      renderRentVsMarket(rc);
+      renderChips(rc);
+      renderComps(rc);
+    }
+  }
+
+  locationContinue.addEventListener('bui-click', function () {
+    if (locationContinue.hasAttribute('disabled')) return;
+    showStep('snapshot');
+    // Re-render in case the quicklook resolved while the visitor was still on
+    // the Location step (its render targets live on this step, hidden until
+    // now). state.propertyType is already committed (Step 1, before this),
+    // so this first paint shows the correct SFR/MF view immediately.
+    renderSnapshotPreview();
+  });
+
+  // The market read (rent-vs-market marker position) depends on the entered
+  // rent, so recompute it live as the visitor types.
+  ['bui-input', 'bui-change'].forEach(function (evtName) {
+    rentInput.addEventListener(evtName, function () { renderSnapshotPreview(); });
+  });
+
+  compsViewall.addEventListener('click', function () {
+    compsExpanded = !compsExpanded;
+    renderComps(state.rentCast);
+  });
+
+  /* =====================================================================
+   * Step 3: Property Snapshot
+   * =================================================================== */
+  root.querySelector('[data-back="location"]').addEventListener('bui-click', function () {
+    showStep('location');
+  });
+
+  snapshotContinue.addEventListener('bui-click', function () {
+    // Not mirrored to a native field — n8n writes rent to the Property
+    // record directly after search+update (see GHL_FIELDS doc). Unit count
+    // was already committed on the Property Type step.
+    state.rentPerUnit = parseFloat(rentInput.value) || 0;
+    renderRevenueHero();
+    showStep('revenue');
+  });
+
+  /* =====================================================================
+   * Step 4: Projected Annual Revenue (transition into the operational
+   * assessment) — purely a display of already-committed state.rentPerUnit/
+   * state.unitCount, no inputs of its own.
+   * =================================================================== */
+  root.querySelector('[data-back="snapshot"]').addEventListener('bui-click', function () {
+    showStep('snapshot');
+  });
+
+  revenueContinue.addEventListener('bui-click', function () {
+    driverStepIndex = 0;
+    renderDriverStep();
+    showStep('driver');
+  });
+
+  /* =====================================================================
+   * Steps 5-8: Operational Assessment (4 sequential driver questions)
+   * =================================================================== */
+  function renderDriverStep() {
+    scrollToTop();
+    var step = DRIVER_STEPS[driverStepIndex];
+    driverCategoryIcon.textContent = step.icon;
+    driverCategoryName.textContent = step.title;
+    driverQuestion.textContent = step.question;
+    driverSubProgress.setAttribute('label', 'Select the option that best describes your reality');
+    driverSubProgress.setAttribute('value', String(driverStepIndex + 1));
+    driverHeaderProgress.setAttribute('value', String(45 + driverStepIndex * 10));
+
+    var current = state.drivers[step.key];
+    driverChoiceGroup.value = current;
+
+    // Safety net: don't depend on whether the value assignment above
+    // happened to dispatch a synthetic 'bui-change' (BuiChoiceGroup only
+    // dispatches when its value attribute actually changes). The 4 cards
+    // are shared/reused across all 4 questions, so every question render
+    // must deterministically reset them to this question's own state.
+    resetDriverCardDescriptions();
+    if (current) showDriverCardReference(step.key, current, false);
+  }
+
+  // Reveals the exact reference text the final report will use for a given
+  // driver label (see DRIVER_REFERENCE) by swapping the card's public
+  // "description" attribute (choice-card.js's own supported, documented way
+  // to change its copy). The 4 <bui-choice-card> elements are shared across
+  // all 4 questions, so every call first resets every card to its cached
+  // original description, then applies the reference text to only the one
+  // matching card — this is idempotent and safe to call any number of times
+  // regardless of whether it's triggered by a real click, a synthetic
+  // re-sync event, or renderDriverStep()'s own safety-net call.
+  function removeDriverConfirmButton(card) {
+    var inner = card.querySelector('.bui-choice-card');
+    var btn = inner && inner.querySelector('.driver-confirm-btn');
+    if (btn) btn.remove();
+  }
+
+  // Lets the visitor confirm and move on right from the card they just
+  // flipped — this is the ONLY way forward on the driver steps (the footer
+  // deliberately has no Continue of its own; it was redundant with this).
+  // Appended into the flipped card itself (see showDriverCardReference()),
+  // never into the other 3.
+  function addDriverConfirmButton(card) {
+    var inner = card.querySelector('.bui-choice-card');
+    if (!inner || inner.querySelector('.driver-confirm-btn')) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'driver-confirm-btn';
+    btn.textContent = 'Confirm & Continue';
+    btn.addEventListener('click', function (evt) {
+      evt.stopPropagation(); // don't let this re-trigger the card's own click-to-select handler
+      advanceDriverStep();
+    });
+    inner.appendChild(btn);
+  }
+
+  function resetDriverCardDescriptions() {
+    var cards = Array.prototype.slice.call(driverChoiceGroup.querySelectorAll('bui-choice-card'));
+    cards.forEach(function (card) {
+      if (card.dataset.originalDescription === undefined) {
+        card.dataset.originalDescription = card.getAttribute('description') || '';
+      }
+      card.classList.remove('is-flipping');
+      card.setAttribute('description', card.dataset.originalDescription);
+      removeDriverConfirmButton(card);
+    });
+  }
+
+  function showDriverCardReference(driverKey, value, animate) {
+    var nuanced = (DRIVER_REFERENCE[driverKey] || {})[value];
+    if (!nuanced) return;
+    var card = driverChoiceGroup.querySelector('bui-choice-card[value="' + value + '"]');
+    if (!card) return;
+    if (!animate || window.BUI.prefersReducedMotion()) {
+      card.setAttribute('description', nuanced);
+      addDriverConfirmButton(card);
+      return;
+    }
+    card.classList.add('is-flipping');
+    setTimeout(function () {
+      // Guard: a rapid second click may have already called
+      // resetDriverCardDescriptions(), which removes this class — don't let
+      // a stale timeout re-apply nuanced text to a no-longer-selected card.
+      if (card.classList.contains('is-flipping')) {
+        card.setAttribute('description', nuanced);
+        addDriverConfirmButton(card);
+      }
+    }, 160);
+  }
+
+  driverChoiceGroup.addEventListener('bui-change', function (evt) {
+    var step = DRIVER_STEPS[driverStepIndex];
+    var isNewChoice = state.drivers[step.key] !== evt.detail.value;
+    state.drivers[step.key] = evt.detail.value;
+    resetDriverCardDescriptions();
+    if (evt.detail.value) showDriverCardReference(step.key, evt.detail.value, isNewChoice);
+  });
+
+  driverBack.addEventListener('bui-click', function () {
+    if (driverStepIndex === 0) {
+      showStep('revenue');
+      return;
+    }
+    driverStepIndex--;
+    renderDriverStep();
+  });
+
+  function advanceDriverStep() {
+    var step = DRIVER_STEPS[driverStepIndex];
+    if (!state.drivers[step.key]) return;
+
+    // Not mirrored to a native field — n8n writes driver scores to the
+    // Property record directly after search+update (see GHL_FIELDS doc).
+
+    if (driverStepIndex < DRIVER_STEPS.length - 1) {
+      driverStepIndex++;
+      renderDriverStep();
+    } else {
+      showStep('contact');
+    }
+  }
+
+
+  /* =====================================================================
+   * Step 9: Get Your Report — captures the name/email/consent this native
+   * submit needs to create a valid, Contact-linked record. Nothing before
+   * this step writes name/email anywhere, and nothing after it should —
+   * this is the one point in the flow where the native submit fires.
+   * =================================================================== */
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function refreshContactContinue() {
+    // A recognized contact who confirmed their email already consented on a
+    // previous visit — don't gate them on the checkbox again; the backend
+    // just associates the new property with their existing Contact.
+    var termsOk = !!(termsFieldEl && termsFieldEl.checked) || state.recognition.confirmed;
+    var ready = !!state.contact.firstName && isValidEmail(state.contact.email) && termsOk;
+    contactContinue.toggleAttribute('disabled', !ready);
+  }
+
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    contactNameInput.addEventListener(eventName, function (evt) {
+      state.contact.firstName = (evt.detail.value || '').trim();
+      syncGhlField('firstName', state.contact.firstName);
+      refreshContactContinue();
+    });
+
+    contactEmailInput.addEventListener(eventName, function (evt) {
+      state.contact.email = (evt.detail.value || '').trim();
+      syncGhlField('email', state.contact.email);
+      refreshContactContinue();
+    });
+  });
+
+  // The consent checkbox carries real GHL-configured legal copy — kept as
+  // the actual native element (not recreated), just physically relocated
+  // into this step's own card instead of left wherever GHL renders it —
+  // pointing at it from a distance (scroll + highlight) read as a visual
+  // mismatch once it actually worked. Moves the whole .checkbox-container
+  // GHL renders (input + its real label as siblings — see the ancestry
+  // captured via the live DOM dump), not just the <input> alone, so the
+  // legal-copy label comes along with it. Known risk: if GHL's Vue Survey
+  // ever re-renders this section for an unrelated reason, it could
+  // recreate a fresh node in the original spot while this moved one goes
+  // stale — hasn't been observed, but this can't be fully verified without
+  // live testing since this sandbox has no network path to the live page.
+  window.BUI.ghl.whenFieldReady(CONFIG.GHL_TERMS_FIELD, function (el) {
+    termsFieldEl = el;
+    function onTermsChange() {
+      // Stamp the consent moment (not the submit moment) — this exact
+      // timestamp is what gets recorded on the GHL contact for compliance.
+      if (el.checked && !state.contact.consentTs) {
+        state.contact.consentTs = new Date().toISOString();
+      }
+      refreshContactContinue();
+    }
+    el.addEventListener('change', onTermsChange);
+    el.addEventListener('click', onTermsChange);
+
+    var container = el.closest('.checkbox-container') || el.parentElement;
+    var slot = document.getElementById('terms-slot');
+    if (container && slot) slot.appendChild(container);
+  });
+
+  root.querySelector('[data-back="driver"]').addEventListener('bui-click', function () {
+    driverStepIndex = DRIVER_STEPS.length - 1;
+    renderDriverStep();
+    showStep('driver');
+  });
+
+  contactContinue.addEventListener('bui-click', function () {
+    if (contactContinue.hasAttribute('disabled')) return;
+    contactContinue.setAttribute('disabled', ''); // guard against a double-click firing a second webhook call
+    startAssessment();
+  });
+
+  // GHL's native Survey submission is deliberately NOT fired here anymore.
+  // It was the old way the Contact-linked Property record got created, via
+  // submitNative() clicking GHL's hidden submit control — confirmed dead
+  // live on 2026-07-10: fields populated and consent checked, but GHL no
+  // longer honors the synthetic (isTrusted: false) click, so no record was
+  // ever created. Record creation now happens server-side in the n8n
+  // pipeline via the GHL API (create + contact upsert + owner association
+  // + consent note), fed by the FirstName/Email/Consent fields this widget
+  // sends in buildWebhookPayload(). Nothing here depends on GHL's page
+  // internals anymore, and no settle delay is needed before scoring.
+  function startAssessment() {
+    showStep('loading');
+    checklist.current = 1;
+    buildProgress.setAttribute('value', '0');
+    runAssessment();
+  }
+
+  /* =====================================================================
+   * Step 10: Finalizing — webhook call happens here
+   * =================================================================== */
+  function buildWebhookPayload() {
+    return {
+      UnitCount: state.unitCount,
+      TenantScore: DemandEngine.multiplier[state.drivers.tenant],
+      TurnoverScore: DemandEngine.multiplier[state.drivers.turnover],
+      ComplianceScore: DemandEngine.multiplier[state.drivers.compliance],
+      MaintenanceScore: DemandEngine.multiplier[state.drivers.maintenance],
+      RentValue: state.rentPerUnit,
+      EvictionCoverage: readAddonField('evictionCoverage', false),
+      PetCoverage: readAddonField('petCoverage', false),
+      LeasePlacements: readAddonField('leasePlacements', false),
+      LeasingFeePct: readAddonField('leasingFeePct', 0),
+      Inspections: readAddonField('inspections', false),
+      GooglePlaceID: state.address.placeId,
+      FormattedAddress: state.address.formattedAddress,
+      PropertyName: state.address.propertyName || state.address.formattedAddress,
+      // Property type, two granularities: the visitor's own Step-1 answer
+      // (coarse, always present) and RentCast's classification from the
+      // quicklook (granular — "Condo", "Townhouse", etc.; empty when the
+      // quicklook failed). n8n writes both to the GHL Property record
+      // (property_type / property_type_rentcast) and Dataverse so records
+      // can be filtered by type.
+      PropertyType: state.propertyType === 'multi' ? 'Multifamily' : 'Single Family',
+      RentCastPropertyType: state.rentCast.propertyType || '',
+      // Contact + consent — the n8n pipeline (not GHL's native survey
+      // submission) now creates the GHL Contact, the Property record, and
+      // their association from these. Consent is structurally always true
+      // here (the Continue button is disabled until the terms checkbox is
+      // checked) but sent explicitly, with the moment it was given, so the
+      // backend records a real compliance trail rather than inferring it.
+      FirstName: state.contact.firstName,
+      Email: state.contact.email,
+      // Known GHL contact id from the recognition flow, when this visitor
+      // confirmed their email as an existing contact — lets the backend
+      // associate the property directly even if the email were edited.
+      ContactID: state.recognition.confirmed ? state.recognition.contactId : '',
+      Consent: !!(termsFieldEl && termsFieldEl.checked),
+      ConsentTimestamp: state.contact.consentTs || new Date().toISOString(),
+      // Opt into the two-phase report only when we have somewhere to poll for
+      // the narrative. Without REPORT_STATUS_URL the pipeline responds
+      // synchronously with the full report, so we must not request async.
+      AsyncReport: !!CONFIG.REPORT_STATUS_URL
+    };
+  }
+
+  // Per-stage detail shown under the finalizing progress bar. Draws on the
+  // RentCast quicklook data already in hand by this point (comp count, market
+  // rent) so the wait previews real findings rather than a generic spinner.
+  function setLoadingDetail(stage) {
+    var rc = state.rentCast || {};
+    var comps = rc.comparables || [];
+    var msg;
+    switch (stage) {
+      case 1:
+        var city = ((state.address.formattedAddress || '').split(',')[1] || '').trim();
+        msg = city ? 'Located your property in ' + city + '.' : 'Located your property.';
+        break;
+      case 2:
+        msg = comps.length ? 'Confirmed ' + comps.length + ' comparable rentals nearby.' : 'Validating comps one last time…';
+        break;
+      case 3:
+        msg = (typeof rc.rent === 'number') ? 'Market rent estimate near ' + currency(rc.rent) + '/mo.' : 'Estimating market rent for this address…';
+        break;
+      case 4:
+        msg = 'Scoring operational demand across your four drivers…';
+        break;
+      default:
+        msg = 'Generating your report…';
+    }
+    loadingDetail.textContent = msg;
+  }
+
+  // Once the fake progress bar reaches its last stage, the detail line would
+  // otherwise sit frozen on "Generating your report…" for however long the
+  // real webhook takes (often 15-25s more) — dead air that can read as
+  // stuck. This rotates through a short, one-way sequence of reassurance
+  // lines during that specific dead zone only; deliberately short (four
+  // lines, not looping) per "not too many, just enough to feel aware."
+  var REASSURANCE_MESSAGES = [
+    'Almost there…',
+    'Just a few more seconds…',
+    'Any moment now…',
+    'Putting the finishing touches on your report…'
+  ];
+
+  function runAssessment() {
+    var demandScore = DemandEngine.score(state.drivers);
+    var band = DemandEngine.band(demandScore);
+
+    var CHECKLIST_STEPS = 5;
+    // The real wait here is the pipeline's own response time (RentCast + AI
+    // report + Power Automate fee calc), which ranges from a few seconds to
+    // ~30s. Ease a fake progress value asymptotically toward ~92% (never
+    // reaching it on its own) so the bar is always visibly creeping no matter
+    // how long the pipeline takes; the actual webhook response snaps it to
+    // 100% and reveals the report.
+    //
+    // The checklist stage is derived from that progress, but is only WRITTEN
+    // when it actually changes — bui-checklist rebuilds its whole DOM (and
+    // re-fires each item's fade-in animation) on every attribute set, so
+    // touching .current every tick made the list flicker constantly. Writing
+    // it ~5 times total instead turns each advance into a deliberate "step
+    // done". A data-backed detail line updates alongside it so the wait reads
+    // as genuine work rather than a spinner.
+    var progress = 0;
+    var settled = false;
+    var lastStage = 0;
+    var reassuranceTimer = null;
+    var reassuranceIndex = 0;
+    var timer = setInterval(function () {
+      if (settled) return;
+      progress += (92 - progress) * 0.045; // closes ~4.5% of the remaining gap each tick
+      buildProgress.setAttribute('value', String(Math.round(progress)));
+      var stage = progress < 18 ? 1 : progress < 38 ? 2 : progress < 58 ? 3 : progress < 78 ? 4 : 5;
+      if (stage !== lastStage) {
+        lastStage = stage;
+        checklist.current = stage;
+        setLoadingDetail(stage);
+        if (stage === 5) {
+          // Give "Generating your report…" its own beat before the
+          // reassurance rotation starts filling the dead air.
+          reassuranceTimer = setInterval(function () {
+            if (reassuranceIndex >= REASSURANCE_MESSAGES.length) {
+              clearInterval(reassuranceTimer);
+              return;
+            }
+            loadingDetail.textContent = REASSURANCE_MESSAGES[reassuranceIndex];
+            reassuranceIndex++;
+          }, 5000);
+        }
+      }
+    }, 220);
+
+    var finish = function (webhookResult, isDemo) {
+      settled = true;
+      clearInterval(timer);
+      if (reassuranceTimer) clearInterval(reassuranceTimer);
+      checklist.current = CHECKLIST_STEPS + 1;
+      buildProgress.setAttribute('value', '100');
+      loadingDetail.textContent = '';
+      state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
+      renderResults();
+      showStep('results');
+      // Two-phase report: the pipeline answered fast with everything except the
+      // AI narrative (reportStatus 'generating'). Poll for the prose and slot
+      // it in when ready. Skipped in demo mode and when the response already
+      // carries the full report (sync path, multifamily, or a proposal cache hit).
+      var rep = webhookResult && webhookResult.report;
+      if (!isDemo && rep && rep.reportStatus === 'generating' && !rep.clientSummary) {
+        pollReportStatus(state.address.placeId, 0);
+      }
+    };
+
+    if (!CONFIG.WEBHOOK_URL) {
+      console.warn('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — rendering results in demo mode.');
+      setTimeout(function () { finish(null, true); }, 2600);
+      return;
+    }
+
+    fetch(CONFIG.WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildWebhookPayload())
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('Webhook responded with status ' + res.status);
+        return res.json();
+      })
+      .then(function (data) { finish(data, false); })
+      .catch(function (err) {
+        console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
+        finish(null, true);
+      });
+  }
+
+  // Two-phase report poll. The fast Phase A response already rendered the fee,
+  // band, market, comps, and operational profile; here we poll ghl-report-status
+  // by googlePlaceId until the AI narrative (clientSummary/confidenceNote) has
+  // been generated and stored, then merge it into the shown report. Backs off at
+  // ~2.5s intervals with a ~60s cap; any failure just stops polling (the answer
+  // is already on screen, only the prose is missing).
+  function pollReportStatus(placeId, attempt) {
+    if (!CONFIG.REPORT_STATUS_URL || !placeId) return;
+    attempt = attempt || 0;
+    if (attempt > 24) return; // ~60s ceiling
+    fetch(CONFIG.REPORT_STATUS_URL + '?placeId=' + encodeURIComponent(placeId))
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (data && data.status === 'ready' && data.report) {
+          var report = state.result && state.result.webhook && state.result.webhook.report;
+          if (report) {
+            report.clientSummary = data.report.clientSummary || '';
+            report.confidenceNote = data.report.confidenceNote || '';
+            if (data.report.operationalProfile) report.operationalProfile = data.report.operationalProfile;
+            report.reportStatus = 'ready';
+            renderReportSummary(state.result.webhook);
+            renderOperationalProfile(state.result.webhook);
+          }
+          return;
+        }
+        setTimeout(function () { pollReportStatus(placeId, attempt + 1); }, 2500);
+      })
+      .catch(function () {
+        setTimeout(function () { pollReportStatus(placeId, attempt + 1); }, 2500);
+      });
+  }
+
+  /* =====================================================================
+   * Step 11: Results / Report Generator
+   * =================================================================== */
+  function renderResults() {
+    var result = state.result;
+    var grossMonthly = state.rentPerUnit * state.unitCount;
+    var webhook = result.webhook;
+
+    // Single source of truth for the FINAL band: the server OIA band (the same
+    // one written to the CRM and used in the report narrative). The client-side
+    // DemandEngine band remains the instant preliminary shown on the gauge during
+    // the flow, but here we adopt the server's band so the two band tables can't
+    // silently diverge. Warn if they disagree — a live drift detector for the two
+    // verbatim-copied tables.
+    var serverBandLabel = webhook && webhook.report && webhook.report.operationalProfile && webhook.report.operationalProfile.band;
+    if (serverBandLabel) {
+      var serverBand = DemandEngine.bandByLabel(serverBandLabel);
+      if (serverBand) {
+        if (serverBand.label !== result.band.label) {
+          console.warn('[brichaus-assessment] Demand band drift: client=' + result.band.label + ' server=' + serverBand.label + ' — using server (authoritative).');
+        }
+        result.band = serverBand;
+      }
+    }
+
+    // feeCalcResponse is a fee RATE (e.g. 0.06 for 6%), not a dollar amount —
+    // the pipeline's "Trigger Power Automate Fee Calc" step returns this raw,
+    // and "Assemble Prototype Output" passes it straight through. Convert to
+    // a percentage and multiply by gross monthly rent ourselves.
+    var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
+    var feePct, monthlyFee, isIllustrative;
+    if (!isNaN(feeRate)) {
+      feePct = feeRate * 100;
+      monthlyFee = grossMonthly * feeRate;
+      isIllustrative = false;
+    } else {
+      // Illustrative placeholder — NOT the real pricing formula, which
+      // lives in Power Automate/Dataverse (see power-automate-build-spec.md).
+      // Used whenever CONFIG.WEBHOOK_URL is unset, the call failed, or the
+      // response didn't include a usable feeCalcResponse rate.
+      var demoBandPct = { 'VERY LOW': 4, LOW: 5, NORMAL: 6, ELEVATED: 7, HIGH: 8, SEVERE: 9.5 };
+      feePct = demoBandPct[result.band.label] || 6;
+      monthlyFee = grossMonthly * (feePct / 100);
+      isIllustrative = true;
+    }
+    demoBanner.classList.toggle('hidden', !(result.isDemo || isIllustrative));
+
+    // Report title — the derived property name (computePropertyName:
+    // Google displayName or "<number> <street>"), NOT the full
+    // formattedAddress with city/state/zip/country, which read as clutter
+    // in the title slot. Falls back to the formatted address only when no
+    // name could be derived.
+    var addr = state.address.propertyName || state.address.formattedAddress || '';
+    reportAddress.textContent = addr;
+    reportAddress.classList.toggle('hidden', !addr);
+
+    // Proposal hero: the fee percentage is now the primary number (the
+    // payoff after the Workload build-up above it); the dollar amount is
+    // secondary. Reuses the same gold-accent-span treatment
+    // (.revenue-hero__total) already used for "$X/mo total" on the
+    // Projected Revenue step.
+    heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
+    heroFeeSub.innerHTML = 'estimated monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span> on ' + currency(grossMonthly) + ' gross monthly rent';
+
+    // Workload band + meter: always computable client-side (even in demo
+    // mode / a failed webhook), so this section stays visible unconditionally
+    // — only the summary sentence and per-category rows are conditional on
+    // real webhook data (see renderOperationalProfile).
+    opProfile.classList.remove('hidden');
+    heroBand.textContent = result.band.label;
+    // tone (slate|accent|warning|danger) drives the pill + marker color via CSS
+    heroBand.setAttribute('data-tone', result.band.tone);
+    var pct = DemandEngine.gaugePercent(result.demandScore);
+    demandMark.style.left = Math.max(3, Math.min(97, pct)) + '%'; // keep the 13px dot off the rounded track ends
+    demandMark.setAttribute('data-tone', result.band.tone);
+
+    // Not mirrored to a native field — n8n writes the band/fee/monthly fee
+    // to the Property record directly after search+update (see GHL_FIELDS doc).
+
+    renderReportSummary(webhook);
+    renderOperationalProfile(webhook);
+    renderProposalServiceCards(webhook);
+    renderPropertySnapshot(webhook);
+    renderComparables(webhook);
+    renderMarketByBedrooms(webhook);
+    renderEvidence();
+  }
+
+  // The grouped evidence section shows only if at least one of its cards
+  // (subject property / comparables / market-by-type) actually has data.
+  function renderEvidence() {
+    var any = !propertySnapshot.classList.contains('hidden')
+      || !comparablesSection.classList.contains('hidden')
+      || !marketByType.classList.contains('hidden');
+    evidence.classList.toggle('hidden', !any);
+  }
+
+  // Multifamily: RentCast's per-bedroom market rents for the zip (report.
+  // marketByBedrooms, from the pipeline's /markets branch). Shown instead of a
+  // single studio estimate + studio comps so a mixed-unit owner sees every unit
+  // type — studios through the largest well-sampled layout — represented. Rows
+  // with a thin listing sample are shown but flagged, not hidden. Absent for
+  // single-family (the card stays hidden and comps render as usual).
+  function renderMarketByBedrooms(webhook) {
+    var report = (webhook && webhook.report) || null;
+    var rows = (report && report.isMultifamily && Array.isArray(report.marketByBedrooms)) ? report.marketByBedrooms : [];
+    var withData = rows.filter(function (b) { return b && b.medianRent != null && (b.totalListings || 0) > 0; });
+    marketByType.classList.toggle('hidden', !withData.length);
+    if (!withData.length) return;
+
+    marketZip.textContent = report.marketZip ? (' · ZIP ' + report.marketZip) : '';
+    marketTypeList.innerHTML = '';
+    withData.forEach(function (b) { marketTypeList.appendChild(buildMarketTypeRow(b)); });
+
+    // Footer: data recency, if RentCast provided it. The broader caveat about
+    // zip-level medians already renders as the report confidence line.
+    var updated = report.marketLastUpdated;
+    var foot = updated ? ('Median asking rents · RentCast market data as of ' + String(updated).slice(0, 10)) : 'Median asking rents · RentCast market data';
+    marketTypeFoot.textContent = foot;
+    marketTypeFoot.classList.remove('hidden');
+  }
+
+  function buildStatBlock(label, value) {
+    var wrap = document.createElement('div');
+    var l = document.createElement('div');
+    l.className = 'stat-label';
+    l.textContent = label;
+    var v = document.createElement('div');
+    v.className = 'stat-value';
+    v.textContent = value;
+    wrap.appendChild(l);
+    wrap.appendChild(v);
+    return wrap;
+  }
+
+  // propertyType/unitConfiguration come from RentCast via the pipeline's
+  // "Assemble Prototype Output" node — absent whenever RentCast has no
+  // record for the address (new construction, data gaps) or in demo mode.
+  function renderPropertySnapshot(webhook) {
+    var propertyType = webhook && webhook.propertyType;
+    var config = webhook && webhook.unitConfiguration;
+    var isMultifamily = !!(webhook && webhook.report && webhook.report.isMultifamily);
+    var rows = [];
+
+    if (propertyType) rows.push(['Type', propertyType]);
+    // For multifamily we deliberately omit RentCast's single-unit bed/bath/sqft
+    // (it describes one representative unit — usually a studio — and misreads as
+    // "the" building). The "Market rent by unit type" card carries the unit-mix
+    // picture instead.
+    if (config && !isMultifamily) {
+      if (config.bedrooms != null || config.bathrooms != null) {
+        rows.push(['Beds / Baths', (config.bedrooms != null ? config.bedrooms : '—') + ' / ' + (config.bathrooms != null ? config.bathrooms : '—')]);
+      }
+      if (config.squareFootage != null) rows.push(['Area', Number(config.squareFootage).toLocaleString() + ' sq ft']);
+    }
+
+    propertySnapshot.classList.toggle('hidden', !rows.length);
+    if (!rows.length) return;
+
+    // Rendered as label/value spec rows inside the compact evidence card
+    // (not the wide stat tiles used for the Snapshot-step preview).
+    snapshotGrid.innerHTML = '';
+    rows.forEach(function (pair) {
+      var r = document.createElement('div');
+      r.className = 'evidence-spec';
+      var l = document.createElement('span');
+      l.textContent = pair[0];
+      var v = document.createElement('span');
+      v.textContent = pair[1];
+      r.appendChild(l);
+      r.appendChild(v);
+      snapshotGrid.appendChild(r);
+    });
+
+    // RentCast's bed/bath/sqft describes a single unit record it has on
+    // file, not every unit in the building — surface that caveat whenever a
+    // single-family/small property shows more than one unit. For true
+    // multifamily we drop those rows entirely and show the per-type market
+    // table, so the note would be redundant — hide it.
+    multifamilyNote.classList.toggle('hidden', !(state.unitCount > 1) || isMultifamily);
+  }
+
+  // comparables is RentCast's raw comp array, passed straight through by
+  // "Assemble Prototype Output" — distinct from the AI-written
+  // report.topComparables, which is a paraphrased subset of the same data.
+  function buildComparableRow(comp) {
+    var address = comp.formattedAddress || comp.address || 'Comparable property';
+    var distance = comp.distance != null ? comp.distance : comp.distanceMiles;
+    var metaParts = [];
+    if (comp.price != null) metaParts.push(currency(comp.price) + '/mo');
+    if (comp.bedrooms != null || comp.bathrooms != null) {
+      var bedsBaths = comp.bedrooms != null ? comp.bedrooms + ' bd' : '';
+      if (comp.bathrooms != null) bedsBaths += (bedsBaths ? ', ' : '') + comp.bathrooms + ' ba';
+      metaParts.push(bedsBaths);
+    }
+    if (distance != null) metaParts.push(Number(distance).toFixed(1) + ' mi away');
+
+    var row = document.createElement('div');
+    row.className = 'comparable-row';
+    var addrEl = document.createElement('div');
+    addrEl.className = 'comparable-address';
+    addrEl.textContent = address;
+    var metaEl = document.createElement('div');
+    metaEl.className = 'comparable-meta';
+    metaEl.textContent = metaParts.join(' · ');
+    row.appendChild(addrEl);
+    row.appendChild(metaEl);
+    return row;
+  }
+
+  function renderComparables(webhook) {
+    var comps = (webhook && webhook.comparables) || [];
+    comparablesSection.classList.toggle('hidden', !comps.length);
+    if (!comps.length) return;
+
+    comparablesList.innerHTML = '';
+    comps.slice(0, 5).forEach(function (comp) {
+      comparablesList.appendChild(buildComparableRow(comp));
+    });
+  }
+
+  // report.clientSummary + report.confidenceNote are the AI-written narrative
+  // from the pipeline's "Generate Property Report" agent (absent in demo mode
+  // or if the webhook failed / returned no report). clientSummary is the
+  // headline recap; the confidence note is a one-liner on data quality shown
+  // smaller beneath it.
+  function renderReportSummary(webhook) {
+    var report = (webhook && webhook.report) || null;
+    var summary = report && report.clientSummary;
+    // Two-phase report: the answer is on screen but the AI narrative is still
+    // generating (being polled). Show a brief placeholder rather than a blank
+    // frame or a section that pops in a few seconds later.
+    var generating = report && report.reportStatus === 'generating' && !summary;
+    reportSummary.classList.toggle('hidden', !summary && !generating);
+    if (generating) {
+      reportSummaryText.textContent = 'Preparing your full market analysis…';
+      reportConfidence.classList.add('hidden');
+      return;
+    }
+    if (!summary) return;
+    reportSummaryText.textContent = summary;
+    var note = report.confidenceNote;
+    reportConfidence.textContent = note || '';
+    reportConfidence.classList.toggle('hidden', !note);
+  }
+
+  // report.operationalProfile.categories is the AI's per-driver narrative
+  // (Tenant Friction, Turnover Pressure, Maintenance Burden, Compliance
+  // Burden), each with a human label and a sentence of reasoning — this is
+  // the "why" behind the band. Assembled by "Assemble Prototype Output" (or
+  // "Assemble Base Answer" for the async Phase-A path) from the OIA scoring
+  // sub-workflow; absent in demo mode or a failed webhook, in which case the
+  // band/meter above still show (see renderResults) but the summary sentence
+  // and per-category rows below are simply skipped. Each row is a collapsed
+  // <details> — name + rating tag only; expand to read the narrative.
+  function renderOperationalProfile(webhook) {
+    var profile = webhook && webhook.report && webhook.report.operationalProfile;
+
+    // One-sentence band definition, server-sourced (operationalIntensityDefinition
+    // from the OIA sub-workflow's own band table) — follows the rating, before
+    // the per-category rows.
+    var definition = profile && profile.operationalIntensityDefinition;
+    workloadSummary.textContent = definition || '';
+    workloadSummary.classList.toggle('hidden', !definition);
+
+    var cats = (profile && profile.categories) || [];
+    var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
+
+    opProfileList.innerHTML = '';
+    withText.forEach(function (c) {
+      var row = document.createElement('details');
+      row.className = 'op-profile-row';
+
+      var head = document.createElement('summary');
+      head.className = 'op-profile-head';
+      var name = document.createElement('span');
+      name.className = 'op-cat-name';
+      name.textContent = c.category || '';
+      head.appendChild(name);
+      if (c.label) {
+        var label = document.createElement('span');
+        label.className = 'op-cat-label';
+        // tone chips key off the real OIA label vocabulary: low/normal/high/severe
+        label.setAttribute('data-tone', String(c.label).trim().toLowerCase());
+        label.textContent = c.label;
+        head.appendChild(label);
+      }
+      row.appendChild(head);
+
+      if (c.summary) {
+        var sum = document.createElement('div');
+        sum.className = 'op-cat-summary';
+        sum.textContent = c.summary;
+        row.appendChild(sum);
+      }
+      opProfileList.appendChild(row);
+    });
+  }
+
+  /* =====================================================================
+   * Proposal — 5 branded service cards (4 static + AssetShield, dynamic).
+   * =================================================================== */
+  var SERVICE_CARDS = [
+    { icon: '🏠', title: 'Market-to-Move-In™',
+      desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
+      items: [
+        'Comparable Marketing Analysis &amp; Real Estate Consulting',
+        'Property Analysis &amp; Market Preparation',
+        'Unit Marketing with Photos / 3D Tour',
+        'Property Showing',
+        'Comprehensive Resident Screening',
+        'Pet Policy &amp; Pet Screening Services',
+        'Collect Security Deposit',
+        'Lease Negotiation &amp; Preparation',
+        'Confirm Utilities Transfer',
+        'Move-in Inspection'
+      ] },
+    { icon: '🔧', title: 'VendorCare™',
+      desc: 'Protect your property\'s condition through proactive maintenance planning, responsive repair coordination, and trusted vendor oversight.',
+      items: ['24/7 Maintenance &amp; Repair Coordination'] },
+    { icon: '💰', title: 'CashFlow Command™',
+      desc: 'Maintain consistent cash flow with disciplined financial management, transparent reporting, and compliance-focused administration.',
+      items: [
+        'Automated Rent Collection',
+        'Monthly Billing &amp; Collection',
+        'Automatic ACH Electronic Bank Deposit Service',
+        'Detailed Monthly Statements &amp; Accounting',
+        'Annual 1099 Preparation',
+        'Scalable Management Systems',
+        'Resident Benefit Packages',
+        'Lease Enforcement',
+        'Legal Compliance &amp; Protection',
+        'Eviction Oversight'
+      ] },
+    { icon: '🚚', title: 'Move-Out-to-Ready™',
+      desc: 'Whether a resident renews or moves out, we coordinate every transition to protect your investment and minimize vacancy.',
+      items: [
+        'Move-out Inspection',
+        'Move Out Coordination &amp; Security Deposit',
+        'Coordinate Rent Ready Work',
+        'Confirm Utilities Transfer',
+        'Coordinate Tenant Communications',
+        'Negotiate Lease Renewals &amp; Agreements'
+      ] }
+  ];
+
+  // Items are limited to what the Fee Calc pipeline can actually price
+  // (EvictionCoverage/LeasePlacements/Inspections/PetCoverage all have a
+  // corresponding input field there) — Leasing Fee Protection, Lost Rent
+  // Coverage, and Malicious Tenant Damage Coverage were dropped because
+  // Power Automate's fee formula has no field to price them at all.
+  var ASSET_SHIELD = {
+    icon: '🛡️', title: 'AssetShield™',
+    desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
+    items: [
+      'Annual Inspections',
+      'Pet Placement Protection',
+      'Lease Placement Protection',
+      'Eviction Protection'
+    ]
+  };
+
+  // Bridges the real server field (report.operationalProfile.categories[].category,
+  // a display string) to the machine keys ASSET_SHIELD_TRIGGERS is keyed by —
+  // the pipeline has no "key" field of its own, only the display name.
+  var CATEGORY_KEY_BY_NAME = {
+    'Tenant Friction': 'tenantFriction',
+    'Turnover Pressure': 'turnoverPressure',
+    'Maintenance Burden': 'maintenanceBurden',
+    // Current pipeline label + the pre-rename one — cached proposals
+    // (report-status cache, Dataverse snapshots) still carry the old string.
+    'Compliance & Administration': 'complianceBurden',
+    'Compliance Burden': 'complianceBurden'
+  };
+
+  // category key -> label -> AssetShield item(s) this finding recommends.
+  // complianceBurden has no entry: it never checkmarks AssetShield — that
+  // finding stays explained only in the Operational Workload section above.
+  // Mirrors the same thresholds the Fee Calc webhook now uses to decide
+  // EvictionCoverage/LeasePlacements/Inspections, so what's checked here
+  // always matches what was actually priced into the fee.
+  var ASSET_SHIELD_TRIGGERS = {
+    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection'] },
+    turnoverPressure: { Severe: ['Lease Placement Protection'] },
+    maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
+  };
+
+  // One-line "why" shown under each checked (recommended-and-priced-in)
+  // AssetShield item, keyed by the same item names ASSET_SHIELD_TRIGGERS badges.
+  var ASSET_SHIELD_RATIONALE = {
+    'Eviction Protection': 'Tenant friction on this property is running high, which raises the odds of needing to pursue an eviction — this covers that process if it becomes necessary.',
+    'Lease Placement Protection': 'Given how severe turnover is on this property, this reduces the cost of re-leasing units that turn over repeatedly.',
+    'Annual Inspections': 'Maintenance demand here is elevated — proactive inspections catch issues before they escalate into larger, costlier repairs.'
+  };
+
+  // Pet Placement Protection is never trigger-driven (no operational finding
+  // recommends it) and isn't priced into the fee by default — it's a
+  // voluntary, always-shown invite rather than a data-driven recommendation.
+  var ASSET_SHIELD_OPT_IN_NOTES = {
+    'Pet Placement Protection': "Accepting pets can be a difficult decision — we're committed to making it easier for you."
+  };
+
+  function computeBadgedAssetShieldItems(categories) {
+    var badged = new Set();
+    categories.forEach(function (cat) {
+      var key = CATEGORY_KEY_BY_NAME[cat.category];
+      var forKey = key && ASSET_SHIELD_TRIGGERS[key];
+      var forLabel = forKey && forKey[cat.label];
+      if (forLabel) forLabel.forEach(function (item) { badged.add(item); });
+    });
+    return badged;
+  }
+
+  // Shared renderer for all 5 service cards. badgedSet is undefined for the 4
+  // static cards (plain list, no checkmarks) and a computed Set only for
+  // AssetShield. AssetShield's checkmarks are static/hardcoded — informational,
+  // not an editable selection; individually toggling coverages is deferred to
+  // a later phase.
+  function buildServiceCard(card, badgedSet) {
+    var wrap = document.createElement('div');
+    wrap.className = 'service-card';
+
+    var head = document.createElement('div');
+    head.className = 'service-card__head';
+    var icon = document.createElement('span');
+    icon.className = 'service-card__icon';
+    icon.textContent = card.icon;
+    var title = document.createElement('h3');
+    title.className = 'service-card__title';
+    title.textContent = card.title;
+    head.appendChild(icon);
+    head.appendChild(title);
+    wrap.appendChild(head);
+
+    var desc = document.createElement('p');
+    desc.className = 'service-card__desc';
+    desc.textContent = card.desc;
+    wrap.appendChild(desc);
+
+    var details = document.createElement('details');
+    details.className = 'service-card__details';
+    var badgedCount = badgedSet ? badgedSet.size : 0;
+    if (badgedCount > 0) details.setAttribute('open', '');
+    var summary = document.createElement('summary');
+    summary.className = 'service-card__summary';
+    summary.textContent = badgedCount > 0 ? ('View Included Services · ' + badgedCount + ' recommended for you') : 'View Included Services';
+    details.appendChild(summary);
+
+    // Recommended items float to the top (stable within each group) so an
+    // expanded AssetShield leads with what actually applies to this property.
+    var items = card.items.slice();
+    if (badgedCount > 0) {
+      items.sort(function (a, b) { return (badgedSet.has(a) ? 0 : 1) - (badgedSet.has(b) ? 0 : 1); });
+    }
+
+    var ul = document.createElement('ul');
+    ul.className = 'service-card__list' + (badgedSet ? ' service-card__list--checks' : '');
+    items.forEach(function (item) {
+      var li = document.createElement('li');
+      if (badgedSet) {
+        li.className = 'service-card__check-row';
+        var isChecked = badgedSet.has(item);
+        var rowWrap = document.createElement('div');
+        rowWrap.className = 'service-card__check-label';
+        var box = document.createElement('span');
+        box.className = 'service-card__checkbox' + (isChecked ? ' is-checked' : '');
+        var textCol = document.createElement('div');
+        textCol.className = 'service-card__check-textcol';
+        var textSpan = document.createElement('span');
+        textSpan.className = 'service-card__check-text' + (isChecked ? ' is-checked' : '');
+        textSpan.innerHTML = item;
+        textCol.appendChild(textSpan);
+        if (isChecked && ASSET_SHIELD_RATIONALE[item]) {
+          var rationale = document.createElement('p');
+          rationale.className = 'service-card__check-rationale';
+          rationale.textContent = ASSET_SHIELD_RATIONALE[item];
+          textCol.appendChild(rationale);
+        } else if (ASSET_SHIELD_OPT_IN_NOTES[item]) {
+          var optInNote = document.createElement('p');
+          optInNote.className = 'service-card__check-rationale';
+          optInNote.textContent = ASSET_SHIELD_OPT_IN_NOTES[item];
+          textCol.appendChild(optInNote);
+        }
+        rowWrap.appendChild(box);
+        rowWrap.appendChild(textCol);
+        li.appendChild(rowWrap);
+      } else {
+        li.innerHTML = item;
+      }
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+    wrap.appendChild(details);
+
+    return wrap;
+  }
+
+  // report.operationalProfile.categories drives which AssetShield items get
+  // checkmarked; the 4 catalog cards always render in full regardless of
+  // webhook state (demo mode / a failed call just means zero AssetShield
+  // checkmarks — a valid empty state, not an error state).
+  // One-time choreographed reveal: all 5 cards fade/slide in one after
+  // another, then AssetShield's checked items pop in. Desktop plays
+  // immediately (the report is already on screen); mobile waits for the
+  // section to actually scroll into view (IntersectionObserver, disconnects
+  // after firing once) since the whole point is a reveal, not something
+  // that already happened off-screen above the fold.
+  function runRevealSequence(cards, assetShieldCard) {
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var isMobile = window.matchMedia('(max-width: 420px)').matches;
+
+    function play() {
+      cards.forEach(function (card, i) {
+        if (reduceMotion) { card.classList.add('is-revealed'); return; }
+        card.classList.add('will-reveal');
+        void card.offsetWidth; // commit the "before" state before the delayed flip to "after"
+        setTimeout(function () { card.classList.add('is-revealed'); }, i * 130);
+      });
+
+      var cardRevealSpan = reduceMotion ? 0 : (cards.length - 1) * 130 + 420;
+      var checks = assetShieldCard ? assetShieldCard.querySelectorAll('.service-card__checkbox.is-checked') : [];
+      checks.forEach(function (box, i) {
+        if (reduceMotion) return; // already fully visible, nothing to pop
+        box.classList.add('will-pop');
+        void box.offsetWidth;
+        setTimeout(function () { box.classList.add('is-popped'); }, cardRevealSpan + i * 150);
+      });
+    }
+
+    if (isMobile && 'IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        if (entries.some(function (entry) { return entry.isIntersecting; })) {
+          play();
+          observer.disconnect();
+        }
+      }, { threshold: 0.15 });
+      observer.observe(serviceCardsList);
+    } else {
+      play();
+    }
+  }
+
+  function renderProposalServiceCards(webhook) {
+    var profile = webhook && webhook.report && webhook.report.operationalProfile;
+    var cats = (profile && profile.categories) || [];
+    var badgedItems = computeBadgedAssetShieldItems(cats);
+
+    serviceCardsList.innerHTML = '';
+    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
+    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
+    cards.push(assetShieldCard);
+    runRevealSequence(cards, assetShieldCard);
+  }
+
+  downloadReportBtn.addEventListener('click', function () {
+    // Now a plain text-link button (not a bui-button), so this listens for a
+    // native 'click', not 'bui-click'. No server-side PDF export wired up yet
+    // — print-to-PDF is the lightweight default; swap for a real export call
+    // if one becomes available.
+    window.print();
+  });
+
+  // Loads the GHL booking calendar into the Schedule step's iframe, once.
+  // Runs on the first "Schedule your consultation" click rather than at
+  // startup so visitors who never schedule never pay the calendar's load
+  // cost. Prefills the widget from the contact details already collected
+  // (GHL calendars read first_name/email query params), and injects GHL's
+  // own form_embed.js helper, which listens for the iframe's postMessage
+  // and grows it to the calendar's real height — without it the embed sits
+  // at the CSS min-height with the calendar clipped inside.
+  var bookingEmbedReady = false;
+  function ensureBookingEmbed() {
+    if (bookingEmbedReady) return;
+    bookingEmbedReady = true;
+    var iframe = document.getElementById('booking-iframe');
+    var params = [];
+    if (state.contact.firstName) params.push('first_name=' + encodeURIComponent(state.contact.firstName));
+    if (state.contact.email) params.push('email=' + encodeURIComponent(state.contact.email));
+    var url = CONFIG.BOOKING_URL + (params.length ? (CONFIG.BOOKING_URL.indexOf('?') === -1 ? '?' : '&') + params.join('&') : '');
+    iframe.src = url;
+    document.getElementById('booking-fallback-link').href = url;
+    var resizer = document.createElement('script');
+    resizer.src = 'https://link.msgsndr.com/js/form_embed.js';
+    document.body.appendChild(resizer);
+  }
+
+  scheduleBtn.addEventListener('bui-click', function () {
+    if (!CONFIG.BOOKING_URL) {
+      console.warn('[brichaus-assessment] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
+      return;
+    }
+    ensureBookingEmbed();
+    showStep('schedule');
+  });
+
+  root.querySelector('[data-back="results"]').addEventListener('bui-click', function () {
+    showStep('results');
+  });
+
+  /* =====================================================================
+   * Startup
+   * =================================================================== */
+  (function warnAboutPlaceholders() {
+    var unset = Object.keys(CONFIG.GHL_FIELDS).filter(function (key) {
+      return CONFIG.GHL_FIELDS[key].indexOf('REPLACE_') === 0;
+    });
+    if (unset.length) {
+      console.warn('[brichaus-assessment] GHL field names still placeholders, hidden-field sync is skipped for: ' + unset.join(', '));
+    }
+  })();
+
+  // The native GHL Survey fields this app mirrors values into (see
+  // syncGhlField) are real visible fields on the survey page — this app
+  // replaces them visually with its own bui-* steps, so each native
+  // original needs to be hidden the same way address-input.js's own
+  // native counterpart would be, per ghl-bridge.js's hideNative doc.
+  // "for Surveys, hide with CSS rather than a builder toggle" — a
+  // builder-level hide is what an earlier gotcha this session showed
+  // doesn't reliably survive submission the way this does.
+  Object.keys(CONFIG.GHL_FIELDS).forEach(function (key) {
+    var fieldName = CONFIG.GHL_FIELDS[key];
+    if (!fieldName || fieldName.indexOf('REPLACE_') === 0) return;
+    window.BUI.ghl.whenFieldReady(fieldName, function (el) {
+      window.BUI.ghl.hideNative(el);
+    });
+  });
+
+  showStep('property-type');
+})();
+</script>
+</body>
+</html>
