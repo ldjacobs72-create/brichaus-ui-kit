@@ -1068,50 +1068,14 @@
        (it ate too much screen space, especially on phones); the stepped
        card's own header bar carries the context instead. -->
 
-  <!-- ============ STEP: property type ============ -->
-  <section data-step="property-type">
+  <!-- ============ STEP: property location (now the opener) ============
+       Address-first funnel: the property-type question moved out of the
+       lead position into the RentCast-render step below, which pre-fills it
+       from public records. This step is step 1 and has no Back. -->
+  <section data-step="location">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="1. Property Type" value="9"></bui-progress-bar>
-      </div>
-      <div class="step-intro">
-        <h2>What kind of rental property are we looking at?</h2>
-        <p>This determines how we read comparable rents for your address.</p>
-        <bui-choice-group id="property-type-choice-group" name="property-type">
-          <bui-choice-card value="single" label="Single Family"
-            description="Single family home, Condo, Townhome."></bui-choice-card>
-          <bui-choice-card value="multi" label="Multifamily"
-            description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
-          <!-- Visible but not yet selectable — the funnel's scoring/fee logic
-               doesn't support commercial yet. The disabled attribute is the
-               component's own (blocks selection); the "Coming Soon" marker is
-               a CSS overlay badge (see the commercial-card rules) rather than
-               the meta slot, so this card stays the same height as the other
-               two. -->
-          <bui-choice-card value="commercial" label="Commercial" disabled
-            description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
-        </bui-choice-group>
-        <!-- Rendered here but RELOCATED into the Multifamily card's own
-             body the first time Multifamily is selected (see
-             ensureUnitCountInCard) — the question belongs visually to the
-             card that raised it. Kept in markup at this level so the page
-             still works if the relocation target ever goes away. -->
-        <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
-        </div>
-      </div>
-      <div slot="footer" class="step-footer">
-        <span class="spacer"></span>
-        <bui-button id="property-type-continue" variant="slate" disabled>Continue</bui-button>
-      </div>
-    </bui-card>
-  </section>
-
-  <!-- ============ STEP: property location ============ -->
-  <section data-step="location" class="hidden">
-    <bui-card variant="elevated" padding="sm">
-      <div slot="header">
-        <bui-progress-bar tone="header" label="2. Property Location" value="18"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="1. Property Location" value="10"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <h2>Where is the property?</h2>
@@ -1171,8 +1135,75 @@
         </div>
       </div>
       <div slot="footer" class="step-footer">
-        <bui-button variant="secondary" data-back="property-type">Back</bui-button>
+        <!-- No Back: this is the funnel's first step now. -->
+        <span class="spacer"></span>
         <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: RentCast render / property details ============
+       Reached after an in-area address is selected and the site-selected
+       routing endpoint returns 'render-known' or 'fetch-rentcast'. Shows a
+       brief property snapshot (facts only — NO rent, NO comparables) and the
+       RentCast-assisted property-type choice (pre-selected when confident,
+       full manual choice when blank). The property-type choice-group +
+       Number-of-Units field relocated here from the old property-type
+       step. -->
+  <section data-step="rentcast-render" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="2. Property Details" value="20"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Confirm your property details</h2>
+        <p>We pulled what we could from public records — confirm the property type below (change it if it's off).</p>
+
+        <!-- Brief property snapshot: only the facts RentCast returned, each
+             row hidden when its value is null. Deliberately NO rent and NO
+             comparables here (those belong on the Snapshot step). -->
+        <div id="rc-facts" class="property-snapshot hidden">
+          <div class="snapshot-title">What we found</div>
+          <div class="evidence-specs" id="rc-facts-grid"></div>
+        </div>
+
+        <p id="rc-assist-note" class="snapshot-preview-intro hidden">
+          We pre-selected the property type from public records. Confirm it below or pick the correct one.
+        </p>
+
+        <bui-choice-group id="property-type-choice-group" name="property-type">
+          <bui-choice-card value="single" label="Single Family"
+            description="Single family home, Condo, Townhome."></bui-choice-card>
+          <bui-choice-card value="multi" label="Multifamily"
+            description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
+          <!-- Visible but not yet selectable — the funnel's scoring/fee logic
+               doesn't support commercial yet. The disabled attribute is the
+               component's own (blocks selection); the "Coming Soon" marker is
+               a CSS overlay badge (see the commercial-card rules) rather than
+               the meta slot, so this card stays the same height as the other
+               two. -->
+          <bui-choice-card value="commercial" label="Commercial" disabled
+            description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
+        </bui-choice-group>
+        <!-- Rendered here but RELOCATED into the Multifamily card's own
+             body the first time Multifamily is selected (see
+             ensureUnitCountInCard) — the question belongs visually to the
+             card that raised it. Kept in markup at this level so the page
+             still works if the relocation target ever goes away. -->
+        <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
+        </div>
+        <!-- Unit Number — shown ONLY for a Condo/Townhouse RentCast type when
+             Google didn't already carry a subpremise (which is captured
+             silently). A plain sibling OUTSIDE the choice group, so its value
+             events never bubble into the group's selection handler. -->
+        <div id="unit-number-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="unit-number-input" label="Unit Number" placeholder="e.g. 4B"></bui-input>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="location">Back</bui-button>
+        <bui-button id="rentcast-render-continue" variant="slate" disabled>Continue</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1181,7 +1212,7 @@
   <section data-step="snapshot" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="3. Property Snapshot" value="27"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="3. Property Snapshot" value="30"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <h2>Current Rent vs. Market</h2>
@@ -1232,7 +1263,7 @@
         </div>
       </div>
       <div slot="footer" class="step-footer">
-        <bui-button variant="secondary" data-back="location">Back</bui-button>
+        <bui-button variant="secondary" data-back="rentcast-render">Back</bui-button>
         <bui-button id="snapshot-continue" variant="slate">Continue</bui-button>
       </div>
     </bui-card>
@@ -1242,7 +1273,7 @@
   <section data-step="revenue" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="36"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="40"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <h2>Here's the income your property should generate each year</h2>
@@ -1560,6 +1591,26 @@
     // as it did before this existed).
     CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
 
+    // Site-selected routing (§A). Fired the moment an in-area address is
+    // selected (after the service-area gate passes and the canonical
+    // placeId is set). The backend does a Dataverse freshness + contact
+    // check keyed on googlePlaceId and returns which branch to take:
+    //   { route: 'proposal' | 'render-known' | 'fetch-rentcast',
+    //     recognized: bool, firstName: string,
+    //     propertyFacts: { propertyType, bedrooms, bathrooms,
+    //                      squareFootage, yearBuilt } | null }
+    // - proposal: a fresh proposal + a resolvable contact exist → show the
+    //   recognition welcome/confirm-email panel → confirmed email jumps to
+    //   the saved proposal page.
+    // - render-known: fresh property facts on file, no contact match →
+    //   render the brief snapshot inline and continue the funnel.
+    // - fetch-rentcast: no/stale facts → the backend fetches RentCast; the
+    //   render step shows the facts if returned, otherwise just the manual
+    //   property-type choice.
+    // Leave blank to fail open (funnel behaves as fetch-rentcast: straight
+    // to the render step with a manual property-type choice).
+    SITE_ROUTING_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-site-selected',
+
     // Service-area gating, checked the moment an address is selected
     // (before any RentCast/recognition calls are spent on it).
     // - active: full assessment runs normally.
@@ -1737,8 +1788,16 @@
    * App state
    * =================================================================== */
   var state = {
-    address: { formattedAddress: '', placeId: '', propertyName: '', stateCode: '', stateName: '' },
-    propertyType: '', // 'single' | 'multi' — set on the Property Type step, before address/quicklook
+    // unitNumber: the subpremise/unit for this property — auto-captured from
+    // Google's subpremise component when present (unitFromSubpremise=true),
+    // otherwise entered on the rentcast-render step for Condo/Townhouse types.
+    address: { formattedAddress: '', placeId: '', propertyName: '', stateCode: '', stateName: '', unitNumber: '', unitFromSubpremise: false },
+    propertyType: '', // 'single' | 'multi' — committed on the rentcast-render step (after address), before the Snapshot step reads it
+    // Routing decision + property facts from SITE_ROUTING_URL (§A), set on
+    // address selection. propertyFacts drives the rentcast-render snapshot
+    // and the pre-selected property type; route decides proposal vs. funnel.
+    route: '',
+    propertyFacts: null,
     unitCount: 1,
     rentPerUnit: 0,
     // No pre-selected value for any driver — the visitor must actively pick
@@ -1803,8 +1862,8 @@
    * =================================================================== */
   var root = document.getElementById('brichaus-assessment');
   var sections = {
-    'property-type': root.querySelector('[data-step="property-type"]'),
     location: root.querySelector('[data-step="location"]'),
+    'rentcast-render': root.querySelector('[data-step="rentcast-render"]'),
     snapshot: root.querySelector('[data-step="snapshot"]'),
     revenue: root.querySelector('[data-step="revenue"]'),
     driver: root.querySelector('[data-step="driver"]'),
@@ -1814,10 +1873,17 @@
     schedule: root.querySelector('[data-step="schedule"]')
   };
 
+  // The property-type choice-group (+ Number of Units) now lives in the
+  // rentcast-render step; propertyTypeContinue points at that step's Continue.
   var propertyTypeChoiceGroup = document.getElementById('property-type-choice-group');
   var unitCountField = document.getElementById('unit-count-field');
   var unitCountInput = document.getElementById('unit-count-input');
-  var propertyTypeContinue = document.getElementById('property-type-continue');
+  var propertyTypeContinue = document.getElementById('rentcast-render-continue');
+  var unitNumberField = document.getElementById('unit-number-field');
+  var unitNumberInput = document.getElementById('unit-number-input');
+  var rcFacts = document.getElementById('rc-facts');
+  var rcFactsGrid = document.getElementById('rc-facts-grid');
+  var rcAssistNote = document.getElementById('rc-assist-note');
 
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
@@ -1990,17 +2056,82 @@
   }
 
   /* =====================================================================
-   * Step 1: Property Type — asked before the address, so by the time the
-   * RentCast quicklook resolves and the Snapshot step first paints, the
-   * widget already knows single-family vs. multifamily. Deciding this from
-   * a unit-count input entered later (the old flow) meant the Snapshot
-   * step's first render read whatever default that input still held,
-   * showing the wrong comp view for a beat before the visitor corrected it.
+   * Step 2: RentCast render / Property Type — now asked AFTER the address,
+   * pre-filled from the site-routing propertyFacts when RentCast is
+   * confident (one-tap confirm), full manual choice when blank. Committed
+   * here (before the Snapshot step, which reads state.propertyType for the
+   * MF-vs-SF rent placeholder + comp view), so that dependency is preserved
+   * even though property type is no longer the funnel's opener.
    * =================================================================== */
   function refreshPropertyTypeContinue() {
     var type = propertyTypeChoiceGroup.value;
     var unitsOk = type === 'multi' ? (parseInt(unitCountInput.value, 10) || 0) >= 2 : true;
     propertyTypeContinue.toggleAttribute('disabled', !type || !unitsOk);
+  }
+
+  // Maps a granular RentCast property type to one of this funnel's coarse
+  // cards. Condo/Townhouse are single-family for scoring purposes (they get
+  // a Unit Number field instead of a unit count). Returns '' when there's no
+  // confident mapping — the choice is then left blank for a manual pick.
+  function mapRentCastType(rentCastType) {
+    var t = String(rentCastType || '').toLowerCase();
+    if (t === 'single family' || t === 'condo' || t === 'townhouse') return 'single';
+    if (t === 'multi-family' || t === 'multifamily' || t === 'apartment') return 'multi';
+    return '';
+  }
+
+  // Decides which (if any) unit field the rentcast-render step shows, given
+  // the current type selection + facts. A Google subpremise suppresses both
+  // (already captured silently). Otherwise MF gets Number of Units and a
+  // Condo/Townhouse gets Unit Number.
+  function updateUnitFields() {
+    var hasSub = state.address.unitFromSubpremise;
+    var isMulti = propertyTypeChoiceGroup.value === 'multi';
+    var granular = String((state.propertyFacts && state.propertyFacts.propertyType) || '').toLowerCase();
+    var isCondoTown = granular === 'condo' || granular === 'townhouse';
+
+    var showCount = !hasSub && isMulti;
+    if (showCount) ensureUnitCountInCard();
+    unitCountField.classList.toggle('hidden', !showCount);
+
+    var showNumber = !hasSub && isCondoTown && !isMulti;
+    unitNumberField.classList.toggle('hidden', !showNumber);
+  }
+
+  // Paints the rentcast-render step from state.propertyFacts + the routing
+  // decision: the facts snapshot (rows hidden when null), the pre-selected
+  // (or blank) property type, and the right unit field.
+  function renderRentcastRender() {
+    var facts = state.propertyFacts || {};
+    var rows = [];
+    if (facts.propertyType) rows.push(['Property type', facts.propertyType]);
+    if (facts.bedrooms != null) rows.push(['Bedrooms', facts.bedrooms === 0 ? 'Studio' : String(facts.bedrooms)]);
+    if (facts.bathrooms != null) rows.push(['Bathrooms', String(facts.bathrooms)]);
+    if (facts.squareFootage != null) rows.push(['Square footage', Number(facts.squareFootage).toLocaleString() + ' sq ft']);
+    if (facts.yearBuilt != null) rows.push(['Year built', String(facts.yearBuilt)]);
+    rcFactsGrid.innerHTML = '';
+    rows.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'evidence-spec';
+      var k = document.createElement('span'); k.textContent = r[0];
+      var v = document.createElement('span'); v.textContent = r[1];
+      row.appendChild(k); row.appendChild(v);
+      rcFactsGrid.appendChild(row);
+    });
+    rcFacts.classList.toggle('hidden', !rows.length);
+
+    // Pre-select the property type when RentCast gives a confident mapping;
+    // setting .value dispatches bui-change (see BuiChoiceGroup), which routes
+    // through the group handler below (ensureUnitCountInCard etc.). Only
+    // apply once per render so a Back-and-forth doesn't stomp a manual change.
+    var mapped = mapRentCastType(facts.propertyType);
+    if (mapped && !propertyTypeChoiceGroup.value) {
+      propertyTypeChoiceGroup.value = mapped;
+    }
+    rcAssistNote.classList.toggle('hidden', !mapped);
+
+    updateUnitFields();
+    refreshPropertyTypeContinue();
   }
 
   // Moves the Number of Units field INSIDE the Multifamily card's body the
@@ -2029,27 +2160,43 @@
     // Belt to the stopPropagation suspenders above: only the group's OWN
     // selection change matters here, never a bubbled child event.
     if (evt.target !== propertyTypeChoiceGroup) return;
-    var isMulti = evt.detail.value === 'multi';
-    if (isMulti) ensureUnitCountInCard();
-    unitCountField.classList.toggle('hidden', !isMulti);
+    updateUnitFields();
     refreshPropertyTypeContinue();
   });
 
   unitCountInput.addEventListener('bui-input', refreshPropertyTypeContinue);
   unitCountInput.addEventListener('bui-change', refreshPropertyTypeContinue);
 
+  // Commit the property type (+ unit count / unit number) and hand into the
+  // existing Snapshot step. state.propertyType MUST be set here — the Snapshot
+  // step's rent placeholder + comp view read it (MF vs SF). Render comes
+  // BEFORE Snapshot, so the ordering dependency is preserved.
   propertyTypeContinue.addEventListener('bui-click', function () {
     if (propertyTypeContinue.hasAttribute('disabled')) return;
     state.propertyType = propertyTypeChoiceGroup.value;
     state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
-    showStep('location');
+    // Unit number: keep the silently-captured subpremise; otherwise read the
+    // Condo/Townhouse Unit Number field when it's the one being shown.
+    if (!state.address.unitFromSubpremise) {
+      if (!unitNumberField.classList.contains('hidden')) {
+        state.address.unitNumber = (unitNumberInput.value || '').trim();
+      } else if (state.propertyType === 'multi') {
+        state.address.unitNumber = ''; // MF uses unit count, not a unit number
+      }
+    }
+    showStep('snapshot');
+    // state.propertyType is now committed, so this first paint shows the
+    // correct SFR/MF view immediately (see renderSnapshotPreview's own note).
+    renderSnapshotPreview();
   });
 
   /* =====================================================================
-   * Step 2: Property Location
+   * Step 1: Property Location
    * =================================================================== */
-  root.querySelector('[data-back="property-type"]').addEventListener('bui-click', function () {
-    showStep('property-type');
+  // rentcast-render's Back returns here (data-back="location"); location is
+  // the funnel's first step and has no Back of its own.
+  root.querySelector('[data-back="location"]').addEventListener('bui-click', function () {
+    showStep('location');
   });
 
   // --- Service-area gate ------------------------------------------------
@@ -2185,6 +2332,12 @@
     })[0];
     state.address.stateCode = stateComponent ? (stateComponent.shortText || '') : '';
     state.address.stateName = stateComponent ? (stateComponent.longText || stateComponent.shortText || '') : '';
+    // Minimal-touchpoint unit capture: if Google already carried a subpremise
+    // (unit), capture it silently — no field shown. Cleared to '' otherwise
+    // so a prior selection's unit never lingers on a new address.
+    var subpremise = extractAddressComponent(place.addressComponents, 'subpremise');
+    state.address.unitNumber = subpremise || '';
+    state.address.unitFromSubpremise = !!subpremise;
     addressInput.setAttribute('error', '');
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
@@ -2193,7 +2346,7 @@
     showAddressMap(place.location);
 
     // Out-of-area properties stop here: no Continue, and no RentCast/
-    // recognition spend on an assessment that will never run.
+    // routing spend on an assessment that will never run.
     var tier = serviceAreaTier(state.address.stateCode);
     if (tier !== 'active') {
       // Order matters: resetRecognitionPanel() re-derives Continue's
@@ -2207,7 +2360,7 @@
     hideServiceAreaGate();
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
     fetchRentCastQuicklook(state.address.formattedAddress);
-    checkContactRecognition();
+    checkSiteRouting();
   });
 
   // Only a real Google Place selection may proceed past this step — a
@@ -2231,6 +2384,10 @@
     state.address.propertyName = '';
     state.address.stateCode = '';
     state.address.stateName = '';
+    state.address.unitNumber = '';
+    state.address.unitFromSubpremise = false;
+    state.route = '';
+    state.propertyFacts = null;
     hideServiceAreaGate();
     hideAddressMap();
     locationContinue.setAttribute('disabled', '');
@@ -2433,12 +2590,83 @@
     recognitionDone.classList.toggle('hidden', name !== 'done');
   }
 
-  // Fired alongside the RentCast quicklook on every address selection. Asks
-  // whether this property already has a known point of contact on file —
-  // if so, gates Continue behind an email-confirmation prompt (2 attempts)
-  // before letting the visitor proceed, per the contact-conflict business
-  // rule: an unconfirmed match must not silently reuse or reassign the
-  // property's existing point of contact.
+  // Site-selected routing (§A). Fired alongside the RentCast quicklook on
+  // every in-area address selection. Decides the branch:
+  //   - proposal: reuse the recognition welcome/confirm-email panel (a
+  //     confirmed email jumps to the saved proposal). Continue stays gated.
+  //   - render-known / fetch-rentcast: store propertyFacts and re-enable
+  //     Continue; clicking it advances to the rentcast-render step.
+  // Stale-async guarded against a slow response for an address the visitor
+  // has since replaced (compare placeId). Fails open to fetch-rentcast so a
+  // routing outage never traps a legitimate visitor.
+  function checkSiteRouting() {
+    resetRecognitionPanel();
+    state.route = '';
+    state.propertyFacts = null;
+    // Fresh address → clear any prior property-type pick + unit entries so a
+    // previous selection's answers never carry over to this one. Setting the
+    // group value routes through its bui-change handler (updateUnitFields).
+    if (propertyTypeChoiceGroup.value) propertyTypeChoiceGroup.value = '';
+    unitCountInput.value = '';
+    unitNumberInput.value = '';
+    if (!state.address.placeId) return;
+    if (!CONFIG.SITE_ROUTING_URL) {
+      // No routing configured → behave as fetch-rentcast (manual choice).
+      state.route = 'fetch-rentcast';
+      locationContinue.toggleAttribute('disabled', !state.address.placeId);
+      return;
+    }
+    var placeId = state.address.placeId;
+    var unitNumber = state.address.unitNumber || '';
+    // Gate Continue while the routing call is in flight (same reasoning as
+    // the recognition check this replaced — a visitor can click through
+    // before it resolves). addressVerifying gives visible feedback.
+    locationContinue.setAttribute('disabled', '');
+    addressVerifying.classList.remove('hidden');
+    fetch(CONFIG.SITE_ROUTING_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googlePlaceId: placeId, formattedAddress: state.address.formattedAddress || '', unitNumber: unitNumber })
+    })
+      .then(function (res) { return res.ok ? res.json() : { route: 'fetch-rentcast', recognized: false, propertyFacts: null }; })
+      .then(function (data) {
+        if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        addressVerifying.classList.add('hidden');
+        data = data || {};
+        state.route = data.route || 'fetch-rentcast';
+        state.propertyFacts = data.propertyFacts || null;
+        if (state.route === 'proposal') {
+          // Reuse the existing recognition welcome/confirm-email machinery —
+          // confirming the email jumps to the saved proposal (existing
+          // behavior). Continue stays disabled; the panel drives it.
+          state.recognition.active = true;
+          state.recognition.firstName = data.firstName || '';
+          state.recognition.contactId = data.contactId || '';
+          recognitionFirstname.textContent = state.recognition.firstName;
+          recognitionPanel.classList.remove('hidden');
+          showRecognitionState('welcome');
+        } else {
+          // render-known / fetch-rentcast → continue the funnel. Clicking
+          // Continue advances to rentcast-render with these propertyFacts.
+          locationContinue.removeAttribute('disabled');
+        }
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Site routing failed (non-blocking):', err);
+        if (placeId === state.address.placeId) {
+          addressVerifying.classList.add('hidden');
+          state.route = 'fetch-rentcast';
+          state.propertyFacts = null;
+          locationContinue.removeAttribute('disabled');
+        }
+      });
+  }
+
+  // Retained (no longer called on selection — checkSiteRouting above owns
+  // the recognize decision now) so the confirmEmail/conflict handlers below
+  // still have their supporting machinery. Fired alongside the RentCast
+  // quicklook on every address selection. Asks whether this property already
+  // has a known point of contact on file.
   function checkContactRecognition() {
     resetRecognitionPanel();
     if (!state.address.placeId || !CONFIG.CONTACT_RECOGNITION_URL) return;
@@ -2739,12 +2967,11 @@
 
   locationContinue.addEventListener('bui-click', function () {
     if (locationContinue.hasAttribute('disabled')) return;
-    showStep('snapshot');
-    // Re-render in case the quicklook resolved while the visitor was still on
-    // the Location step (its render targets live on this step, hidden until
-    // now). state.propertyType is already committed (Step 1, before this),
-    // so this first paint shows the correct SFR/MF view immediately.
-    renderSnapshotPreview();
+    // Address-first flow: Location now hands into the rentcast-render step
+    // (property facts + RentCast-assisted property type), which commits
+    // state.propertyType before the Snapshot step reads it.
+    showStep('rentcast-render');
+    renderRentcastRender();
   });
 
   // The market read (rent-vs-market marker position) depends on the entered
@@ -2761,8 +2988,9 @@
   /* =====================================================================
    * Step 3: Property Snapshot
    * =================================================================== */
-  root.querySelector('[data-back="location"]').addEventListener('bui-click', function () {
-    showStep('location');
+  root.querySelector('[data-back="rentcast-render"]').addEventListener('bui-click', function () {
+    showStep('rentcast-render');
+    renderRentcastRender();
   });
 
   snapshotContinue.addEventListener('bui-click', function () {
@@ -2925,12 +3153,47 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
 
+  // Client-side pre-check ONLY — the real mailbox verification is the
+  // server-side §C gate (deferred, wired when the provider key is supplied);
+  // NO network call happens here. A small blocklist of common disposable /
+  // throwaway domains catches obvious junk instantly so a fake test email
+  // can't create a hard-bouncing false lead.
+  var DISPOSABLE_EMAIL_DOMAINS = [
+    'mailinator.com', '10minutemail.com', 'guerrillamail.com', 'tempmail.com',
+    'throwaway.email', 'yopmail.com', 'getnada.com', 'sharklasers.com',
+    'maildrop.cc', 'dispostable.com', 'trashmail.com', 'temp-mail.org',
+    'fakeinbox.com', 'mailnesia.com', 'mohmal.com', 'guerrillamail.info'
+  ];
+  function isDisposableEmail(value) {
+    var parts = String(value || '').toLowerCase().trim().split('@');
+    if (parts.length !== 2) return false;
+    return DISPOSABLE_EMAIL_DOMAINS.indexOf(parts[1]) !== -1;
+  }
+
+  // Gentle inline error on the email field: empty says nothing, malformed
+  // asks for a valid address, a disposable domain asks for a permanent one.
+  function updateContactEmailError() {
+    var email = state.contact.email;
+    if (!email) { contactEmailInput.setAttribute('error', ''); return; }
+    if (!isValidEmail(email)) {
+      contactEmailInput.setAttribute('error', 'Please enter a valid email address.');
+      return;
+    }
+    if (isDisposableEmail(email)) {
+      contactEmailInput.setAttribute('error', 'Please use a permanent email address so we can send your report.');
+      return;
+    }
+    contactEmailInput.setAttribute('error', '');
+  }
+
   function refreshContactContinue() {
     // A recognized contact who confirmed their email already consented on a
     // previous visit — don't gate them on the checkbox again; the backend
     // just associates the new property with their existing Contact.
     var termsOk = !!(termsFieldEl && termsFieldEl.checked) || state.recognition.confirmed;
-    var ready = !!state.contact.firstName && isValidEmail(state.contact.email) && termsOk;
+    // Disposable / malformed emails keep Continue disabled (client pre-check).
+    var emailOk = isValidEmail(state.contact.email) && !isDisposableEmail(state.contact.email);
+    var ready = !!state.contact.firstName && emailOk && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
   }
 
@@ -2944,6 +3207,7 @@
     contactEmailInput.addEventListener(eventName, function (evt) {
       state.contact.email = (evt.detail.value || '').trim();
       syncGhlField('email', state.contact.email);
+      updateContactEmailError();
       refreshContactContinue();
     });
   });
@@ -3026,14 +3290,21 @@
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
       PropertyName: state.address.propertyName || state.address.formattedAddress,
-      // Property type, two granularities: the visitor's own Step-1 answer
-      // (coarse, always present) and RentCast's classification from the
-      // quicklook (granular — "Condo", "Townhouse", etc.; empty when the
-      // quicklook failed). n8n writes both to the GHL Property record
-      // (property_type / property_type_rentcast) and Dataverse so records
-      // can be filtered by type.
+      // Unit / subpremise for this property — auto-captured from Google's
+      // subpremise when present, else entered on the rentcast-render step for
+      // Condo/Townhouse types. '' when there's no unit (single-family, MF).
+      // Stored server-side in the existing cr55d_unitnumber attribute; the
+      // key stays placeId.
+      UnitNumber: state.address.unitNumber || '',
+      // Property type, two granularities: the visitor's own rentcast-render
+      // answer (coarse, always present) and RentCast's granular classification
+      // ("Condo", "Townhouse", etc.). The granular value now prefers the
+      // site-routing propertyFacts (the RentCast Property Records type),
+      // falling back to the quicklook's; '' when neither is available. n8n
+      // writes both to the GHL Property record and Dataverse so records can
+      // be filtered by type.
       PropertyType: state.propertyType === 'multi' ? 'Multifamily' : 'Single Family',
-      RentCastPropertyType: state.rentCast.propertyType || '',
+      RentCastPropertyType: (state.propertyFacts && state.propertyFacts.propertyType) || state.rentCast.propertyType || '',
       // Contact + consent — the n8n pipeline (not GHL's native survey
       // submission) now creates the GHL Contact, the Property record, and
       // their association from these. Consent is structurally always true
@@ -3844,7 +4115,7 @@
     });
   });
 
-  showStep('property-type');
+  showStep('location');
 })();
 </script>
 </body>
