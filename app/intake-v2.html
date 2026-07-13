@@ -3375,16 +3375,7 @@
       buildProgress.setAttribute('value', '100');
       loadingDetail.textContent = '';
       state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
-      renderResults();
-      showStep('results');
-      // Two-phase report: the pipeline answered fast with everything except the
-      // AI narrative (reportStatus 'generating'). Poll for the prose and slot
-      // it in when ready. Skipped in demo mode and when the response already
-      // carries the full report (sync path, multifamily, or a proposal cache hit).
-      var rep = webhookResult && webhookResult.report;
-      if (!isDemo && rep && rep.reportStatus === 'generating' && !rep.clientSummary) {
-        pollReportStatus(state.address.placeId, 0);
-      }
+      handOffToProposal(webhookResult, !!isDemo);
     };
 
     if (!CONFIG.WEBHOOK_URL) {
@@ -3407,6 +3398,76 @@
         console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
         finish(null, true);
       });
+  }
+
+  // Assessment complete → hand the finished proposal to the standalone
+  // proposal page (same origin) and navigate there. This is the ONLY place
+  // the funnel renders a "result": it no longer draws the report inline —
+  // proposal.html is the single renderer for every visitor (fresh submitter
+  // and returning owner alike).
+  //
+  // We stash the fee/band/report we already have — the scoring webhook's fast
+  // Phase-A response — under a one-shot sessionStorage key the proposal page
+  // reads for an instant, gate-free first paint. That deliberately avoids a
+  // recognize/getCachedProposal round-trip on the proposal side, which right
+  // after submission could race the pipeline's still-uncommitted contact-link
+  // and cache writes. We also drop the confirmed email under the key the
+  // proposal page's silent-confirm path reads, so a later refresh (after the
+  // one-shot handoff is consumed) still skips the email gate. The AI narrative
+  // is intentionally not carried — it's internal (call scripts/follow-up),
+  // generated and stored server-side, never shown on the customer proposal.
+  function handOffToProposal(webhook, isDemo) {
+    var placeId = state.address.placeId;
+    var grossMonthly = state.rentPerUnit * state.unitCount;
+
+    // Fee: same computation the inline report used to do — a real fee RATE
+    // from the pipeline (feeCalcResponse, e.g. 0.06), else an illustrative
+    // band-based placeholder for demo mode / a failed webhook.
+    var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
+    var feePct, monthlyFee;
+    if (!isNaN(feeRate)) {
+      feePct = feeRate * 100;
+      monthlyFee = grossMonthly * feeRate;
+    } else {
+      var demoBandPct = { 'VERY LOW': 4, LOW: 5, NORMAL: 6, ELEVATED: 7, HIGH: 8, SEVERE: 9.5 };
+      feePct = demoBandPct[state.result.band.label] || 6;
+      monthlyFee = grossMonthly * (feePct / 100);
+    }
+
+    // proposal.html's renderProposal() reads report.operationalProfile.band
+    // for the workload hero. In demo / failed-webhook mode there's no server
+    // profile, so surface at least the client band label.
+    var report = (webhook && webhook.report) || {};
+    if (!report.operationalProfile) {
+      report = { operationalProfile: { band: state.result.band.label } };
+    }
+
+    // Shape matches proposal.html's renderProposal(data) contract exactly.
+    var data = {
+      propertyName: state.address.propertyName || state.address.formattedAddress || '',
+      feeCalcResponse: !isNaN(feeRate) ? webhook.feeCalcResponse : (feePct / 100),
+      monthlyFee: monthlyFee,
+      leasingFeePct: (webhook && webhook.leasingFeePct != null) ? webhook.leasingFeePct : 0,
+      report: report
+    };
+
+    try {
+      if (state.contact.email) sessionStorage.setItem('bui-confirmed-email', state.contact.email);
+      sessionStorage.setItem('bui-fresh-proposal', JSON.stringify({
+        placeId: placeId,
+        ts: Date.now(),
+        email: state.contact.email || '',
+        firstName: state.contact.firstName || '',
+        data: data
+      }));
+    } catch (e) { /* storage blocked — the proposal page will gate normally */ }
+
+    if (!CONFIG.PROPOSAL_PAGE_URL) {
+      console.warn('[brichaus-assessment] PROPOSAL_PAGE_URL not set — cannot hand off to the proposal page.');
+      return;
+    }
+    window.location.href = CONFIG.PROPOSAL_PAGE_URL +
+      (placeId ? '?placeId=' + encodeURIComponent(placeId) : '');
   }
 
   // Two-phase report poll. The fast Phase A response already rendered the fee,

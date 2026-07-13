@@ -774,12 +774,45 @@
       });
   });
 
+  // Fresh-submission handoff: the assessment funnel (same origin) just
+  // finished and stashed this property's proposal payload for an instant,
+  // gate-free first paint. One-shot — consumed on read, so a later refresh
+  // falls through to the normal recognize/gate/getCachedProposal path (by
+  // then the backend has committed the record and that path works). Skipping
+  // the round-trip here is deliberate: right after submission the pipeline's
+  // contact-link and cache writes may not be committed yet, so a live
+  // recognize/getCachedProposal could race them and dead-end on notfound/
+  // unavailable — the funnel already has the finished Phase-A payload, so we
+  // render straight from it.
+  function readFreshHandoff(pid) {
+    var raw;
+    try { raw = sessionStorage.getItem('bui-fresh-proposal'); } catch (e) { return null; }
+    if (!raw) return null;
+    try { sessionStorage.removeItem('bui-fresh-proposal'); } catch (e) { /* one-shot best-effort */ }
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return null; }
+    if (!parsed || parsed.placeId !== pid || !parsed.data) return null;
+    // Ignore a stale handoff left by an abandoned tab (~10 min ceiling).
+    if (parsed.ts && (Date.now() - parsed.ts) > 10 * 60 * 1000) return null;
+    return parsed;
+  }
+
   /* =====================================================================
-   * Page bootstrap: recognize -> gate -> confirmEmail -> getCachedProposal
+   * Page bootstrap: fresh-handoff -> recognize -> gate -> confirmEmail
+   *                 -> getCachedProposal
    * =================================================================== */
   function init() {
     if (!placeId) {
       showPanel('invalid');
+      return;
+    }
+    var fresh = readFreshHandoff(placeId);
+    if (fresh) {
+      confirmedEmail = fresh.email || '';
+      recognition.firstName = fresh.firstName || '';
+      recognitionFirstname.textContent = recognition.firstName;
+      renderProposal(fresh.data);
+      showPanel('report');
       return;
     }
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
