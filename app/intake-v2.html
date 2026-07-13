@@ -1369,9 +1369,10 @@
           </div>
         </div>
 
+        <bui-input id="contact-name-input" label="Full Name" placeholder="Jane Smith"></bui-input>
         <div class="field-row">
-          <bui-input id="contact-name-input" label="First Name"></bui-input>
           <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
+          <bui-input id="contact-phone-input" label="Phone" type="tel" inputmode="tel" placeholder="(555) 123-4567"></bui-input>
         </div>
         <div id="terms-slot" class="terms-slot"></div>
       </div>
@@ -1804,7 +1805,7 @@
     // one, which reveals the in-card Confirm & Continue button (the only
     // way forward; see addDriverConfirmButton).
     drivers: { tenant: '', turnover: '', maintenance: '', compliance: '' },
-    contact: { firstName: '', email: '', consentTs: '' },
+    contact: { firstName: '', lastName: '', phone: '', email: '', consentTs: '' },
     result: null, // populated once the webhook responds (or demo fallback)
     // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
     // comparables come from the enriched RentCast quicklook and feed the
@@ -1936,6 +1937,7 @@
 
   var contactNameInput = document.getElementById('contact-name-input');
   var contactEmailInput = document.getElementById('contact-email-input');
+  var contactPhoneInput = document.getElementById('contact-phone-input');
   var contactContinue = document.getElementById('contact-continue');
   var termsFieldEl = null; // resolved once by whenFieldReady below, reused on each visit to the contact step
 
@@ -3214,6 +3216,29 @@
     return DISPOSABLE_EMAIL_DOMAINS.indexOf(parts[1]) !== -1;
   }
 
+  // Full Name → first / last split for the GHL contact (which wants both).
+  // First token is the first name; everything after is the last name, so
+  // "Mary Jane Watson" → first "Mary", last "Jane Watson". A single-word
+  // name ("Cher") yields an empty last name — allowed.
+  function splitFullName(full) {
+    var parts = String(full || '').trim().replace(/\s+/g, ' ').split(' ');
+    var first = parts.shift() || '';
+    return { first: first, last: parts.join(' ') };
+  }
+
+  // Phone pre-check: at least 10 digits after stripping formatting. Lenient
+  // by design (US-centric but tolerant) — the goal is to block obvious junk,
+  // not to enforce a canonical format.
+  function isValidPhone(value) {
+    return String(value || '').replace(/\D/g, '').length >= 10;
+  }
+
+  function updateContactPhoneError() {
+    var phone = state.contact.phone;
+    if (!phone) { contactPhoneInput.setAttribute('error', ''); return; }
+    contactPhoneInput.setAttribute('error', isValidPhone(phone) ? '' : 'Please enter a valid phone number.');
+  }
+
   // Gentle inline error on the email field: empty says nothing, malformed
   // asks for a valid address, a disposable domain asks for a permanent one.
   function updateContactEmailError() {
@@ -3237,13 +3262,18 @@
     var termsOk = !!(termsFieldEl && termsFieldEl.checked) || state.recognition.confirmed;
     // Disposable / malformed emails keep Continue disabled (client pre-check).
     var emailOk = isValidEmail(state.contact.email) && !isDisposableEmail(state.contact.email);
-    var ready = !!state.contact.firstName && emailOk && termsOk;
+    // A recognized+confirmed visitor already exists in GHL with their details —
+    // don't re-demand a phone (same exemption as consent above).
+    var phoneOk = isValidPhone(state.contact.phone) || state.recognition.confirmed;
+    var ready = !!state.contact.firstName && emailOk && phoneOk && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
   }
 
   ['bui-input', 'bui-change'].forEach(function (eventName) {
     contactNameInput.addEventListener(eventName, function (evt) {
-      state.contact.firstName = (evt.detail.value || '').trim();
+      var name = splitFullName(evt.detail.value || '');
+      state.contact.firstName = name.first;
+      state.contact.lastName = name.last;
       syncGhlField('firstName', state.contact.firstName);
       refreshContactContinue();
     });
@@ -3252,6 +3282,12 @@
       state.contact.email = (evt.detail.value || '').trim();
       syncGhlField('email', state.contact.email);
       updateContactEmailError();
+      refreshContactContinue();
+    });
+
+    contactPhoneInput.addEventListener(eventName, function (evt) {
+      state.contact.phone = (evt.detail.value || '').trim();
+      updateContactPhoneError();
       refreshContactContinue();
     });
   });
@@ -3356,6 +3392,12 @@
       // checked) but sent explicitly, with the moment it was given, so the
       // backend records a real compliance trail rather than inferring it.
       FirstName: state.contact.firstName,
+      // Full Name is captured as one field and split (see splitFullName); both
+      // halves go to the GHL contact. LastName is '' for single-word names.
+      LastName: state.contact.lastName,
+      // Phone — required to submit (except for a recognized+confirmed visitor);
+      // feeds the GHL contact and the existing recognition phone-handoff path.
+      Phone: state.contact.phone,
       Email: state.contact.email,
       // Known GHL contact id from the recognition flow, when this visitor
       // confirmed their email as an existing contact — lets the backend

@@ -32,6 +32,8 @@ On final submission the UI POSTs JSON to **`WEBHOOK_URL`**
 | `PropertyType` | string | `"Single Family"` or `"Multifamily"` (the Step-1 choice) |
 | `RentCastPropertyType` | string | granular RentCast type from the quicklook (e.g. `"Condo"`); `""` if unavailable |
 | `FirstName` | string | contact first name |
+| `LastName` | string | contact last name (intake-v2). One "Full Name" field is split: first token → `FirstName`, remainder → `LastName`; `""` for a single-word name. The live funnel omits this. |
+| `Phone` | string | contact phone (intake-v2). Required to submit (except a recognized+confirmed visitor); light client check = ≥10 digits. Feeds the GHL contact `phone` and the recognition phone-handoff path. The live funnel omits this. |
 | `Email` | string | contact email |
 | `ContactID` | string | known GHL contact id if the visitor confirmed as an existing contact (recognition), else `""` |
 | `Consent` | boolean | consent checkbox state (must be true to submit) |
