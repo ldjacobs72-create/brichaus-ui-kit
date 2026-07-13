@@ -194,6 +194,23 @@
      generic "Your Management Proposal Report" heading was redundant with
      the page chrome): big and dark so it's obvious which property this
      is, with a quieter "Management Proposal" line beneath it. */
+  /* Street View hero (subject property) — served by the n8n image proxy,
+     cached per property. Hidden until the image actually loads; if Google has
+     no imagery the proxy returns 204 and onerror keeps it hidden, so the
+     report reads normally without it. */
+  #brichaus-proposal .property-hero {
+    display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+    object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
+    margin: 0 0 var(--bui-space-4); background: var(--bui-color-surface-sunken, #EEF1F4);
+  }
+  /* Comps map (subject + nearby rental comps) — same proxy/caching; hidden
+     until loaded, and skipped entirely when there are no comp coordinates. */
+  #brichaus-proposal .comps-map-section { margin: var(--bui-space-5) 0; }
+  #brichaus-proposal .comps-map {
+    display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
+    object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
+    background: var(--bui-color-surface-sunken, #EEF1F4);
+  }
   #brichaus-proposal .report-address {
     font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
     color: #2B2F36; margin: 0 0 2px;
@@ -487,6 +504,10 @@
   <div data-state="report" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div class="step-body-pad">
+        <!-- Subject-property Street View photo (see .property-hero). src is
+             set in renderProposal() → loadPropertyImages(); stays hidden until
+             it loads so a no-imagery property just shows no banner. -->
+        <img id="property-hero" class="property-hero hidden" alt="" />
         <p id="report-address" class="report-address hidden"></p>
         <p class="report-subtitle">Management Proposal</p>
 
@@ -502,6 +523,14 @@
             <div class="revenue-hero__sub" id="hero-fee-sub"></div>
           </div>
           <div class="service-list" id="service-cards"></div>
+        </div>
+
+        <!-- Nearby comparables map (subject + comp pins). src set in
+             loadPropertyImages(); hidden until it loads, skipped when the
+             property has no comp coordinates (proxy returns 204). -->
+        <div id="comps-map-section" class="comps-map-section hidden">
+          <div class="report-kicker">Nearby comparables</div>
+          <img id="comps-map" class="comps-map hidden" alt="Map of nearby rental comparables" />
         </div>
 
         <div id="op-profile" class="op-profile hidden">
@@ -578,7 +607,12 @@
     CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
     // Where "Schedule Consultation" sends the visitor. Leave blank to no-op
     // with a console warning instead of navigating to a dead link.
-    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya'
+    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
+    // n8n image proxy: server-side-generated, per-property-cached Google
+    // images. GET ?type=streetview|compsmap&placeId=<id> → 200 image, or 204
+    // (no imagery / no comps) which trips the <img> onerror so we hide it.
+    // The Google key stays server-side; this page never sees it.
+    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image'
   };
 
   var root = document.getElementById('brichaus-proposal');
@@ -1145,6 +1179,33 @@
     renderReportSummary(report);
     renderOperationalProfile(report);
     renderProposalServiceCards(report);
+    loadPropertyImages();
+  }
+
+  // Point the Street View hero + comps map at the n8n image proxy, keyed by
+  // this proposal's placeId. Each image reveals only once it actually loads;
+  // a 204 (no Street View imagery / no comp coordinates) trips onerror and the
+  // element stays hidden, so the report is complete with or without them.
+  // No Google key is ever exposed here — the proxy holds it and caches the
+  // result per property, so repeat views never re-trigger a Google call.
+  function loadPropertyImages() {
+    if (!placeId || !CONFIG.IMAGE_PROXY_URL) return;
+    var base = CONFIG.IMAGE_PROXY_URL + '?placeId=' + encodeURIComponent(placeId) + '&type=';
+
+    var hero = document.getElementById('property-hero');
+    if (hero) {
+      hero.onload = function () { hero.classList.remove('hidden'); };
+      hero.onerror = function () { hero.classList.add('hidden'); };
+      hero.src = base + 'streetview';
+    }
+
+    var mapSection = document.getElementById('comps-map-section');
+    var map = document.getElementById('comps-map');
+    if (map && mapSection) {
+      map.onload = function () { map.classList.remove('hidden'); mapSection.classList.remove('hidden'); };
+      map.onerror = function () { map.classList.add('hidden'); mapSection.classList.add('hidden'); };
+      map.src = base + 'compsmap';
+    }
   }
 
   /* =====================================================================

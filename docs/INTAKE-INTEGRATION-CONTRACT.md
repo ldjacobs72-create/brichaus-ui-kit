@@ -173,8 +173,28 @@ WEBHOOK_URL            …/webhook/ghl-property-scoring     (submission)
 RENTCAST_QUICKLOOK_URL …/webhook/ghl-rentcast-quicklook   (address-select preview)
 CONTACT_RECOGNITION_URL…/webhook/ghl-contact-recognition  (recognition + expansion)
 REPORT_STATUS_URL      …/webhook/ghl-report-status        (async poll; optional)
+IMAGE_PROXY_URL        …/webhook/ghl-property-image        (proposal.html property images)
 PROPOSAL_PAGE_URL      https://mgmt.brichausgroup.com/residential-management-proposal/
 BOOKING_URL            https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya
+```
+
+### Property image proxy (proposal.html)
+
+`GET IMAGE_PROXY_URL?type=<streetview|compsmap>&placeId=<GooglePlaceID>` returns a
+server-side-generated, **per-property-cached** Google image so the public proposal
+page never sees a Google key:
+- `streetview` → the subject property's Street View photo (JPEG), or **204** when
+  Google has no imagery / the property can't be resolved.
+- `compsmap` → a Static Map of the subject + its RentCast rental comps as markers
+  (PNG). **Single-family / condo / townhome only** — multifamily uses per-unit-type
+  market rents (no point-comps to map), so multifamily → **204**. Also **204** when
+  there are no comp coordinates.
+
+The proxy holds `GOOGLE_GEOCODING_KEY` server-side, precheck-gates Street View via
+the free metadata endpoint, and caches each image by `placeId:type` so repeat views
+never re-bill Google. `proposal.html` renders each via an `<img>` that reveals on
+load and hides on `onerror` (the 204 trips onerror), so a property with no imagery
+just shows no banner.
 ```
 
 ---
