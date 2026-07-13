@@ -8,14 +8,15 @@
 <!--
   Brichaus Property Intelligence Assessment — the embedded app referenced
   in the funnel architecture as "Embedded Brichaus Assessment App". Paste
-  this whole file's <body> contents (plus the two <script> blocks) into a
-  GHL "Custom HTML" element on the funnel page.
+  this whole file's <body> contents (plus the <script> blocks) into a
+  GHL "Custom HTML" element on the page.
 
-  This MUST be pasted inline, not loaded in an <iframe>. BUI.ghl (see
-  ghl-bridge.js) syncs computed values into this page's own native GHL
-  fields by DOM lookup — that only works if this app shares the same
-  document as those fields. An iframe would sandbox it into a different
-  document and silently break every hidden-field write.
+  This MUST be pasted inline, not loaded in an <iframe>. The page relies on
+  GHL merge tags — {{custom_values.management_proposal_url}} and
+  {{custom_values.consent_checkbox__proposal_request}} — which only resolve
+  when this markup is part of GHL's own page HTML. An iframe would sandbox
+  it into a different document where those tags never expand, and the
+  hardcoded fallbacks would be used instead.
 
   Google Maps is intentionally NOT loaded from here — GHL supplies the API
   key via a merge tag that only resolves in GHL's own page HTML, so that
@@ -28,19 +29,17 @@
   pinned to @main. Component files are self-contained and additive — see
   the root README for the include-pattern rules.
 
-  GHL'S NATIVE SURVEY SUBMISSION IS NO LONGER USED. It was how the
-  Contact-linked Property record got created (submitNative() clicking the
-  hidden submit control), until live debugging on 2026-07-10 proved GHL
-  no longer honors synthetic (isTrusted: false) clicks — fields populated
-  and consent checked, yet no record was ever created. Rather than keep
-  fighting GHL's front-end security, record creation moved server-side:
+  NO GHL NATIVE SURVEY IS USED. Record creation is entirely server-side:
   the n8n pipeline (PropScore: Main Pipeline) creates the Property record,
   upserts the Contact, links them via GHL's associations API ("Owner ↔
   Owned property"), and logs a timestamped consent note — fed by the
-  FirstName/Email/Consent fields this widget sends in its scoring webhook
-  payload. The Survey element is still required on the page (it hosts the
-  consent checkbox with its real GHL-configured legal copy, relocated
-  into the widget's card) but its submission is never triggered.
+  FirstName/LastName/Email/Phone/Consent fields this widget sends in its
+  scoring webhook payload. The consent checkbox is a self-contained control
+  rendered inside the widget's own card (legal copy from the merge tag
+  above); it needs no Survey element on the page. Earlier builds relocated
+  the checkbox out of a hidden GHL Survey and triggered submitNative() to
+  create the record, but live debugging on 2026-07-10 proved GHL no longer
+  honors synthetic (isTrusted: false) clicks, so that machinery was removed.
 -->
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
