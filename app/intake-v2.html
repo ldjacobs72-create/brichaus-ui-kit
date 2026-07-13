@@ -2098,17 +2098,61 @@
     unitNumberField.classList.toggle('hidden', !showNumber);
   }
 
+  // Presentational tidy for the raw enum-ish strings RentCast returns for
+  // features (e.g. "ForcedAir" / "asphalt shingle" / "SPANISH"): split camel
+  // case, collapse whitespace, and capitalize each word. Leaves already-tidy
+  // values ("Central") alone.
+  function titleCaseFact(v) {
+    return String(v == null ? '' : v)
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .trim()
+      .toLowerCase()
+      .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
   // Paints the rentcast-render step from state.propertyFacts + the routing
   // decision: the facts snapshot (rows hidden when null), the pre-selected
   // (or blank) property type, and the right unit field.
+  //
+  // Type-adaptive (Phase 2b): per-unit dwellings — Single Family / Condo /
+  // Townhome — show Bedrooms / Bathrooms / Square footage, since those describe
+  // the actual unit. Whole-building types (Multifamily / Apartment / anything
+  // else) suppress them: one beds/baths/sqft figure misreads a mixed building.
+  // The physical facts + features block (year, lot, county, floors, garage,
+  // architecture, roof, HVAC, pool, view) renders for EVERY type, each row
+  // self-hiding when its value is null. Deliberately NO rent, NO comps here
+  // (those belong on the Snapshot step). Owner / sale price / owner-occupancy
+  // are intentionally never rendered — the visitor isn't verified as the owner.
   function renderRentcastRender() {
     var facts = state.propertyFacts || {};
+    var perUnit = mapRentCastType(facts.propertyType) === 'single';
     var rows = [];
     if (facts.propertyType) rows.push(['Property type', facts.propertyType]);
-    if (facts.bedrooms != null) rows.push(['Bedrooms', facts.bedrooms === 0 ? 'Studio' : String(facts.bedrooms)]);
-    if (facts.bathrooms != null) rows.push(['Bathrooms', String(facts.bathrooms)]);
-    if (facts.squareFootage != null) rows.push(['Square footage', Number(facts.squareFootage).toLocaleString() + ' sq ft']);
+    if (perUnit) {
+      if (facts.bedrooms != null) rows.push(['Bedrooms', facts.bedrooms === 0 ? 'Studio' : String(facts.bedrooms)]);
+      if (facts.bathrooms != null) rows.push(['Bathrooms', String(facts.bathrooms)]);
+      if (facts.squareFootage != null) rows.push(['Square footage', Number(facts.squareFootage).toLocaleString() + ' sq ft']);
+    }
+    // Physical facts + features — shown for every property type.
     if (facts.yearBuilt != null) rows.push(['Year built', String(facts.yearBuilt)]);
+    if (facts.lotSize != null) rows.push(['Lot size', Number(facts.lotSize).toLocaleString() + ' sq ft']);
+    if (facts.county) rows.push(['County', titleCaseFact(facts.county) + ' County']);
+    if (facts.floorCount != null) rows.push(['Floors', String(facts.floorCount)]);
+    if (facts.roomCount != null) rows.push(['Rooms', String(facts.roomCount)]);
+    // Garage: prefer the space count; fall back to the yes/no flag.
+    if (facts.garageSpaces != null) rows.push(['Garage', facts.garageSpaces + (facts.garageSpaces === 1 ? ' space' : ' spaces')]);
+    else if (facts.garage != null) rows.push(['Garage', facts.garage ? 'Yes' : 'No']);
+    if (facts.architectureType) rows.push(['Architecture', titleCaseFact(facts.architectureType)]);
+    if (facts.roofType) rows.push(['Roof', titleCaseFact(facts.roofType)]);
+    // Heating / cooling arrive either as a descriptive type string or a bare
+    // boolean depending on what RentCast has for the parcel — accept both.
+    var heat = facts.heatingType || (typeof facts.heating === 'string' ? facts.heating : (facts.heating === true ? 'Yes' : null));
+    if (heat) rows.push(['Heating', titleCaseFact(heat)]);
+    var cool = facts.coolingType || (typeof facts.cooling === 'string' ? facts.cooling : (facts.cooling === true ? 'Yes' : null));
+    if (cool) rows.push(['Cooling', titleCaseFact(cool)]);
+    if (facts.pool === true) rows.push(['Pool', 'Yes']);
+    if (facts.viewType) rows.push(['View', titleCaseFact(facts.viewType)]);
     rcFactsGrid.innerHTML = '';
     rows.forEach(function (r) {
       var row = document.createElement('div');

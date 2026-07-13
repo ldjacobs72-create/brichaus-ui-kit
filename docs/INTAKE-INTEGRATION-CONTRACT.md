@@ -108,6 +108,62 @@ funnel and proposal.html (same origin) to skip a second confirmation.
 
 ---
 
+## 3b. Site-selected routing (intake-v2 only)
+
+`app/intake-v2.html` is address-first: the moment an in-area address is
+selected it POSTs `{ googlePlaceId, formattedAddress, unitNumber }` to
+**`SITE_ROUTING_URL`** (`…/webhook/ghl-site-selected`, n8n workflow
+`JoypA2AkglKBsIGh`) and routes on the response. Fires AFTER the service-area
+gate; fails OPEN to `fetch-rentcast`.
+
+```
+{
+  route: "proposal" | "render-known" | "fetch-rentcast",
+  recognized: bool,           // true only on "proposal"
+  firstName: "",              // for the recognition welcome panel
+  contactId: "",              // known GHL contact id, if any
+  propertyFacts: { … } | null // enriched RentCast facts (below); null when unknown
+}
+```
+
+- **proposal** — fresh cached JSON + a resolvable contact → recognition
+  welcome panel → existing confirm-email → proposal path.
+- **render-known** — fresh cached JSON, no contact match → render the facts
+  snapshot, continue the funnel to capture.
+- **fetch-rentcast** — no / stale (>3 mo) JSON → RentCast fetched server-side,
+  facts snapshot rendered, continue.
+
+### `propertyFacts` shape (the enriched render contract — Phase 2b)
+
+The routing endpoint maps this from the first RentCast Property Records match
+(`getCachedProposal`/cache on render-known; live fetch on fetch-rentcast).
+**Every field is optional** — the front-end omits any row whose value is null,
+so adding/removing a field never breaks the render.
+
+| Field | From | Rendered as |
+|---|---|---|
+| `propertyType` | top-level | "Property type"; also drives the type pre-select + per-unit vs whole-building render |
+| `bedrooms` / `bathrooms` / `squareFootage` | top-level | shown ONLY for Single Family / Condo / Townhouse (per-unit dwellings); suppressed for Multifamily/Apartment/etc. |
+| `yearBuilt` | top-level | "Year built" — all types |
+| `lotSize` | top-level | "Lot size" (sq ft) — all types |
+| `county` | top-level | "County" (` County` appended) — all types |
+| `floorCount` | features | "Floors" |
+| `roomCount` | features | "Rooms" |
+| `garageSpaces` / `garage` | features | "Garage" (space count, else Yes/No) |
+| `architectureType` | features | "Architecture" (title-cased) |
+| `roofType` | features | "Roof" |
+| `heating` (bool) / `heatingType` (string) | features | "Heating" (prefers the type string) |
+| `cooling` (bool) / `coolingType` (string) | features | "Cooling" (prefers the type string) |
+| `pool` (bool) | features | "Pool: Yes" (only when true) |
+| `viewType` | features | "View" |
+
+Owner name / last-sale price / owner-occupancy are **deliberately NOT sent to
+the render** (the visitor isn't verified as the owner). No rent, no comps on
+this step — those stay on the Snapshot step. Storage of these key fields is
+**Dataverse-only** (no new GHL custom fields); see the plan's Phase 2b.
+
+---
+
 ## 4. Config endpoints (all currently live)
 
 ```
