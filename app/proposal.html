@@ -577,14 +577,6 @@
           <div id="op-profile-list"></div>
         </div>
 
-        <!-- Nearby comparables map (subject + comp pins). src set in
-             loadPropertyImages(); hidden until it loads, skipped when the
-             property has no comp coordinates (proxy returns 204). -->
-        <div id="comps-map-section" class="comps-map-section hidden">
-          <div class="report-kicker">Nearby comparables</div>
-          <img id="comps-map" class="comps-map hidden" alt="Map of nearby rental comparables" />
-        </div>
-
         <div class="report-cta">
           <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
           <p class="cta-followup-note">Questions about this proposal? We're happy to walk through it with you.</p>
@@ -1201,16 +1193,21 @@
     // for call scripts / follow-up. See renderFeeTerms/renderOperationalProfile.
     renderOperationalProfile(report);
     renderProposalServiceCards(report);
-    renderFeeTerms();
+    renderFeeTerms(data);
     loadPropertyImages();
   }
 
-  // Leasing + one-time setup fee terms shown beneath the management fee. Both
-  // are CONFIG placeholders until wired to the system (see CONFIG above).
-  function renderFeeTerms() {
+  // Leasing + one-time setup fee terms shown beneath the management fee.
+  // Leasing ALWAYS uses the % the Fee Calculator used — surfaced by the
+  // pipeline as data.leasingFeePct — falling back to the CONFIG placeholder
+  // only until the pipeline supplies it. Accepts either a percent (50) or a
+  // fraction (0.5), like feeCalcResponse. Setup fee is a CONFIG placeholder.
+  function renderFeeTerms(data) {
     var leasing = document.getElementById('fee-leasing');
     var setup = document.getElementById('fee-setup');
-    if (leasing) leasing.textContent = CONFIG.LEASING_FEE_PCT + '% of one month’s rent · per new tenant we sign';
+    var raw = (data && data.leasingFeePct != null && data.leasingFeePct !== '') ? Number(data.leasingFeePct) : CONFIG.LEASING_FEE_PCT;
+    var pct = (raw > 0 && raw <= 1) ? Math.round(raw * 100) : raw;
+    if (leasing) leasing.textContent = pct + '% of one month’s rent · per new tenant we sign';
     if (setup) setup.textContent = '$' + Number(CONFIG.SETUP_FEE).toLocaleString('en-US') + ' · one-time';
   }
 
@@ -1230,14 +1227,9 @@
       hero.onerror = function () { hero.classList.add('hidden'); };
       hero.src = base + 'streetview';
     }
-
-    var mapSection = document.getElementById('comps-map-section');
-    var map = document.getElementById('comps-map');
-    if (map && mapSection) {
-      map.onload = function () { map.classList.remove('hidden'); mapSection.classList.remove('hidden'); };
-      map.onerror = function () { map.classList.add('hidden'); mapSection.classList.add('hidden'); };
-      map.src = base + 'compsmap';
-    }
+    // The comps map is NOT rendered on the proposal — it belongs in the intake
+    // comparables section (interactive: subject centered, comps tagged with
+    // address + amount, hover for beds/baths/sqft). See the pending intake build.
   }
 
   /* =====================================================================
