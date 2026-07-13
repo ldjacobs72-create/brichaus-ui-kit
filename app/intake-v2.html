@@ -3093,10 +3093,18 @@
       ComplianceScore: DemandEngine.multiplier[state.drivers.compliance],
       MaintenanceScore: DemandEngine.multiplier[state.drivers.maintenance],
       RentValue: state.rentPerUnit,
+      // Fee-calc coverage baseline for a new property. Eviction / lease-
+      // placement / inspections are DERIVED server-side from the OIA labels
+      // (see the pipeline's Fee Calc node), so the values sent here for those
+      // are ignored — kept false for a truthful payload. Pet coverage is a
+      // flat baseline of false. Leasing is the one real baseline: 50% of one
+      // month's rent per new tenant. The backend treats any value > 0 as an
+      // override (for the future proposal-editing process) and otherwise
+      // applies the 50% baseline itself, so this stays authoritative there.
       EvictionCoverage: false,
       PetCoverage: false,
       LeasePlacements: false,
-      LeasingFeePct: 0,
+      LeasingFeePct: 50,
       Inspections: false,
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
