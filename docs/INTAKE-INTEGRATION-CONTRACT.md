@@ -174,7 +174,7 @@ RENTCAST_QUICKLOOK_URL …/webhook/ghl-rentcast-quicklook   (address-select prev
 CONTACT_RECOGNITION_URL…/webhook/ghl-contact-recognition  (recognition + expansion)
 REPORT_STATUS_URL      …/webhook/ghl-report-status        (async poll; optional)
 IMAGE_PROXY_URL        …/webhook/ghl-property-image        (proposal.html property images)
-PROPOSAL_PAGE_URL      https://mgmt.brichausgroup.com/residential-management-proposal/
+PROPOSAL_PAGE_URL      https://brichausgroup.com/mgmt_proposal
 BOOKING_URL            https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya
 ```
 
