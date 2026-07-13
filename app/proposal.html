@@ -205,6 +205,19 @@
   }
   /* Comps map (subject + nearby rental comps) — same proxy/caching; hidden
      until loaded, and skipped entirely when there are no comp coordinates. */
+  /* Leasing + one-time setup fee terms, shown with the management fee. */
+  #brichaus-proposal .fee-terms {
+    margin-top: var(--bui-space-3);
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+    overflow: hidden;
+  }
+  #brichaus-proposal .fee-term {
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--bui-space-3);
+    padding: 10px var(--bui-space-4);
+  }
+  #brichaus-proposal .fee-term + .fee-term { border-top: 1px solid var(--bui-color-border); }
+  #brichaus-proposal .fee-term__label { font-size: 13px; font-weight: 700; color: var(--bui-color-text); }
+  #brichaus-proposal .fee-term__value { font-size: 12.5px; color: var(--bui-color-text-muted); text-align: right; }
   #brichaus-proposal .comps-map-section { margin: var(--bui-space-5) 0; }
   #brichaus-proposal .comps-map {
     display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
@@ -257,8 +270,20 @@
   #brichaus-proposal .workload-summary {
     margin: 0 0 var(--bui-space-3); font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55;
   }
-  #brichaus-proposal .op-profile-row { border-top: 1px solid var(--bui-color-border); }
-  #brichaus-proposal .op-profile-row:first-child { border-top: none; }
+  /* Intensity drivers laid out as a grid — 2x2 on desktop, 4x1 (stacked) on
+     narrow screens. Each driver is a self-contained bordered card (replacing
+     the old top-border row separators) so it reads as a discrete lever. */
+  #brichaus-proposal #op-profile-list {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--bui-space-3);
+  }
+  @media (max-width: 560px) {
+    #brichaus-proposal #op-profile-list { grid-template-columns: 1fr; }
+  }
+  #brichaus-proposal .op-profile-row {
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+    padding: 0 var(--bui-space-3); align-self: start;
+  }
+  #brichaus-proposal .op-profile-row .op-cat-summary { padding-bottom: var(--bui-space-3); }
   #brichaus-proposal .op-profile-head {
     display: flex; align-items: center; gap: var(--bui-space-2);
     padding: var(--bui-space-3) 0; cursor: pointer; list-style: none;
@@ -511,10 +536,11 @@
         <p id="report-address" class="report-address hidden"></p>
         <p class="report-subtitle">Management Proposal</p>
 
-        <!-- Report order (per owner review): fee first, then the service
-             cards, then Operational Workload; the narrative analysis is
-             tucked into a collapsed disclosure at the end for readers who
-             want the detail. -->
+        <!-- Report order (per owner review): fee first (with the leasing +
+             one-time setup fee terms), then the AssetShield service cards,
+             then the Operational Workload intensity blocks, then the
+             comparables map. The AI narrative is NOT rendered here — it lives
+             in a GHL field for internal call scripts / follow-up. -->
         <div class="proposal-section">
           <div class="revenue-hero">
             <span class="revenue-hero__orb" aria-hidden="true"></span>
@@ -522,15 +548,20 @@
             <div class="revenue-hero__amount num" id="hero-fee">—</div>
             <div class="revenue-hero__sub" id="hero-fee-sub"></div>
           </div>
+          <!-- Additional pricing terms shown with the management fee. Values
+               come from CONFIG (LEASING_FEE_PCT / SETUP_FEE) via renderFeeTerms()
+               — both are placeholders until wired to the system. -->
+          <div class="fee-terms">
+            <div class="fee-term">
+              <span class="fee-term__label">Leasing Fee</span>
+              <span class="fee-term__value" id="fee-leasing">—</span>
+            </div>
+            <div class="fee-term">
+              <span class="fee-term__label">One-Time Setup Fee</span>
+              <span class="fee-term__value" id="fee-setup">—</span>
+            </div>
+          </div>
           <div class="service-list" id="service-cards"></div>
-        </div>
-
-        <!-- Nearby comparables map (subject + comp pins). src set in
-             loadPropertyImages(); hidden until it loads, skipped when the
-             property has no comp coordinates (proxy returns 204). -->
-        <div id="comps-map-section" class="comps-map-section hidden">
-          <div class="report-kicker">Nearby comparables</div>
-          <img id="comps-map" class="comps-map hidden" alt="Map of nearby rental comparables" />
         </div>
 
         <div id="op-profile" class="op-profile hidden">
@@ -546,13 +577,13 @@
           <div id="op-profile-list"></div>
         </div>
 
-        <details id="report-narrative" class="report-narrative hidden">
-          <summary>Full Analysis &amp; Market Notes</summary>
-          <div id="report-summary" class="report-summary hidden">
-            <p class="report-summary-text" id="report-summary-text"></p>
-            <p class="report-confidence hidden" id="report-confidence"></p>
-          </div>
-        </details>
+        <!-- Nearby comparables map (subject + comp pins). src set in
+             loadPropertyImages(); hidden until it loads, skipped when the
+             property has no comp coordinates (proxy returns 204). -->
+        <div id="comps-map-section" class="comps-map-section hidden">
+          <div class="report-kicker">Nearby comparables</div>
+          <img id="comps-map" class="comps-map hidden" alt="Map of nearby rental comparables" />
+        </div>
 
         <div class="report-cta">
           <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
@@ -612,7 +643,13 @@
     // images. GET ?type=streetview|compsmap&placeId=<id> → 200 image, or 204
     // (no imagery / no comps) which trips the <img> onerror so we hide it.
     // The Google key stays server-side; this page never sees it.
-    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image'
+    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image',
+    // Additional pricing terms shown with the management fee. PLACEHOLDERS —
+    // not yet wired to the pipeline. Leasing fee is a % of one month's rent
+    // per new tenant signed; setup is a flat one-time fee. Update these two
+    // values here (or later, wire them into the scoring response).
+    LEASING_FEE_PCT: 50,
+    SETUP_FEE: 250
   };
 
   var root = document.getElementById('brichaus-proposal');
@@ -976,7 +1013,7 @@
     if (badgedCount > 0) details.setAttribute('open', '');
     var summary = document.createElement('summary');
     summary.className = 'service-card__summary';
-    summary.textContent = badgedCount > 0 ? ('View Included Services · ' + badgedCount + ' recommended for you') : 'View Included Services';
+    summary.textContent = badgedCount > 0 ? ('Recommended Services · ' + badgedCount + ' for your property') : 'Recommended Services';
     details.appendChild(summary);
 
     var items = card.items.slice();
@@ -1057,23 +1094,6 @@
     var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
     cards.push(assetShieldCard);
     runRevealSequence(cards, assetShieldCard, serviceCardsList);
-  }
-
-  function renderReportSummary(report) {
-    var reportSummary = document.getElementById('report-summary');
-    var reportNarrative = document.getElementById('report-narrative');
-    var reportSummaryText = document.getElementById('report-summary-text');
-    var reportConfidence = document.getElementById('report-confidence');
-    var summary = report && report.clientSummary;
-    reportSummary.classList.toggle('hidden', !summary);
-    // The collapsed "Full Analysis" disclosure only appears when there is
-    // actually narrative text to expand.
-    if (reportNarrative) reportNarrative.classList.toggle('hidden', !summary);
-    if (!summary) return;
-    reportSummaryText.textContent = summary;
-    var note = report.confidenceNote;
-    reportConfidence.textContent = note || '';
-    reportConfidence.classList.toggle('hidden', !note);
   }
 
   function renderOperationalProfile(report) {
@@ -1176,10 +1196,22 @@
       opProfile.classList.add('hidden');
     }
 
-    renderReportSummary(report);
+    // The AI narrative (clientSummary/confidenceNote) is intentionally NOT
+    // rendered on the customer proposal — it's internal, kept in a GHL field
+    // for call scripts / follow-up. See renderFeeTerms/renderOperationalProfile.
     renderOperationalProfile(report);
     renderProposalServiceCards(report);
+    renderFeeTerms();
     loadPropertyImages();
+  }
+
+  // Leasing + one-time setup fee terms shown beneath the management fee. Both
+  // are CONFIG placeholders until wired to the system (see CONFIG above).
+  function renderFeeTerms() {
+    var leasing = document.getElementById('fee-leasing');
+    var setup = document.getElementById('fee-setup');
+    if (leasing) leasing.textContent = CONFIG.LEASING_FEE_PCT + '% of one month’s rent · per new tenant we sign';
+    if (setup) setup.textContent = '$' + Number(CONFIG.SETUP_FEE).toLocaleString('en-US') + ' · one-time';
   }
 
   // Point the Street View hero + comps map at the n8n image proxy, keyed by
