@@ -199,25 +199,27 @@
      no imagery the proxy returns 204 and onerror keeps it hidden, so the
      report reads normally without it. */
   #brichaus-proposal .property-hero {
-    display: block; width: 100%; height: 120px;
+    display: block; width: 100%; height: 240px;
     object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
     margin: var(--bui-space-3) 0 var(--bui-space-4); background: var(--bui-color-surface-sunken, #EEF1F4);
   }
-  /* Comps map (subject + nearby rental comps) — same proxy/caching; hidden
-     until loaded, and skipped entirely when there are no comp coordinates. */
-  /* Leasing + one-time setup fee terms, shown with the management fee. */
-  #brichaus-proposal .fee-terms {
-    margin-top: var(--bui-space-3);
-    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
-    overflow: hidden;
+  /* One-time setup fee note, shown at the end of the management-fee block. */
+  #brichaus-proposal .fee-setup-note {
+    margin: var(--bui-space-3) 0 0; font-size: 12px; line-height: 1.5;
+    color: var(--bui-color-text-muted);
   }
-  #brichaus-proposal .fee-term {
-    display: flex; justify-content: space-between; align-items: baseline; gap: var(--bui-space-3);
-    padding: 10px var(--bui-space-4);
+  /* Leasing fee, surfaced as the Market-to-Move-In service subheading. */
+  #brichaus-proposal .service-card__leasing {
+    margin: 2px 0 0; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5;
   }
-  #brichaus-proposal .fee-term + .fee-term { border-top: 1px solid var(--bui-color-border); }
-  #brichaus-proposal .fee-term__label { font-size: 13px; font-weight: 700; color: var(--bui-color-text); }
-  #brichaus-proposal .fee-term__value { font-size: 12.5px; color: var(--bui-color-text-muted); text-align: right; }
+  #brichaus-proposal .service-card__leasing-pct {
+    font-size: 15.5px; font-weight: 800; color: var(--bui-color-text);
+  }
+  /* Section heading — sets Operational Workload apart as its own report block. */
+  #brichaus-proposal .proposal-section-heading {
+    font-size: 15px; font-weight: 800; letter-spacing: 0.01em;
+    color: var(--bui-color-text); margin-bottom: var(--bui-space-3);
+  }
   #brichaus-proposal .comps-map-section { margin: var(--bui-space-5) 0; }
   #brichaus-proposal .comps-map {
     display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
@@ -244,7 +246,10 @@
   #brichaus-proposal .report-band-pill[data-tone="accent"] { color: var(--bui-color-accent); }
   #brichaus-proposal .report-band-pill[data-tone="warning"] { color: var(--bui-color-warning); }
   #brichaus-proposal .report-band-pill[data-tone="danger"] { color: var(--bui-color-danger); }
-  #brichaus-proposal .op-profile { text-align: left; }
+  #brichaus-proposal .op-profile {
+    text-align: left; margin-top: var(--bui-space-6);
+    padding-top: var(--bui-space-5); border-top: 1px solid var(--bui-color-border);
+  }
   #brichaus-proposal .workload-head {
     display: flex; align-items: center; justify-content: space-between;
     gap: var(--bui-space-3); margin-bottom: var(--bui-space-2);
@@ -548,11 +553,12 @@
              it loads so a no-imagery property just shows no banner. -->
         <img id="property-hero" class="property-hero hidden" alt="" />
 
-        <!-- Report order (per owner review): fee first (with the leasing +
-             one-time setup fee terms), then the AssetShield service cards,
-             then the Operational Workload intensity blocks, then the
-             comparables map. The AI narrative is NOT rendered here — it lives
-             in a GHL field for internal call scripts / follow-up. -->
+        <!-- Report order (per owner review): the management fee first (with the
+             one-time setup-fee note beneath it), then the service cards — the
+             leasing fee rides as the Market-to-Move-In subheading — then the
+             Operational Workload block as its own section. The AI narrative is
+             NOT rendered here — it lives in a GHL field for internal call
+             scripts / follow-up. -->
         <div class="proposal-section">
           <div class="revenue-hero">
             <span class="revenue-hero__orb" aria-hidden="true"></span>
@@ -560,24 +566,14 @@
             <div class="revenue-hero__amount num" id="hero-fee">—</div>
             <div class="revenue-hero__sub" id="hero-fee-sub"></div>
           </div>
-          <!-- Additional pricing terms shown with the management fee. Values
-               come from CONFIG (LEASING_FEE_PCT / SETUP_FEE) via renderFeeTerms()
-               — both are placeholders until wired to the system. -->
-          <div class="fee-terms">
-            <div class="fee-term">
-              <span class="fee-term__label">Leasing Fee</span>
-              <span class="fee-term__value" id="fee-leasing">—</span>
-            </div>
-            <div class="fee-term">
-              <span class="fee-term__label">One-Time Setup Fee</span>
-              <span class="fee-term__value" id="fee-setup">—</span>
-            </div>
-          </div>
+          <!-- One-time setup fee wording (SETUP_FEE ceiling from CONFIG). Set in
+               renderFeeSetupNote(); a placeholder until a real amount is wired. -->
+          <p class="fee-setup-note" id="fee-setup-note"></p>
           <div class="service-list" id="service-cards"></div>
         </div>
 
         <div id="op-profile" class="op-profile hidden">
-          <div class="report-kicker">Operational Workload</div>
+          <div class="proposal-section-heading">Operational Workload</div>
           <div class="workload-head">
             <div class="report-band-pill" id="hero-band">—</div>
             <div class="demand-meter">
@@ -932,7 +928,7 @@
    * see that file for the full doc comments on each table).
    * =================================================================== */
   var SERVICE_CARDS = [
-    { icon: '🏠', title: 'Market-to-Move-In™',
+    { icon: '🏠', title: 'Market-to-Move-In™', leasing: true,
       desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
       items: [
         'Comparable Marketing Analysis &amp; Real Estate Consulting',
@@ -1023,7 +1019,7 @@
     return badged;
   }
 
-  function buildServiceCard(card, badgedSet) {
+  function buildServiceCard(card, badgedSet, leasingPct) {
     var wrap = document.createElement('div');
     wrap.className = 'service-card';
 
@@ -1044,13 +1040,32 @@
     desc.textContent = card.desc;
     wrap.appendChild(desc);
 
+    // The leasing fee rides as the Market-to-Move-In subheading (leasing IS the
+    // Market-to-Move-In service). Percentage is emphasized; the "of one month's
+    // rent…" application follows in muted text. Only this card gets it.
+    if (card.leasing && leasingPct != null) {
+      var leasing = document.createElement('p');
+      leasing.className = 'service-card__leasing';
+      var pctSpan = document.createElement('span');
+      pctSpan.className = 'service-card__leasing-pct';
+      pctSpan.textContent = leasingPct + '%';
+      leasing.appendChild(pctSpan);
+      leasing.appendChild(document.createTextNode(' of one month’s rent, per new tenant we sign'));
+      wrap.appendChild(leasing);
+    }
+
     var details = document.createElement('details');
     details.className = 'service-card__details';
     var badgedCount = badgedSet ? badgedSet.size : 0;
     if (badgedCount > 0) details.setAttribute('open', '');
     var summary = document.createElement('summary');
     summary.className = 'service-card__summary';
-    summary.textContent = badgedCount > 0 ? ('Recommended Services · ' + badgedCount + ' for your property') : 'Recommended Services';
+    // Only AssetShield (the card that gets a badgedSet) frames its list as
+    // "Recommended Services" — the four core service cards list what's already
+    // included, so they read "View Included Services".
+    summary.textContent = badgedSet
+      ? (badgedCount > 0 ? ('Recommended Services · ' + badgedCount + ' for your property') : 'Recommended Services')
+      : 'View Included Services';
     details.appendChild(summary);
 
     var items = card.items.slice();
@@ -1120,14 +1135,14 @@
     });
   }
 
-  function renderProposalServiceCards(report) {
+  function renderProposalServiceCards(report, leasingPct) {
     var serviceCardsList = document.getElementById('service-cards');
     var profile = report && report.operationalProfile;
     var cats = (profile && profile.categories) || [];
     var badgedItems = computeBadgedAssetShieldItems(cats);
 
     serviceCardsList.innerHTML = '';
-    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
+    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card, null, leasingPct)); });
     var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
     cards.push(assetShieldCard);
     runRevealSequence(cards, assetShieldCard, serviceCardsList);
@@ -1235,30 +1250,33 @@
 
     // The AI narrative (clientSummary/confidenceNote) is intentionally NOT
     // rendered on the customer proposal — it's internal, kept in a GHL field
-    // for call scripts / follow-up. See renderFeeTerms/renderOperationalProfile.
+    // for call scripts / follow-up. See renderOperationalProfile.
     renderOperationalProfile(report);
-    renderProposalServiceCards(report);
-    renderFeeTerms(data);
+    renderProposalServiceCards(report, resolveLeasingPct(data));
+    renderFeeSetupNote();
     loadPropertyImages();
   }
 
-  // Leasing + one-time setup fee terms shown beneath the management fee.
-  // Leasing ALWAYS uses the % the Fee Calculator used — surfaced by the
-  // pipeline as data.leasingFeePct — falling back to the CONFIG placeholder
-  // only until the pipeline supplies it. Accepts either a percent (50) or a
-  // fraction (0.5), like feeCalcResponse. Setup fee is a CONFIG placeholder.
-  function renderFeeTerms(data) {
-    var leasing = document.getElementById('fee-leasing');
-    var setup = document.getElementById('fee-setup');
-    // Use the Fee Calculator's leasing % when it's a real, non-zero value;
-    // otherwise fall back to the CONFIG placeholder. (The funnel currently
-    // sends 0 — no leasing-% source is wired yet — and 0% must not show on a
-    // customer proposal.) Accepts a percent (50) or a fraction (0.5).
+  // Leasing % shown as the Market-to-Move-In subheading. ALWAYS uses the % the
+  // Fee Calculator used (surfaced by the pipeline as data.leasingFeePct),
+  // falling back to the CONFIG placeholder only until the pipeline supplies a
+  // real, non-zero value — the funnel currently sends 0, and 0% must never show
+  // on a customer proposal. Accepts a percent (50) or a fraction (0.5).
+  function resolveLeasingPct(data) {
     var supplied = data && data.leasingFeePct != null && data.leasingFeePct !== '' ? Number(data.leasingFeePct) : NaN;
     var raw = (!isNaN(supplied) && supplied > 0) ? supplied : CONFIG.LEASING_FEE_PCT;
-    var pct = (raw > 0 && raw <= 1) ? Math.round(raw * 100) : raw;
-    if (leasing) leasing.textContent = pct + '% of one month’s rent · per new tenant we sign';
-    if (setup) setup.textContent = '$' + Number(CONFIG.SETUP_FEE).toLocaleString('en-US') + ' · one-time';
+    return (raw > 0 && raw <= 1) ? Math.round(raw * 100) : raw;
+  }
+
+  // One-time setup fee wording, closing out the management-fee block. SETUP_FEE
+  // is the CONFIG ceiling ("not more than") — a placeholder until a real amount
+  // is wired in.
+  function renderFeeSetupNote() {
+    var note = document.getElementById('fee-setup-note');
+    if (!note) return;
+    var amount = '$' + Number(CONFIG.SETUP_FEE).toLocaleString('en-US');
+    note.textContent = 'A one-time setup fee of not more than ' + amount +
+      ' may apply to new owners joining the BRICHAUS family.';
   }
 
   // Point the Street View hero + comps map at the n8n image proxy, keyed by
