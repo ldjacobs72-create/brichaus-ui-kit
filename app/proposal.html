@@ -199,9 +199,9 @@
      no imagery the proxy returns 204 and onerror keeps it hidden, so the
      report reads normally without it. */
   #brichaus-proposal .property-hero {
-    display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+    display: block; width: 100%; height: 120px;
     object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
-    margin: 0 0 var(--bui-space-4); background: var(--bui-color-surface-sunken, #EEF1F4);
+    margin: var(--bui-space-3) 0 var(--bui-space-4); background: var(--bui-color-surface-sunken, #EEF1F4);
   }
   /* Comps map (subject + nearby rental comps) — same proxy/caching; hidden
      until loaded, and skipped entirely when there are no comp coordinates. */
@@ -532,9 +532,12 @@
         <!-- Subject-property Street View photo (see .property-hero). src is
              set in renderProposal() → loadPropertyImages(); stays hidden until
              it loads so a no-imagery property just shows no banner. -->
-        <img id="property-hero" class="property-hero hidden" alt="" />
         <p id="report-address" class="report-address hidden"></p>
         <p class="report-subtitle">Management Proposal</p>
+        <!-- Subject-property Street View — a thin banner under the address (see
+             .property-hero). src set in loadPropertyImages(); stays hidden until
+             it loads so a no-imagery property just shows no banner. -->
+        <img id="property-hero" class="property-hero hidden" alt="" />
 
         <!-- Report order (per owner review): fee first (with the leasing +
              one-time setup fee terms), then the AssetShield service cards,
