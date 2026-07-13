@@ -1205,7 +1205,12 @@
   function renderFeeTerms(data) {
     var leasing = document.getElementById('fee-leasing');
     var setup = document.getElementById('fee-setup');
-    var raw = (data && data.leasingFeePct != null && data.leasingFeePct !== '') ? Number(data.leasingFeePct) : CONFIG.LEASING_FEE_PCT;
+    // Use the Fee Calculator's leasing % when it's a real, non-zero value;
+    // otherwise fall back to the CONFIG placeholder. (The funnel currently
+    // sends 0 — no leasing-% source is wired yet — and 0% must not show on a
+    // customer proposal.) Accepts a percent (50) or a fraction (0.5).
+    var supplied = data && data.leasingFeePct != null && data.leasingFeePct !== '' ? Number(data.leasingFeePct) : NaN;
+    var raw = (!isNaN(supplied) && supplied > 0) ? supplied : CONFIG.LEASING_FEE_PCT;
     var pct = (raw > 0 && raw <= 1) ? Math.round(raw * 100) : raw;
     if (leasing) leasing.textContent = pct + '% of one month’s rent · per new tenant we sign';
     if (setup) setup.textContent = '$' + Number(CONFIG.SETUP_FEE).toLocaleString('en-US') + ' · one-time';
