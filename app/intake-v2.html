@@ -1634,7 +1634,13 @@
     // the whole assessment again. The confirmed email is handed off via
     // sessionStorage (same-origin, tab-scoped) so proposal.html's own
     // gate can confirm it silently instead of asking a second time.
-    PROPOSAL_PAGE_URL: 'https://brichausgroup.com/mgmt_proposal',
+    // A GHL custom value, interpolated when GHL renders this page — the
+    // proposal URL lives in ONE place (GHL → Settings → Custom Values), so a
+    // future site reorg is a single edit there, not a code/paste change. It's
+    // normalized just below the CONFIG block to a hardcoded fallback whenever
+    // it isn't interpolated (the raw file, or an unset custom value), so the
+    // "View My Proposal" link can never break.
+    PROPOSAL_PAGE_URL: '{{custom_values.management_proposal_url}}',
 
     // Poll endpoint for the two-phase report. When the assessment POST sets
     // AsyncReport:true, the pipeline returns the deterministic answer (fee,
@@ -1729,6 +1735,13 @@
       inspections: ''       // default false
     }
   };
+
+  // Resolve the PROPOSAL_PAGE_URL custom value. If GHL interpolated it, use it;
+  // if not (raw file, or the custom value is unset — the placeholder still
+  // contains "{{"), fall back to the canonical URL so the link always works.
+  if (!CONFIG.PROPOSAL_PAGE_URL || CONFIG.PROPOSAL_PAGE_URL.indexOf('{{') !== -1) {
+    CONFIG.PROPOSAL_PAGE_URL = 'https://brichausgroup.com/mgmt_proposal';
+  }
 
   /* =====================================================================
    * Operational Demand Engine
