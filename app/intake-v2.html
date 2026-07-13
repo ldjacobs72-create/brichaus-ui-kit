@@ -394,40 +394,28 @@
     font-size: var(--bui-font-size-sm);
     color: var(--bui-color-text-muted);
   }
-  #brichaus-assessment .terms-slot {
-    margin-top: var(--bui-space-3);
+  /* Self-contained consent checkbox (see #consent-line). Fine print — smaller
+     than it rendered before and in faint ink, so the legal copy doesn't
+     compete with the name/email/phone fields above. */
+  #brichaus-assessment .consent-line {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--bui-space-2);
+    margin-top: var(--bui-space-4);
+    cursor: pointer;
   }
-  /* GHL's own consent checkbox + its real legal-copy label get relocated
-     here (see whenFieldReady(CONFIG.GHL_TERMS_FIELD) in the app script) —
-     not recreated, the actual native element, just moved into this card
-     instead of left wherever GHL renders it by default. Restyled to read
-     as part of this card rather than GHL's own native theme; GHL's own
-     class names are left in place (only overriding what fights this
-     card's look), since removing them risks losing whatever behavior is
-     actually tied to them. */
-  #brichaus-assessment .terms-slot .checkbox-container {
-    display: flex !important;
-    align-items: flex-start !important;
-    gap: var(--bui-space-2) !important;
-    font-family: var(--bui-font-family) !important;
-    font-size: 11px !important;
-    line-height: 1.45 !important;
+  #brichaus-assessment .consent-line input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--bui-color-accent);
   }
-  #brichaus-assessment .terms-slot .checkbox-container input[type="checkbox"] {
-    margin-top: 3px !important;
-    flex-shrink: 0 !important;
-    width: 16px !important;
-    height: 16px !important;
-    accent-color: var(--bui-color-accent) !important;
-  }
-  #brichaus-assessment .terms-slot .checkbox-container label {
-    font-family: var(--bui-font-family) !important;
-    /* Fine-print treatment (per owner review): well under the kit's sm
-       size and in the faint ink, but still comfortably legible — dense
-       legal copy shouldn't compete with the name/email fields above. */
-    font-size: 11px !important;
-    line-height: 1.45 !important;
-    color: var(--bui-color-text-faint) !important;
+  #brichaus-assessment .consent-line #consent-copy {
+    font-family: var(--bui-font-family);
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--bui-color-text-faint);
   }
   #brichaus-assessment .demo-banner {
     background: var(--bui-color-warning-bg);
@@ -1398,7 +1386,15 @@
           <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
           <bui-input id="contact-phone-input" label="Phone" type="tel" inputmode="tel" placeholder="(555) 123-4567"></bui-input>
         </div>
-        <div id="terms-slot" class="terms-slot"></div>
+        <!-- Self-contained consent checkbox (no GHL survey dependency). The
+             label copy is a GHL custom value, interpolated at page render; a
+             JS fallback fills it if it isn't interpolated. Checking it stamps
+             the consent moment and gates Continue; the timestamp is recorded
+             on the GHL contact via n8n's consent note. -->
+        <label class="consent-line" id="consent-line">
+          <input type="checkbox" id="consent-checkbox" />
+          <span id="consent-copy">{{custom_values.consent_checkbox__proposal_request}}</span>
+        </label>
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="driver">Back</bui-button>
@@ -3309,35 +3305,29 @@
     });
   });
 
-  // The consent checkbox carries real GHL-configured legal copy — kept as
-  // the actual native element (not recreated), just physically relocated
-  // into this step's own card instead of left wherever GHL renders it —
-  // pointing at it from a distance (scroll + highlight) read as a visual
-  // mismatch once it actually worked. Moves the whole .checkbox-container
-  // GHL renders (input + its real label as siblings — see the ancestry
-  // captured via the live DOM dump), not just the <input> alone, so the
-  // legal-copy label comes along with it. Known risk: if GHL's Vue Survey
-  // ever re-renders this section for an unrelated reason, it could
-  // recreate a fresh node in the original spot while this moved one goes
-  // stale — hasn't been observed, but this can't be fully verified without
-  // live testing since this sandbox has no network path to the live page.
-  window.BUI.ghl.whenFieldReady(CONFIG.GHL_TERMS_FIELD, function (el) {
-    termsFieldEl = el;
-    function onTermsChange() {
-      // Stamp the consent moment (not the submit moment) — this exact
-      // timestamp is what gets recorded on the GHL contact for compliance.
-      if (el.checked && !state.contact.consentTs) {
-        state.contact.consentTs = new Date().toISOString();
-      }
-      refreshContactContinue();
+  // Self-contained consent checkbox (no GHL survey). The label copy is a GHL
+  // custom value ({{custom_values.consent_checkbox__proposal_request}})
+  // interpolated at page render; if it wasn't interpolated (raw file, or an
+  // unset value — the placeholder still contains "{{"), fall back to a default
+  // line so it's never unlabeled. Checking it stamps the consent moment
+  // (recorded on the GHL contact via n8n's consent note) and gates Continue —
+  // refreshContactContinue reads termsFieldEl.checked, and buildWebhookPayload
+  // sends Consent/ConsentTimestamp from it.
+  (function initConsent() {
+    var copy = document.getElementById('consent-copy');
+    if (copy && (!copy.textContent.trim() || copy.textContent.indexOf('{{') !== -1)) {
+      copy.textContent = 'I agree to the Terms & Conditions and consent to be contacted about this proposal request.';
     }
-    el.addEventListener('change', onTermsChange);
-    el.addEventListener('click', onTermsChange);
-
-    var container = el.closest('.checkbox-container') || el.parentElement;
-    var slot = document.getElementById('terms-slot');
-    if (container && slot) slot.appendChild(container);
-  });
+    termsFieldEl = document.getElementById('consent-checkbox');
+    if (termsFieldEl) {
+      termsFieldEl.addEventListener('change', function () {
+        if (termsFieldEl.checked && !state.contact.consentTs) {
+          state.contact.consentTs = new Date().toISOString();
+        }
+        refreshContactContinue();
+      });
+    }
+  })();
 
   root.querySelector('[data-back="driver"]').addEventListener('bui-click', function () {
     driverStepIndex = DRIVER_STEPS.length - 1;
