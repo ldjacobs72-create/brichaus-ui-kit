@@ -454,6 +454,15 @@
   }
 
   @media print {
+    /* Print ONLY the proposal report. The hosting GHL page can carry chrome
+       we don't control — a survey/form, the chat widget, nav — which would
+       otherwise bleed into the PDF (see the leaked survey fields on a live
+       "Download PDF"). Hide everything, then re-show just our report, and
+       pull it to the top so the now-invisible chrome leaves no blank space. */
+    body * { visibility: hidden !important; }
+    #brichaus-proposal, #brichaus-proposal * { visibility: visible !important; }
+    #brichaus-proposal { position: absolute !important; left: 0; top: 0; width: 100%; }
+    /* Still fully removed from the printed report itself. */
     #brichaus-proposal .recognition-panel,
     #brichaus-proposal .schedule-embed,
     #brichaus-proposal .report-cta { display: none !important; }
