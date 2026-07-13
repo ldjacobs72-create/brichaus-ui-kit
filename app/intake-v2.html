@@ -2776,61 +2776,10 @@
       });
   }
 
-  // Retained (no longer called on selection — checkSiteRouting above owns
-  // the recognize decision now) so the confirmEmail/conflict handlers below
-  // still have their supporting machinery. Fired alongside the RentCast
-  // quicklook on every address selection. Asks whether this property already
-  // has a known point of contact on file.
-  function checkContactRecognition() {
-    resetRecognitionPanel();
-    if (!state.address.placeId || !CONFIG.CONTACT_RECOGNITION_URL) return;
-    var placeId = state.address.placeId;
-    // Gate Continue for the duration of the check itself — resetRecognitionPanel()
-    // just enabled it based on placeId alone, but a visitor can click through
-    // well before this fetch resolves (confirmed live: the funnel advanced past
-    // Location before the recognition check came back). A fixed wait timer would
-    // either be too short on a slow connection or needlessly annoying on a fast
-    // one; disabling until the check actually settles is correct either way.
-    locationContinue.setAttribute('disabled', '');
-    // Visible feedback for the disabled-button gap above — otherwise the
-    // visitor just sees Continue go dead with no explanation while this
-    // fetch is in flight. Cleared on every resolution path below (and by
-    // resetRecognitionPanel() if a newer selection supersedes this one).
-    addressVerifying.classList.remove('hidden');
-    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
-    })
-      .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
-      .then(function (data) {
-        if (placeId !== state.address.placeId) return; // superseded by a newer selection
-        addressVerifying.classList.add('hidden');
-        if (!data || !data.recognized) {
-          locationContinue.removeAttribute('disabled');
-          return;
-        }
-        state.recognition.active = true;
-        state.recognition.firstName = data.firstName || '';
-        state.recognition.contactId = data.contactId || '';
-        recognitionFirstname.textContent = state.recognition.firstName;
-        recognitionPanel.classList.remove('hidden');
-        showRecognitionState('welcome');
-        // Stays disabled — the welcome/confirm-email panel (already gating
-        // Continue) is what re-enables it, either on a confirmed match or
-        // once the recognize-vs-conflict flow reaches its "done" state.
-      })
-      .catch(function (err) {
-        console.warn('[brichaus-assessment] Contact recognition check failed (non-blocking):', err);
-        // Fail open — a webhook outage should never trap a legitimate visitor
-        // behind a check that can't complete, same principle as the RentCast
-        // quicklook's own non-blocking failure handling.
-        if (placeId === state.address.placeId) {
-          addressVerifying.classList.add('hidden');
-          locationContinue.removeAttribute('disabled');
-        }
-      });
-  }
+  // (The old checkContactRecognition() was removed in the intake-v2 cleanup:
+  // checkSiteRouting() on the Location step owns the recognize decision now
+  // and populates state.recognition + the recognition panel. The
+  // confirmEmail/conflict handlers below stand on their own.)
 
   recognitionConfirmBtn.addEventListener('bui-click', function () {
     var placeId = state.address.placeId;
