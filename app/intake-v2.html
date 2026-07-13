@@ -995,32 +995,6 @@
   }
   #brichaus-assessment .hidden { display: none !important; }
 
-  /* GHL's own native Survey submit control. No longer clicked by this
-     app (record creation is server-side in n8n now — see the top-of-file
-     doc comment) but still hidden so the visitor never sees a second,
-     nonfunctional submit button. A plain CSS rule (not scoped to
-     #brichaus-assessment, since GHL renders this control outside this
-     app's own container) so it's hidden the moment it's ever inserted
-     into the DOM, with no JS timing/polling race at all.
-
-     position: fixed at the viewport's own corner (0,0) rather than
-     position: absolute pushed to some huge document-relative offset —
-     an earlier version used left: -99999px, which left the element at
-     its natural (very-far-down) vertical position, still document-
-     scrollable-to; anything calling focus()/scrollIntoView() on it would
-     jump the whole page there. A fixed element pinned inside the
-     viewport bounds is already "in view" by definition, so nothing can
-     ever need to scroll to reach it. */
-  .ghl-submit-btn {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 1px !important;
-    height: 1px !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-
   /* The Survey's own outer wrapper — found by computing the common
      ancestor of every native field this page reads/writes, via a live
      DOM dump. Safe to hide wholesale now that the one thing worth
@@ -1687,82 +1661,7 @@
     // lets the proxy render a brand-new property that has no Dataverse row yet
     // (it falls back to a record lookup when they're absent). 204 = no imagery
     // → the <img> onerror hides it. Same endpoint proposal.html uses.
-    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image',
-
-    // Native GHL field `name` attributes this page mirrors values into via
-    // BUI.ghl (see ghl-bridge.js), so the native Survey submission on this
-    // same funnel page can create the Contact-linked Property record.
-    // MUST be a Survey element, not a Form — GHL's Form builder doesn't
-    // support Custom Object fields at all (see the top-of-file doc
-    // comment); only a Survey can hold these and create the association.
-    // This is deliberately a SHORT list: unit count, rent, the 4 driver
-    // scores, and the 3 AI-computed outputs (band/fee%/monthly fee) are
-    // NOT here, on purpose — n8n's "Update GHL Property Record" step
-    // writes all of those directly via its own API call after search+
-    // update, so nothing on this page needs to mirror them into a native
-    // field at all. This page only needs to get a valid, Contact-linked,
-    // Property-record-with-a-real-googlePlaceId created in the first
-    // place; everything else about the property is filled in afterward.
-    // No separate "formatted address" field on this Survey — Property
-    // Name is the field that both displays a name AND is the one this
-    // page writes to, to create the record. Google's Places API has no
-    // single "property name" field, so this app derives one — see
-    // computePropertyName() — preferring Google's own place displayName
-    // when it returns one (e.g. a named apartment complex/business), and
-    // otherwise building "<street number> <street name>" from
-    // addressComponents, which reads better as a name than the full
-    // formattedAddress (city/state/zip included).
-    GHL_FIELDS: {
-      googlePlaceId: 'gBfCUbkbTAIPc0Lgp3O2',
-      propertyName: 'gPrTpbXnXzkti10wJpUk',
-      // Standard GHL Contact fields — collected on the "Get Your Report"
-      // step. These native-field mirrors are now best-effort only: the
-      // actual Contact is created server-side by the n8n pipeline from
-      // buildWebhookPayload()'s FirstName/Email, not by a GHL submission.
-      firstName: 'first_name',
-      email: 'email'
-    },
-
-    // Required consent checkbox on this Survey. Deliberately NOT in
-    // GHL_FIELDS/hidden like the other native fields above — its label is
-    // real, GHL-configured legal/consent copy that shouldn't be hidden,
-    // duplicated, or pre-checked on the visitor's behalf. The "Get Your
-    // Report" step relocates the real element (input + label) into its
-    // own card — see #terms-slot in the "Get Your Report" step and the
-    // whenFieldReady callback below — rather than pointing at it from a
-    // distance, and gates its own Continue button on it being checked.
-    // This field's `name` is the stable value ("terms_and_conditions") —
-    // its `id` carries a Vue-generated render path (e.g.
-    // "..._1_v-0-0-2-0-0") that looks like a plausible field identifier
-    // but isn't one; confirmed via a live DOM dump after this got mixed up
-    // more than once.
-    GHL_TERMS_FIELD: 'terms_and_conditions',
-
-    // There is deliberately NO GHL_SUBMIT_SELECTOR / settle-delay config
-    // anymore. The native Survey submission used to be this widget's way
-    // of creating the Contact-linked Property record, and an entire family
-    // of timing/selector bugs lived here because of it. Confirmed dead
-    // live on 2026-07-10 (GHL ignores synthetic clicks — isTrusted:
-    // false), so record creation moved server-side: the n8n pipeline now
-    // creates the Property record, upserts the Contact, links the two via
-    // GHL's associations API, and logs a consent note, all from the
-    // FirstName/Email/Consent fields sent in buildWebhookPayload(). If
-    // records ever stop appearing in GHL again, debug the n8n pipeline
-    // (PropScore: Main Pipeline → Create GHL Property Record and the
-    // nodes after it) — there is nothing left to debug on this page.
-
-    // The Fee Calculation flow's request schema also expects these add-on
-    // toggles (see power-automate-build-spec.md). This funnel's 9 steps
-    // don't collect them, so if another page/step in this GHL funnel does,
-    // put that native field's `name` here and its live value is read at
-    // submit time. Leave blank to always send the neutral default shown.
-    ADDON_FIELDS: {
-      evictionCoverage: '', // default false
-      petCoverage: '',      // default false
-      leasePlacements: '',  // default false
-      leasingFeePct: '',    // default 0
-      inspections: ''       // default false
-    }
+    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image'
   };
 
   // Resolve the PROPOSAL_PAGE_URL custom value. If GHL interpolated it, use it;
@@ -2033,38 +1932,6 @@
 
   function currency(n) {
     return '$' + Math.round(n).toLocaleString('en-US');
-  }
-
-  /* =====================================================================
-   * GHL hidden-field sync — fires whenever the relevant piece of state
-   * changes, so the native fields stay current no matter when this
-   * funnel's own submit button is clicked.
-   * =================================================================== */
-  function syncGhlField(key, value) {
-    var fieldName = CONFIG.GHL_FIELDS[key];
-    if (!fieldName || fieldName.indexOf('REPLACE_') === 0) return;
-    var found = false;
-    window.BUI.ghl.whenFieldReady(fieldName, function () {
-      found = true;
-      window.BUI.ghl.writeField(fieldName, value);
-    }, { maxAttempts: 10 });
-    // whenFieldReady fails silently by design (see ghl-bridge.js) — this
-    // is the one place that actually surfaces a timeout, since a value
-    // simply never reaching GHL is otherwise invisible until someone
-    // notices it missing in a GHL record days later. 300ms default
-    // interval * 10 maxAttempts above, plus a small buffer.
-    setTimeout(function () {
-      if (!found) console.warn('[brichaus-assessment] GHL field "' + fieldName + '" (' + key + ') was never found on the page — "' + value + '" was not written.');
-    }, 3100);
-  }
-
-  function readAddonField(key, fallback) {
-    var fieldName = CONFIG.ADDON_FIELDS[key];
-    if (!fieldName) return fallback;
-    var el = window.BUI.dom.qs('[name="' + fieldName + '"]');
-    if (!el) return fallback;
-    if (el.type === 'checkbox') return el.checked;
-    return el.value;
   }
 
   /* =====================================================================
@@ -2449,8 +2316,6 @@
     state.address.unitNumber = subpremise || '';
     state.address.unitFromSubpremise = !!subpremise;
     addressInput.setAttribute('error', '');
-    syncGhlField('googlePlaceId', state.address.placeId);
-    syncGhlField('propertyName', state.address.propertyName);
     // Shown for every selection — in-area or not, "is that pin my
     // property?" is the same secondary check.
     showAddressMap(place.location);
@@ -2502,8 +2367,6 @@
     hideAddressMap();
     locationContinue.setAttribute('disabled', '');
     addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
-    syncGhlField('googlePlaceId', '');
-    syncGhlField('propertyName', '');
     if (typed) fetchRentCastQuicklook(typed);
     resetRecognitionPanel();
   });
@@ -3054,7 +2917,7 @@
 
   snapshotContinue.addEventListener('bui-click', function () {
     // Not mirrored to a native field — n8n writes rent to the Property
-    // record directly after search+update (see GHL_FIELDS doc). Unit count
+    // record directly after search+update. Unit count
     // was already committed on the Property Type step.
     state.rentPerUnit = parseFloat(rentInput.value) || 0;
     renderRevenueHero();
@@ -3191,7 +3054,7 @@
     if (!state.drivers[step.key]) return;
 
     // Not mirrored to a native field — n8n writes driver scores to the
-    // Property record directly after search+update (see GHL_FIELDS doc).
+    // Property record directly after search+update.
 
     if (driverStepIndex < DRIVER_STEPS.length - 1) {
       driverStepIndex++;
@@ -3287,13 +3150,11 @@
       var name = splitFullName(evt.detail.value || '');
       state.contact.firstName = name.first;
       state.contact.lastName = name.last;
-      syncGhlField('firstName', state.contact.firstName);
       refreshContactContinue();
     });
 
     contactEmailInput.addEventListener(eventName, function (evt) {
       state.contact.email = (evt.detail.value || '').trim();
-      syncGhlField('email', state.contact.email);
       updateContactEmailError();
       refreshContactContinue();
     });
@@ -3369,11 +3230,11 @@
       ComplianceScore: DemandEngine.multiplier[state.drivers.compliance],
       MaintenanceScore: DemandEngine.multiplier[state.drivers.maintenance],
       RentValue: state.rentPerUnit,
-      EvictionCoverage: readAddonField('evictionCoverage', false),
-      PetCoverage: readAddonField('petCoverage', false),
-      LeasePlacements: readAddonField('leasePlacements', false),
-      LeasingFeePct: readAddonField('leasingFeePct', 0),
-      Inspections: readAddonField('inspections', false),
+      EvictionCoverage: false,
+      PetCoverage: false,
+      LeasePlacements: false,
+      LeasingFeePct: 0,
+      Inspections: false,
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
       PropertyName: state.address.propertyName || state.address.formattedAddress,
@@ -3658,7 +3519,7 @@
     demandMark.setAttribute('data-tone', result.band.tone);
 
     // Not mirrored to a native field — n8n writes the band/fee/monthly fee
-    // to the Property record directly after search+update (see GHL_FIELDS doc).
+    // to the Property record directly after search+update.
 
     renderReportSummary(webhook);
     renderOperationalProfile(webhook);
@@ -4183,31 +4044,6 @@
   /* =====================================================================
    * Startup
    * =================================================================== */
-  (function warnAboutPlaceholders() {
-    var unset = Object.keys(CONFIG.GHL_FIELDS).filter(function (key) {
-      return CONFIG.GHL_FIELDS[key].indexOf('REPLACE_') === 0;
-    });
-    if (unset.length) {
-      console.warn('[brichaus-assessment] GHL field names still placeholders, hidden-field sync is skipped for: ' + unset.join(', '));
-    }
-  })();
-
-  // The native GHL Survey fields this app mirrors values into (see
-  // syncGhlField) are real visible fields on the survey page — this app
-  // replaces them visually with its own bui-* steps, so each native
-  // original needs to be hidden the same way address-input.js's own
-  // native counterpart would be, per ghl-bridge.js's hideNative doc.
-  // "for Surveys, hide with CSS rather than a builder toggle" — a
-  // builder-level hide is what an earlier gotcha this session showed
-  // doesn't reliably survive submission the way this does.
-  Object.keys(CONFIG.GHL_FIELDS).forEach(function (key) {
-    var fieldName = CONFIG.GHL_FIELDS[key];
-    if (!fieldName || fieldName.indexOf('REPLACE_') === 0) return;
-    window.BUI.ghl.whenFieldReady(fieldName, function (el) {
-      window.BUI.ghl.hideNative(el);
-    });
-  });
-
   showStep('location');
 })();
 </script>
