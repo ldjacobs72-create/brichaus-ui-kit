@@ -678,7 +678,7 @@
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
   var recognitionWelcome = document.getElementById('recognition-welcome');
 
-  var recognition = { firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+  var recognition = { firstName: '', fullName: '', contactId: '', attempts: 0, wrongEmails: [] };
   // The email that actually passed the server-side confirmEmail check —
   // kept for prefilling the embedded booking calendar (never trusted for
   // anything gate-related; the gate is server-verified).
@@ -816,6 +816,7 @@
           return;
         }
         recognition.firstName = data.firstName || '';
+        recognition.fullName = data.fullName || '';
         recognition.contactId = data.contactId || '';
         recognitionFirstname.textContent = recognition.firstName;
         // Silent-confirm handoff: the assessment funnel (same origin)
@@ -1218,7 +1219,7 @@
     // "Prepared for" — the contact's full name when the funnel handed it off,
     // otherwise the first name resolved during recognition, else hidden.
     var preparedEl = document.getElementById('prepared-for');
-    var preparedName = (data.contactFullName || recognition.firstName || '').trim();
+    var preparedName = (data.contactFullName || recognition.fullName || recognition.firstName || '').trim();
     if (preparedEl) {
       preparedEl.textContent = preparedName ? ('Prepared for: ' + preparedName) : '';
       preparedEl.classList.toggle('hidden', !preparedName);
