@@ -50,11 +50,18 @@ Entra group + the n8n app user.
 
 ## Phase 1 — Install and connect `pac` 💻
 
+> **Using VS Code + Power Platform Tools?** You've already done most of this.
+> The extension **bundles the `pac` CLI**, so skip the install and just
+> authenticate from the integrated terminal. See
+> [Appendix A — VS Code workflow](#appendix-a--vs-code--power-platform-tools-workflow)
+> for how the extension changes Phases 1, 6, and 7.
+
 ```bash
 # Install the Power Platform CLI (pick one):
+#  - Already have the VS Code "Power Platform Tools" extension? pac is bundled — skip to `pac --version`.
 #  - .NET tool (cross-platform):
 dotnet tool install --global Microsoft.PowerApps.CLI.Tool
-#  - or the VS Code "Power Platform Tools" extension, or the standalone MSI.
+#  - or the standalone MSI.
 
 pac --version            # need 2.4.1+ (for YAML solution format)
 
@@ -238,3 +245,68 @@ the ops group.
 confirmed, solution with tables, app shell with data sources). Security (3–4)
 must be done before you hand the app to real staff, but it doesn't block writing
 the screens.
+
+---
+
+## Appendix A — VS Code + Power Platform Tools workflow
+
+You have the **Power Platform Tools** extension for VS Code, authenticated as
+`larry@brichausgroup.com` (the **Auth Profiles** panel), with your environments
+listed under **Environments & Solutions**. That bundles the `pac` CLI and folds
+several phases into one window. Here's what changes.
+
+### Pick the target environment first (the #1 gotcha)
+
+The panel shows multiple environments (Belen Jaia Investments, **brichaus_prod**,
+Larry Jacobs's Environment, Microsoft 365). The starred one is just the *active*
+target — it is **not** necessarily where `new_property` lives.
+
+- `new_property` (funnel + n8n data) is in **one** environment — almost
+  certainly **`brichaus_prod`**, not a personal default env.
+- **Build the app there.** Building against the wrong environment gives you
+  empty tables.
+- Confirm and set the active org in the integrated terminal:
+  ```bash
+  pac org who            # must show brichaus_prod
+  pac org list           # list environment URLs
+  pac org select --environment <brichaus_prod-url>
+  ```
+  Or right-click **brichaus_prod** in the panel → set as active/default.
+
+### What the extension simplifies, phase by phase
+
+| Phase | With the extension |
+|---|---|
+| **1 — Install + auth `pac`** | ✅ **Already done.** `pac` is bundled; you're authenticated. Just confirm the *active org* is prod (`pac org who`). |
+| **2 — Solution + tables** | ⚪ Partly. You can browse/expand solutions in the panel and scaffold with `pac solution init`, but **adding the existing tables** to the solution is still done in the maker portal. |
+| **3–4 — Security role + column security** | ❌ Unchanged — **Admin Center** in the browser. No IDE does these. |
+| **5 — Build the app (Canvas)** | ❌ Design still happens in **Power Apps Studio** (browser). The extension has **no canvas designer**. It edits the `*.pa.yaml` text, which is great for review — not for laying out screens. |
+| **6 — Source control** | ✅ **Biggest win.** `pac solution clone`/`pac canvas download` in the integrated terminal, then stage/commit with VS Code's Source Control panel — all in one window, right next to this repo. |
+| **7 — Build / deploy** | ✅ `pac solution pack` / `pac solution import` from the integrated terminal (or the command palette). |
+
+### The canvas source-control loop (Canvas app model)
+
+Because there's no canvas designer in VS Code, the round-trip is:
+
+1. **Design** the screens in Power Apps Studio (browser) — or have Claude Code
+   generate `*.pa.yaml` you import.
+2. **Download** the source into this repo from the VS Code terminal:
+   ```bash
+   pac canvas download --name "Brichaus Property Ops" \
+     --extract-to-directory ./power-platform/solution/canvasapps/bh_propertyops
+   ```
+3. **Review & commit** the `*.pa.yaml` diffs with the Source Control panel.
+4. **Repack/deploy** with `pac solution pack` / `import` when shipping.
+
+Visual edits made in VS Code don't round-trip back into Studio's designer —
+treat Studio as the design surface and VS Code as the source-control + review +
+CLI surface. (If you ever want the IDE to be the *primary* build surface, that's
+the **Code Apps** / React model — a different app type, out of scope for this
+Canvas build.)
+
+### Net for you
+
+Phases **1, 6, 7** collapse into VS Code; **2** is mostly portal; **3–4** are
+Admin Center; **5** stays in Studio. Nothing about having the extension removes
+the portal/Studio steps — it just makes the CLI and source-control half of the
+project live in one place alongside this repo.
