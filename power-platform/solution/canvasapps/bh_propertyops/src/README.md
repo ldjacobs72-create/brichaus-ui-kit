@@ -32,6 +32,13 @@ ways to instantiate them:
    via Code view** (Ctrl+V) onto the matching screen. Studio **validates and
    normalizes** on paste (it may adjust `Variant`/version and reorder props).
 
+> **Can't I do this in VS Code instead?** No — steps 1–4 (create the app, add the
+> data source, make screens, code-view paste) are **Power Apps Studio only**. The
+> VS Code Power Platform Tools extension has no canvas designer and no code-view
+> paste; `pac` has no "create blank app" command (`pac canvas create` only builds
+> from a custom connector, and `pac canvas pack` is deprecated). VS Code's role is
+> *after* the app exists: edit/review `.pa.yaml` and run `pac clone`/`pack`/`import`.
+
 ### Option 2 — Git integration (for ongoing round-trip)
 Connect the solution to source control and let Studio own the `.pa.yaml`. Note
 Dataverse Git integration is **Azure DevOps only** (see `docs/04`), so for this
