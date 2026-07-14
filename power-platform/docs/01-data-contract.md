@@ -109,7 +109,13 @@ group.
 > currency-normalized shadows Dataverse maintains automatically. **Never write
 > them** — write the non-`_base` column and let the platform compute the base.
 
-## Related tables (the internal app manages these as child records)
+## Related tables (documented for context — OUT OF SCOPE for this build)
+
+> ⚠️ **Scope note.** The internal Canvas App is a **single-table console over
+> `new_property` only.** The related/link tables below are **not** part of this
+> build — the app does not add them as data sources, show galleries for them, or
+> read/write them. They're documented here so the data model is complete and so
+> a future phase can pick them up, not because this app touches them.
 
 ### `new_unitconfiguration` — unit types & rents per property
 - Collection: `new_unitconfigurations`

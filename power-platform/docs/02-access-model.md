@@ -48,11 +48,13 @@ Recommended privileges (access level in parentheses; **BU** = Business Unit):
 | Table | Create | Read | Write | Delete | Append | AppendTo |
 |---|---|---|---|---|---|---|
 | `new_property` | **None** | Org | BU | None | BU | BU |
-| `new_unitconfiguration` | BU | Org | BU | BU | BU | BU |
-| `new_managementagreementterm` | BU | Org | BU | BU | BU | BU |
-| `cr55d_propertycontact` | BU | Org | BU | BU | BU | BU |
-| `new_propertytypeclassification` | None | Org | None | None | None | AppendTo=BU |
-| `contact` | None | Org | None | None | Append=BU | BU |
+
+> **Single-table scope.** This build is a console over `new_property` only. The
+> related/link tables (`new_unitconfiguration`, `cr55d_propertycontact`,
+> `new_managementagreementterm`, `new_propertytypeclassification`, `contact`)
+> are **out of scope**, so the role needs **no privileges on them** — leave them
+> at None. Fewer privileges = smaller attack surface and nothing extra to audit.
+> If a later phase adds those tables to the app, add their privileges then.
 
 Key decisions baked into that table:
 
@@ -64,13 +66,13 @@ Key decisions baked into that table:
   the app's "add" flow is a **search-or-request**, never a bare create (see
   build spec).
 - **`new_property` Delete = None.** Lifecycle is modeled by
-  `cr55d_managementstatus = Lost` + `statecode = Inactive` (deactivate), never
-  hard delete — deleting would orphan child units/contacts/terms and lose the
-  proposal history.
-- **Child tables allow Create/Write/Delete (BU).** Units, contacts, and
-  agreement terms are genuinely the app's to manage.
-- **Reference data (`new_propertytypeclassification`) is Read + AppendTo
-  only.** The app selects a classification; it doesn't edit the reference set.
+  `cr55d_managementstatus = Lost` (set the choice + `is*` bits), never hard
+  delete — deleting would lose the scoring/proposal history, and `statecode` is
+  **not** the lifecycle flag here (live data shows it decoupled from
+  management status, so the app doesn't touch it).
+- **No privileges on the related/link tables.** Units, contacts, agreement
+  terms, and the classification lookup are out of scope for this single-table
+  build, so the role grants nothing on them.
 
 Grant the role to a **security group / team** (e.g. an Entra ID group for the
 ops team), not to individuals, so onboarding is "add to group."
