@@ -4,6 +4,28 @@ The screen-by-screen plan for the internal Canvas App. Written so Claude Code
 (or a maker in Power Apps Studio) can execute it against the data contract
 ([`01`](01-data-contract.md)) and access model ([`02`](02-access-model.md)).
 
+## Live data notes (verified against `org985aea18`, 2026-07-14)
+
+Grounding facts pulled from the real table — build to these, not to assumptions:
+
+- **~29 property records**, actively written (last modified same day) by the n8n
+  app user `n8n-dataverse-propscore`. Small table today, but design delegable
+  (it grows with the funnel).
+- **Status spread:** 25 Prospect, 6 Managed today; **no Pending or Lost yet**.
+  Those two choice options exist but are unused — the app introduces them, so
+  don't rely on any existing Pending/Lost rows for testing.
+- **`statecode` is NOT a proxy for lifecycle.** Observed live: 19 Active
+  Prospect, 6 Active Managed, **4 *Inactive* Prospect**. `statecode` and
+  `cr55d_managementstatus` are decoupled here. Two consequences, both handled
+  below:
+  1. **Filter galleries on `cr55d_managementstatus`, never on the default
+     `statecode = Active`** — a `statecode`-based filter would silently hide
+     those 4 Inactive Prospects.
+  2. **"Deactivate" must not couple "Lost" to `statecode`.** Model Lost purely
+     via `cr55d_managementstatus` + `cr55d_islost`; leave `statecode` alone
+     (something else is already setting it, reason TBD — confirm with n8n before
+     ever writing `statecode` from the app).
+
 ## App-level facts
 
 - **Type:** Canvas app, **tablet layout** (staff use it on desktop; tablet
@@ -131,7 +153,7 @@ gblProperty...)`. Advance `new_status` Draft → Proposed → Accepted/Rejected;
 edit `new_suggestedfee`, `new_effectivedate`, `new_description`.
 
 ### Actions row
-- **Deactivate** (never delete): `Patch(Properties, gblProperty, {cr55d_managementstatus: 'Management Status (Properties)'.Lost, cr55d_islost: true, statecode: 'Status (Properties)'.Inactive})`.
+- **Mark Lost** (never delete): `Patch(Properties, gblProperty, {cr55d_managementstatus: 'Management Status (Properties)'.Lost, cr55d_islost: true, cr55d_isprospect: false, cr55d_ismanaged: false, cr55d_ispending: false})`. **Do not write `statecode`** — it's independently in use on live rows (see Live data notes). If a true Dataverse deactivate is ever needed, confirm the `statecode` semantics with the n8n owner first.
 - **Open public proposal**: `Launch("https://mgmt.brichausgroup.com/residential-management-proposal/?placeId=" & gblProperty.new_goggleplace_id)`.
 - **Re-score** (optional): POST `new_goggleplace_id` to the n8n main pipeline
   webhook via a custom connector — do **not** write scores from the app. Scores

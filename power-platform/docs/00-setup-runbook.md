@@ -21,11 +21,13 @@ the app is just edit → pack → import.
 Confirm all of these before touching anything. If any is "no", resolve it first
 (it'll block a later phase otherwise).
 
-- [ ] **Which environment?** The `new_property` data lives in one specific
-  Dataverse environment (the one your funnel/n8n write to). **Build the app in
-  that same environment** — the app needs the data, and Dataverse data is
-  per-environment. (A separate "dev" environment wouldn't have your properties.)
-  Get its URL: `https://<yourorg>.crm.dynamics.com`.
+- [x] **Which environment? — CONFIRMED.** The `new_property` data lives in
+  **`https://org985aea18.crm.dynamics.com`** (org unique name **`org985aea18`**,
+  business unit `org985aea18`) — verified live: ~29 property records, actively
+  written today. **Build the app in that environment.** ⚠️ In VS Code your
+  active `pac`/panel target is currently **"Larry Jacobs's Environment"** —
+  switch it to the env whose URL is `org985aea18.crm.dynamics.com` (run
+  `pac org list` and match the URL) before any `pac` or build work.
 - [ ] **Your rights in that environment.** You need **System Administrator** or
   **System Customizer** to create a solution/publisher and author tables/apps,
   **and** admin rights in the **Power Platform Admin Center** to create the
@@ -37,10 +39,10 @@ Confirm all of these before touching anything. If any is "no", resolve it first
 - [ ] **Who are the app's users?** Ideally a **Microsoft Entra ID group** for
   the ops team (e.g. "Brichaus Property Ops"). Create it now if it doesn't
   exist — Phase 3 grants the role to the group, not to individuals.
-- [ ] **The n8n service principal.** Find the **application user** n8n uses to
-  write to Dataverse (its app registration / client ID). You'll give it the
-  read-write column profile in Phase 4 so the pipeline keeps working. If you're
-  not sure which app user it is, check the n8n Dataverse credential.
+- [x] **The n8n service principal — CONFIRMED.** The Dataverse application user
+  n8n writes with is **`n8n-dataverse-propscore`** (verified — it's the
+  `createdby`/`modifiedby` on live property records). You'll give **this** user
+  the read-write column profile in Phase 4 so the pipeline keeps working.
 
 **Checkpoint:** you can name the environment URL, confirm you (or a named admin)
 have the two admin rights, confirm the ops users are licensed, and you know the
@@ -257,21 +259,23 @@ several phases into one window. Here's what changes.
 
 ### Pick the target environment first (the #1 gotcha)
 
-The panel shows multiple environments (Belen Jaia Investments, **brichaus_prod**,
-Larry Jacobs's Environment, Microsoft 365). The starred one is just the *active*
-target — it is **not** necessarily where `new_property` lives.
+The panel shows multiple environments (Belen Jaia Investments, brichaus_prod,
+**Larry Jacobs's Environment** ← currently starred, Microsoft 365). The starred
+one is just the *active* target — and it is **not** where `new_property` lives.
 
-- `new_property` (funnel + n8n data) is in **one** environment — almost
-  certainly **`brichaus_prod`**, not a personal default env.
-- **Build the app there.** Building against the wrong environment gives you
-  empty tables.
+- `new_property` (funnel + n8n data) is confirmed in the environment whose org
+  URL is **`https://org985aea18.crm.dynamics.com`**. Match that URL to a panel
+  entry via `pac org list` (the friendly name could be `brichaus_prod` or
+  another — identify it by the `org985aea18` URL, not by the display name).
+- **Build the app there.** Your active target is currently a personal env
+  ("Larry Jacobs's Environment") → switch it, or every table comes up empty.
 - Confirm and set the active org in the integrated terminal:
   ```bash
-  pac org who            # must show brichaus_prod
-  pac org list           # list environment URLs
-  pac org select --environment <brichaus_prod-url>
+  pac org list           # find the entry whose URL is org985aea18.crm.dynamics.com
+  pac org select --environment https://org985aea18.crm.dynamics.com
+  pac org who            # must now show org985aea18
   ```
-  Or right-click **brichaus_prod** in the panel → set as active/default.
+  Or right-click that environment in the panel → set as active/default.
 
 ### What the extension simplifies, phase by phase
 

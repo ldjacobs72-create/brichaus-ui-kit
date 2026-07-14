@@ -102,8 +102,12 @@ Belt (convention) and suspenders (column security).
 | Principal | What it is | Its access |
 |---|---|---|
 | Ops staff | Interactive users (Entra ID group) | "Internal Property Ops" role + "Scoring (read-only)" column profile |
-| n8n service principal | The pipeline's Dataverse app registration | Its own role with Write on Group B + "Scoring (read-write)" column profile |
+| **`n8n-dataverse-propscore`** | The pipeline's Dataverse **application user** (confirmed — it's the `createdby`/`modifiedby` on live property records) | Its own role with Write on Group B + "Scoring (read-write)" column profile |
 | GHL/native submit | Not a Dataverse user — writes via GHL→Dataverse sync | Out of scope of these roles; owns creation |
+
+> The n8n application user is named **`n8n-dataverse-propscore`** in this
+> environment (`org985aea18`). Grant *it* the read-write column profile in
+> Phase 4 of the runbook — that's the account that must keep writing scores.
 
 ## Sharing / row scope
 
