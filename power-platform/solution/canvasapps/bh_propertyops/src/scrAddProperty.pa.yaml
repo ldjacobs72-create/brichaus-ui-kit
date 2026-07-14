@@ -1,0 +1,90 @@
+# Screen 3 — Add property (search-or-request). new_property Create = None by
+# design: records are born from the intake funnel (only path that links a
+# Contact + a real googlePlaceId). This screen finds an existing record or
+# tells the user to route it through intake — it never creates a bare record.
+
+Screens:
+  scrAddProperty:
+    Properties:
+      Fill: =gblBg
+    Children:
+      - recAddHeader:
+          Control: Rectangle
+          Properties:
+            X: =0
+            Y: =0
+            Width: =Parent.Width
+            Height: =72
+            Fill: =gblSurfaceDark
+      - btnAddBack:
+          Control: Button
+          Properties:
+            Text: ="< Back"
+            X: =16
+            Y: =20
+            Width: =96
+            Height: =32
+            Fill: =gblSlate
+            Color: =gblWhite
+            OnSelect: =Navigate(scrProperties, ScreenTransition.None)
+      - lblAddTitle:
+          Control: Label
+          Properties:
+            X: =128
+            Y: =0
+            Width: =600
+            Height: =72
+            Text: ="Add / find a property"
+            Color: =gblWhite
+            Size: =18
+            FontWeight: =FontWeight.Semibold
+            VerticalAlign: =VerticalAlign.Middle
+      - lblAddHelp:
+          Control: Label
+          Properties:
+            X: =24
+            Y: =96
+            Width: =800
+            Height: =48
+            Color: =gblSlate
+            Text: ="Paste a Google Place ID to check whether this property already exists. New properties are created by the intake funnel, not here."
+      - txtGpid:
+          Control: TextInput
+          Properties:
+            X: =24
+            Y: =152
+            Width: =600
+            Height: =40
+            HintText: ="Google Place ID (e.g. ChIJ...)"
+            Default: =""
+      - btnFind:
+          Control: Button
+          Properties:
+            Text: ="Find"
+            X: =636
+            Y: =152
+            Width: =140
+            Height: =40
+            Fill: =gblAccent
+            Color: =gblWhite
+            # Delegable equality LookUp on the text business key.
+            OnSelect: |
+              =Set(gblFound, LookUp(Properties, new_goggleplace_id = Trim(txtGpid.Text)));
+              If(
+                  !IsBlank(gblFound),
+                  Set(gblProperty, gblFound); Navigate(scrPropertyDetail, ScreenTransition.None)
+              )
+      - lblResult:
+          Control: Label
+          Properties:
+            X: =24
+            Y: =212
+            Width: =800
+            Height: =120
+            Color: =gblDanger
+            # Only shows after a Find that returned nothing.
+            Visible: =!IsBlank(txtGpid.Text) && IsBlank(gblFound)
+            Text: |
+              ="No property found for that Place ID." & Char(10) &
+               "New properties are created by the intake funnel — send the owner the intake link, " &
+               "or trigger the intake/creation flow. Don't create a bare record here (it would have no Contact link)."

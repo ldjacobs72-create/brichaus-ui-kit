@@ -4,6 +4,13 @@ The screen-by-screen plan for the internal Canvas App. Written so Claude Code
 (or a maker in Power Apps Studio) can execute it against the data contract
 ([`01`](01-data-contract.md)) and access model ([`02`](02-access-model.md)).
 
+> **Generated source is available.** The screens described here are authored as
+> `*.pa.yaml` (v3 format) under
+> [`../solution/canvasapps/bh_propertyops/src/`](../solution/canvasapps/bh_propertyops/src/) —
+> see that folder's `README.md` for how to instantiate them (Studio code-view
+> paste or Git integration; `.pa.yaml` is not hand-`pack`-able). The Power Fx
+> there is the source of truth; this doc is the rationale.
+
 ## Live data notes (verified against `org985aea18`, 2026-07-14)
 
 Grounding facts pulled from the real table — build to these, not to assumptions:

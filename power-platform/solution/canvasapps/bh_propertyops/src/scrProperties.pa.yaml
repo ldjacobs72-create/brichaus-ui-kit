@@ -1,0 +1,161 @@
+# Screen 1 — Property list (master). Search + status filter + delegable gallery.
+# Data source alias: Properties  (= Dataverse table new_property)
+#
+# CONFIRM-IN-STUDIO: the choice global name 'Management Status (Properties)' is
+# how Power Fx surfaces the cr55d_managementstatus option set. If IntelliSense
+# shows a different display name, fix it here and in the other two screens.
+# Options: Managed=4, Prospect=2, Pending=875920001, Lost=1.
+
+Screens:
+  scrProperties:
+    Properties:
+      Fill: =gblBg
+    Children:
+      - recHeader:
+          Control: Rectangle
+          Properties:
+            X: =0
+            Y: =0
+            Width: =Parent.Width
+            Height: =72
+            Fill: =gblSurfaceDark
+      - lblTitle:
+          Control: Label
+          Properties:
+            X: =24
+            Y: =0
+            Width: =520
+            Height: =72
+            Text: ="Brichaus Property Ops"
+            Color: =gblWhite
+            Size: =20
+            FontWeight: =FontWeight.Semibold
+            VerticalAlign: =VerticalAlign.Middle
+      - btnAdd:
+          Control: Button
+          Properties:
+            Text: ="+ Add property"
+            X: =Parent.Width - 200
+            Y: =18
+            Width: =176
+            Height: =36
+            Fill: =gblAccent
+            Color: =gblWhite
+            OnSelect: =Navigate(scrAddProperty, ScreenTransition.None)
+      - txtSearch:
+          Control: TextInput
+          Properties:
+            X: =24
+            Y: =96
+            Width: =520
+            Height: =40
+            HintText: ="Search by property name"
+            Default: =""
+      - drpStatus:
+          Control: DropDown
+          Properties:
+            X: =560
+            Y: =96
+            Width: =240
+            Height: =40
+            Items: =["All","Prospect","Pending","Managed","Lost"]
+            Default: ="All"
+      - lblCount:
+          Control: Label
+          Properties:
+            X: =Parent.Width - 260
+            Y: =104
+            Width: =236
+            Height: =28
+            Align: =Align.Right
+            Color: =gblSlate
+            Text: =CountRows(galProperties.AllItems) & " shown"
+      - galProperties:
+          Control: Gallery
+          Variant: Vertical
+          Properties:
+            X: =24
+            Y: =152
+            Width: =Parent.Width - 48
+            Height: =Parent.Height - 176
+            TemplateSize: =84
+            Items: |
+              =SortByColumns(
+                  Filter(
+                      Properties,
+                      (IsBlank(txtSearch.Text) || StartsWith(new_propertyname, txtSearch.Text)),
+                      (drpStatus.Selected.Value = "All" ||
+                          cr55d_managementstatus = Switch(
+                              drpStatus.Selected.Value,
+                              "Prospect", 'Management Status (Properties)'.Prospect,
+                              "Pending",  'Management Status (Properties)'.Pending,
+                              "Managed",  'Management Status (Properties)'.Managed,
+                              "Lost",     'Management Status (Properties)'.Lost
+                          )
+                      )
+                  ),
+                  "new_propertyname",
+                  SortOrder.Ascending
+              )
+            OnSelect: =Set(gblProperty, ThisItem); Navigate(scrPropertyDetail, ScreenTransition.None)
+          Children:
+            - lblRowName:
+                Control: Label
+                Properties:
+                  X: =12
+                  Y: =10
+                  Width: =520
+                  Height: =28
+                  Text: =ThisItem.new_propertyname
+                  Size: =15
+                  FontWeight: =FontWeight.Semibold
+                  Color: =gblSurfaceDark
+            - lblRowAddr:
+                Control: Label
+                Properties:
+                  X: =12
+                  Y: =40
+                  Width: =520
+                  Height: =24
+                  Text: =ThisItem.cr55d_city & ", " & ThisItem.cr55d_state
+                  Color: =gblSlate
+            - lblRowUnits:
+                Control: Label
+                Properties:
+                  X: =560
+                  Y: =28
+                  Width: =160
+                  Height: =28
+                  # 4 live rows have NULL unit count — render as an em dash.
+                  Text: |
+                    ="Units: " & If(IsBlank(ThisItem.new_unitcount), "—", Text(ThisItem.new_unitcount))
+                  Color: =gblSlate
+            - lblRowStatus:
+                Control: Label
+                Properties:
+                  X: =Parent.TemplateWidth - 160
+                  Y: =26
+                  Width: =136
+                  Height: =32
+                  Align: =Align.Center
+                  VerticalAlign: =VerticalAlign.Middle
+                  Color: =gblWhite
+                  Size: =12
+                  Text: |
+                    =Switch(
+                        ThisItem.cr55d_managementstatus,
+                        'Management Status (Properties)'.Managed, "Managed",
+                        'Management Status (Properties)'.Prospect, "Prospect",
+                        'Management Status (Properties)'.Pending, "Pending",
+                        'Management Status (Properties)'.Lost, "Lost",
+                        "—"
+                    )
+                  Fill: |
+                    =Switch(
+                        ThisItem.cr55d_managementstatus,
+                        'Management Status (Properties)'.Managed, gblSlate,
+                        'Management Status (Properties)'.Prospect, gblAccent,
+                        'Management Status (Properties)'.Pending, gblWarning,
+                        'Management Status (Properties)'.Lost, gblDanger,
+                        gblSlate
+                    )
