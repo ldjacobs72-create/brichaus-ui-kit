@@ -3317,6 +3317,10 @@
     // Shape matches proposal.html's renderProposal(data) contract exactly.
     var data = {
       propertyName: state.address.propertyName || state.address.formattedAddress || '',
+      // Full formatted address lets the proposal show "City, ST Zip" under the
+      // property name; contactFullName drives the "Prepared for:" line.
+      formattedAddress: state.address.formattedAddress || '',
+      contactFullName: ((state.contact.firstName || '') + ' ' + (state.contact.lastName || '')).trim(),
       feeCalcResponse: !isNaN(feeRate) ? webhook.feeCalcResponse : (feePct / 100),
       monthlyFee: monthlyFee,
       leasingFeePct: (webhook && webhook.leasingFeePct != null) ? webhook.leasingFeePct : 0,

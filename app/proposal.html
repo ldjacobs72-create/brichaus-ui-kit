@@ -71,7 +71,7 @@
   #brichaus-proposal .bui-card[data-padding="sm"] .bui-card__footer {
     padding: 0;
   }
-  #brichaus-proposal .step-body-pad { padding: 52px 56px 44px; }
+  #brichaus-proposal .step-body-pad { padding: 26px 56px 44px; }
   /* The mobile block lives at the very END of this stylesheet — several
      selectors tie at equal specificity with later-in-source base rules,
      so source order is what makes the mobile overrides win. */
@@ -190,10 +190,10 @@
      Operational Workload + Proposal service cards + CTA. Evidence/comps/
      RentCast blocks are intentionally NOT ported — that raw data isn't part
      of the stored proposal JSON.) ---- */
-  /* The property address IS the report's title (per owner review — a
-     generic "Your Management Proposal Report" heading was redundant with
-     the page chrome): big and dark so it's obvious which property this
-     is, with a quieter "Management Proposal" line beneath it. */
+  /* The property's street line IS the report's title — big and dark so it's
+     obvious which property this is. A small uppercase "Prepared for: <name>"
+     tag sits above it, and a quieter "City, ST Zip" locality line sits
+     beneath it. */
   /* Street View hero (subject property) — served by the n8n image proxy,
      cached per property. Hidden until the image actually loads; if Google has
      no imagery the proxy returns 204 and onerror keeps it hidden, so the
@@ -226,12 +226,16 @@
     object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
     background: var(--bui-color-surface-sunken, #EEF1F4);
   }
+  #brichaus-proposal .prepared-for {
+    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--bui-color-accent); margin: 0 0 4px;
+  }
   #brichaus-proposal .report-address {
     font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
     color: #2B2F36; margin: 0 0 2px;
   }
-  #brichaus-proposal .report-subtitle {
-    font-size: 1.05rem; font-weight: 600;
+  #brichaus-proposal .report-locality {
+    font-size: 1.02rem; font-weight: 600;
     color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-4);
   }
   #brichaus-proposal .report-kicker {
@@ -479,7 +483,7 @@
   @media (max-width: 640px) {
     #brichaus-proposal { padding-left: 8px; padding-right: 8px; }
     #brichaus-proposal .proposal-intro p { font-size: 15px; }
-    #brichaus-proposal .step-body-pad { padding: 26px 16px 24px; }
+    #brichaus-proposal .step-body-pad { padding: 13px 16px 24px; }
     #brichaus-proposal .proposal-panel { padding: 28px 18px; }
     #brichaus-proposal .trust-panel { gap: 12px 20px; }
   }
@@ -546,8 +550,9 @@
         <!-- Subject-property Street View photo (see .property-hero). src is
              set in renderProposal() → loadPropertyImages(); stays hidden until
              it loads so a no-imagery property just shows no banner. -->
+        <p id="prepared-for" class="prepared-for hidden"></p>
         <p id="report-address" class="report-address hidden"></p>
-        <p class="report-subtitle">Management Proposal</p>
+        <p id="report-locality" class="report-locality hidden"></p>
         <!-- Subject-property Street View — a thin banner under the address (see
              .property-hero). src set in loadPropertyImages(); stays hidden until
              it loads so a no-imagery property just shows no banner. -->
@@ -588,7 +593,6 @@
         <div class="report-cta">
           <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
           <p class="cta-followup-note">Questions about this proposal? We're happy to walk through it with you.</p>
-          <button type="button" id="download-report-btn" class="report-download">Download this proposal (PDF)</button>
         </div>
 
         <!-- Embedded booking calendar — the SAME experience the funnel's
@@ -607,17 +611,6 @@
       </div>
     </bui-card>
   </div>
-
-  <!-- Persistent trust row below every state -- same pattern/copy as
-       app/index.html's .trust-panel. -->
-  <div class="trust-panel">
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Initial Proposal in Minutes*</span>
-  </div>
-  <!-- The asterisk's disclaimer — same footnote as the funnel page. -->
-  <p class="trust-disclaimer">*Most proposals are ready in under 2 minutes. If a data source is temporarily unavailable, we'll follow up with your proposal within 24 hours.</p>
 
 </div>
 
@@ -1206,14 +1199,30 @@
     var heroBand = document.getElementById('hero-band');
     var demandMark = document.getElementById('demand-mark');
 
-    // Dataverse's new_propertyname historically holds the FULL formatted
-    // address (street, city, state, zip) on most rows — as a title, only
-    // the street line reads well, so take everything before the first
-    // comma. Short names ("1815 Desert Willow Way", named buildings)
-    // have no comma and pass through untouched.
-    var rawName = data.propertyName || '';
-    reportAddress.textContent = rawName.split(',')[0].trim();
-    reportAddress.classList.toggle('hidden', !rawName);
+    // The address string is often the FULL formatted address
+    // ("Street, City, ST Zip[, Country]"). Title = the street line (first
+    // segment); locality = the middle (City, ST Zip), dropping a trailing
+    // country segment. Short names (no comma) show a title only.
+    var rawAddr = data.formattedAddress || data.propertyName || '';
+    var addrParts = rawAddr.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var title = (data.propertyName || rawAddr).split(',')[0].trim();
+    reportAddress.textContent = title;
+    reportAddress.classList.toggle('hidden', !title);
+
+    var localityEl = document.getElementById('report-locality');
+    var mid = addrParts.slice(1);
+    if (mid.length && /^(usa|united states)$/i.test(mid[mid.length - 1])) mid = mid.slice(0, -1);
+    var locality = mid.join(', ');
+    if (localityEl) { localityEl.textContent = locality; localityEl.classList.toggle('hidden', !locality); }
+
+    // "Prepared for" — the contact's full name when the funnel handed it off,
+    // otherwise the first name resolved during recognition, else hidden.
+    var preparedEl = document.getElementById('prepared-for');
+    var preparedName = (data.contactFullName || recognition.firstName || '').trim();
+    if (preparedEl) {
+      preparedEl.textContent = preparedName ? ('Prepared for: ' + preparedName) : '';
+      preparedEl.classList.toggle('hidden', !preparedName);
+    }
 
     var feeRate = parseFloat(data.feeCalcResponse);
     var monthlyFee = typeof data.monthlyFee === 'number' ? data.monthlyFee : null;
@@ -1303,10 +1312,6 @@
   /* =====================================================================
    * CTA — same handlers as app/index.html's Results step.
    * =================================================================== */
-  document.getElementById('download-report-btn').addEventListener('click', function () {
-    window.print();
-  });
-
   // Reveals the embedded booking calendar below the report and loads it
   // on first click only — same lazy-src + form_embed.js auto-resize
   // pattern as app/index.html's Schedule step (see its ensureBookingEmbed
