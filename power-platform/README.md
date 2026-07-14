@@ -59,18 +59,19 @@ the scoring pipeline's output. The column-ownership matrix in
 power-platform/
   README.md                        ← you are here
   docs/
+    00-setup-runbook.md            Ordered, do-this-then-that setup: env, solution, security, source control
     01-data-contract.md            The shared new_property schema + related tables, as a contract
     02-access-model.md             Read/write ownership matrix, security roles, column security, connector choice
     03-canvas-app-build-spec.md    The build plan Claude Code executes to author the Canvas App
-    04-alm-and-toolchain.md        pac CLI, Dataverse Git integration, YAML solution layout, build/deploy
+    04-alm-and-toolchain.md        pac CLI, YAML solution layout, build/deploy (+ Git integration caveats)
   solution/
     README.md                      How the solution source root gets populated (by tooling, not by hand)
-    .gitkeep                       Placeholder until `pac solution clone` writes real YAML here
 ```
 
 ## Start here
 
-1. Read [`docs/01-data-contract.md`](docs/01-data-contract.md) — the table you're building on.
-2. Read [`docs/02-access-model.md`](docs/02-access-model.md) — what the app may read vs. write, and the security roles that enforce it.
-3. Read [`docs/04-alm-and-toolchain.md`](docs/04-alm-and-toolchain.md) — install `pac`, connect the environment, populate `solution/`.
+1. **Do the setup first:** [`docs/00-setup-runbook.md`](docs/00-setup-runbook.md) — phases 0–7, with checkpoints, marking what you do in the portal vs. commands vs. what Claude Code builds. The minimum to unblock authoring is phases 0, 2, and 5.
+2. Reference [`docs/01-data-contract.md`](docs/01-data-contract.md) — the table you're building on.
+3. Reference [`docs/02-access-model.md`](docs/02-access-model.md) — what the app may read vs. write, and the roles/column security that enforce it.
 4. Follow [`docs/03-canvas-app-build-spec.md`](docs/03-canvas-app-build-spec.md) — the screen-by-screen build plan.
+5. Reference [`docs/04-alm-and-toolchain.md`](docs/04-alm-and-toolchain.md) — pack/deploy/promote details.

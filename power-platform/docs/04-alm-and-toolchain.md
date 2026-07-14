@@ -78,20 +78,24 @@ solution/
 
 ### Editing the canvas app as source
 
-The human-editable canvas source is `*.pa.yaml` inside the `.msapp`. Two ways
-to get at it:
+The human-editable canvas source is `*.pa.yaml` inside the `.msapp`.
 
-- **Preferred — Dataverse Git integration:** connect the environment/solution
-  to this Git repo in the maker portal. Studio then commits `*.pa.yaml`
-  directly; no manual unpack step. This is the current recommended path.
-- **CLI — download + extract:**
+- **This repo is on GitHub → use the `pac` CLI path (recommended for you).**
   ```bash
   pac canvas list                                   # find the app
   pac canvas download --name "Brichaus Property Ops" --extract-to-directory ./solution/canvasapps/bh_propertyops
   ```
   Edit the `*.pa.yaml` files under the extracted `\src` folder — those are the
   only source-of-truth files. **Do not** treat the `.json` files as source;
-  they aren't stable across save/load.
+  they aren't stable across save/load. Commit the `*.pa.yaml` to this GitHub
+  repo like any other source.
+
+- **Native Dataverse Git integration is an *alternative*, not this repo's
+  path.** It commits `*.pa.yaml` straight from Studio with no manual export —
+  but it **only supports Azure DevOps** (not GitHub, as of this writing) and
+  **requires Managed Environments** plus Azure DevOps licenses. Use it only if
+  your team already lives in Azure DevOps; otherwise stay on the `pac` CLI →
+  GitHub path above, which targets this repo directly.
 
 ## Build & deploy
 
