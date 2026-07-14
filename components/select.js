@@ -39,7 +39,7 @@
     '.bui-field__label { font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-text); }',
     '.bui-field__control {',
     '  font-family: var(--bui-font-family);',
-    '  font-size: var(--bui-font-size-md);',
+    '  font-size: var(--bui-font-size-control);', /* 16px min — prevents iOS focus-zoom */
     '  color: var(--bui-color-text);',
     '  background: var(--bui-color-surface);',
     '  border: 1px solid var(--bui-color-border-strong);',

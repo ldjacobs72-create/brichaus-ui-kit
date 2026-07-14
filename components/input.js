@@ -74,7 +74,7 @@
     '.bui-field__affix[data-kind="icon"] { padding-left: var(--bui-space-3); }',
     '.bui-field__control {',
     '  font-family: var(--bui-font-family);',
-    '  font-size: var(--bui-font-size-md);',
+    '  font-size: var(--bui-font-size-control);', /* 16px min — prevents iOS focus-zoom */
     '  color: var(--bui-color-text);',
     '  background: transparent;',
     '  border: none;',

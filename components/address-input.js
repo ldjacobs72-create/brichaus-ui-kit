@@ -94,7 +94,7 @@
     '.bui-field__icon { flex: 0 0 auto; display: flex; align-items: center; padding-left: var(--bui-space-3); color: var(--bui-color-text-muted); }',
     '.bui-field__control {',
     '  font-family: var(--bui-font-family);',
-    '  font-size: var(--bui-font-size-md);',
+    '  font-size: var(--bui-font-size-control);', /* 16px min — prevents iOS focus-zoom */
     '  color: var(--bui-color-text);',
     '  background: transparent;',
     '  border: none;',
