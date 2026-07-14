@@ -64,6 +64,8 @@ power-platform/
     02-access-model.md             Read/write ownership matrix, security roles, column security, connector choice
     03-canvas-app-build-spec.md    The build plan Claude Code executes to author the Canvas App
     04-alm-and-toolchain.md        pac CLI, YAML solution layout, build/deploy (+ Git integration caveats)
+    05-studio-paste-guide.md       Step-by-step Studio session to instantiate the generated screens
+  solution/canvasapps/bh_propertyops/src/   Generated *.pa.yaml screens (+ its own README)
   solution/
     README.md                      How the solution source root gets populated (by tooling, not by hand)
 ```

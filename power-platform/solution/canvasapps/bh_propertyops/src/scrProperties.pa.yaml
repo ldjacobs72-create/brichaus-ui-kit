@@ -1,10 +1,11 @@
 # Screen 1 — Property list (master). Search + status filter + delegable gallery.
 # Data source alias: Properties  (= Dataverse table new_property)
 #
-# CONFIRM-IN-STUDIO: the choice global name 'Management Status (Properties)' is
-# how Power Fx surfaces the cr55d_managementstatus option set. If IntelliSense
-# shows a different display name, fix it here and in the other two screens.
-# Options: Managed=4, Prospect=2, Pending=875920001, Lost=1.
+# Choice handling is GLOBAL-NAME-FREE: this screen compares the choice's label
+# text via `.Value` (e.g. cr55d_managementstatus.Value = "Managed") instead of
+# guessing the option-set display name. Labels: Managed / Prospect / Pending /
+# Lost. If your labels differ, change the literal strings — that's the only
+# choice dependency here. (See docs/05 for a numeric-value fallback.)
 
 Screens:
   scrProperties:
@@ -79,20 +80,17 @@ Screens:
             Width: =Parent.Width - 48
             Height: =Parent.Height - 176
             TemplateSize: =84
+            # Label-text filter (no option-set global name). At ~29 rows this
+            # is fine; the `.Value` comparison is non-delegable, so if this
+            # table ever exceeds a couple thousand rows, switch the status
+            # predicate to the delegable option-set form (see docs/05).
             Items: |
               =SortByColumns(
                   Filter(
                       Properties,
                       (IsBlank(txtSearch.Text) || StartsWith(new_propertyname, txtSearch.Text)),
                       (drpStatus.Selected.Value = "All" ||
-                          cr55d_managementstatus = Switch(
-                              drpStatus.Selected.Value,
-                              "Prospect", 'Management Status (Properties)'.Prospect,
-                              "Pending",  'Management Status (Properties)'.Pending,
-                              "Managed",  'Management Status (Properties)'.Managed,
-                              "Lost",     'Management Status (Properties)'.Lost
-                          )
-                      )
+                          cr55d_managementstatus.Value = drpStatus.Selected.Value)
                   ),
                   "new_propertyname",
                   SortOrder.Ascending
@@ -141,21 +139,13 @@ Screens:
                   VerticalAlign: =VerticalAlign.Middle
                   Color: =gblWhite
                   Size: =12
-                  Text: |
-                    =Switch(
-                        ThisItem.cr55d_managementstatus,
-                        'Management Status (Properties)'.Managed, "Managed",
-                        'Management Status (Properties)'.Prospect, "Prospect",
-                        'Management Status (Properties)'.Pending, "Pending",
-                        'Management Status (Properties)'.Lost, "Lost",
-                        "—"
-                    )
+                  Text: =Coalesce(ThisItem.cr55d_managementstatus.Value, "—")
                   Fill: |
                     =Switch(
-                        ThisItem.cr55d_managementstatus,
-                        'Management Status (Properties)'.Managed, gblSlate,
-                        'Management Status (Properties)'.Prospect, gblAccent,
-                        'Management Status (Properties)'.Pending, gblWarning,
-                        'Management Status (Properties)'.Lost, gblDanger,
+                        ThisItem.cr55d_managementstatus.Value,
+                        "Managed", gblSlate,
+                        "Prospect", gblAccent,
+                        "Pending", gblWarning,
+                        "Lost", gblDanger,
                         gblSlate
                     )

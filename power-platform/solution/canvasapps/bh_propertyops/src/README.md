@@ -50,11 +50,12 @@ the practical loop.
 These are the spots most likely to need a one-line fix once IntelliSense sees
 your real metadata — all are flagged inline in the YAML too:
 
-- [ ] **Choice global names.** The YAML uses `'Management Status (Properties)'`
-      and `'Leasing Fee Rate (Properties)'`. Power Fx names option sets by their
-      display name; if yours differ, fix the `Switch(...)` blocks. Option values:
-      management status Managed=4/Prospect=2/Pending=875920001/Lost=1; leasing
-      rate 100/50/20.
+- [ ] **Choice labels (no global name needed).** The screens are global-name-free
+      — they use `Choices(<column>)`, `drp.Selected`, and label text
+      (`.Value = "Managed"`). The only assumption is that the option **labels** are
+      `Managed / Prospect / Pending / Lost` and `100% / 50% / 20%`. If a label
+      differs, change the literal string. If `.Value` ever returns blank on your
+      choices, use the numeric-value fallback in `docs/05-studio-paste-guide.md`.
 - [ ] **Data source alias** is `Properties` (= `new_property`).
 - [ ] **Toggle control.** Uses classic `Toggle` (`.Value`). If Studio gives you a
       modern Toggle, change `.Value` → `.Checked` in the Save `Patch`.

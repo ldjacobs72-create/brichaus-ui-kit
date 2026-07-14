@@ -3,10 +3,10 @@
 # Group C (ops) is editable; Save keeps cr55d_managementstatus and the four
 # is* bits in sync (the single most important rule — bits already drift live).
 #
-# CONFIRM-IN-STUDIO choice global names:
-#   'Management Status (Properties)'  -> options Managed/Prospect/Pending/Lost
-#   'Leasing Fee Rate (Properties)'   -> options '100%'/'50%'/'20%'
-# Fix here if IntelliSense shows different display names.
+# Choice handling is GLOBAL-NAME-FREE: dropdowns bind to Choices(<column>) and
+# the Patch writes the selected choice record directly (drp.Selected), so there
+# is no option-set display-name to guess. Only the label literals ("Managed",
+# etc.) matter. (docs/05 has a numeric-value fallback if .Value misbehaves.)
 #
 # Toggle uses the classic Toggle control (.Value boolean). If you swap to the
 # modern Toggle, change .Value -> .Checked in the Save Patch.
@@ -137,16 +137,9 @@ Screens:
             Y: =332
             Width: =240
             Height: =40
-            Items: =["Prospect","Pending","Managed","Lost"]
-            Default: |
-              =Switch(
-                  gblProperty.cr55d_managementstatus,
-                  'Management Status (Properties)'.Managed, "Managed",
-                  'Management Status (Properties)'.Prospect, "Prospect",
-                  'Management Status (Properties)'.Pending, "Pending",
-                  'Management Status (Properties)'.Lost, "Lost",
-                  "Prospect"
-              )
+            # Bound to the column's own choices — no display-name guess.
+            Items: =Choices(Properties.cr55d_managementstatus)
+            Default: =gblProperty.cr55d_managementstatus.Value
       - lblRateCap:
           Control: Label
           Properties:
@@ -163,15 +156,8 @@ Screens:
             Y: =332
             Width: =160
             Height: =40
-            Items: =["100","50","20"]
-            Default: |
-              =Switch(
-                  gblProperty.cr55d_leasingfeerate,
-                  'Leasing Fee Rate (Properties)'.'100%', "100",
-                  'Leasing Fee Rate (Properties)'.'50%', "50",
-                  'Leasing Fee Rate (Properties)'.'20%', "20",
-                  "100"
-              )
+            Items: =Choices(Properties.cr55d_leasingfeerate)
+            Default: =gblProperty.cr55d_leasingfeerate.Value
       - togEviction:
           Control: Toggle
           Properties:
@@ -330,19 +316,12 @@ Screens:
                   Properties,
                   gblProperty,
                   {
-                      cr55d_managementstatus: Switch(drpStatusEdit.Selected.Value,
-                          "Managed",  'Management Status (Properties)'.Managed,
-                          "Prospect", 'Management Status (Properties)'.Prospect,
-                          "Pending",  'Management Status (Properties)'.Pending,
-                          "Lost",     'Management Status (Properties)'.Lost),
+                      cr55d_managementstatus: drpStatusEdit.Selected,
                       cr55d_ismanaged:  (drpStatusEdit.Selected.Value = "Managed"),
                       cr55d_isprospect: (drpStatusEdit.Selected.Value = "Prospect"),
                       cr55d_ispending:  (drpStatusEdit.Selected.Value = "Pending"),
                       cr55d_islost:     (drpStatusEdit.Selected.Value = "Lost"),
-                      cr55d_leasingfeerate: Switch(drpLeasingRate.Selected.Value,
-                          "100", 'Leasing Fee Rate (Properties)'.'100%',
-                          "50",  'Leasing Fee Rate (Properties)'.'50%',
-                          "20",  'Leasing Fee Rate (Properties)'.'20%'),
+                      cr55d_leasingfeerate: drpLeasingRate.Selected,
                       cr55d_evictioncoverage:      togEviction.Value,
                       cr55d_petcoverage:           togPet.Value,
                       cr55d_leaseplacementcoverage: togLeasePlacement.Value,
@@ -373,7 +352,7 @@ Screens:
               =If(
                   Confirm("Mark this property as Lost?"),
                   Patch(Properties, gblProperty, {
-                      cr55d_managementstatus: 'Management Status (Properties)'.Lost,
+                      cr55d_managementstatus: LookUp(Choices(Properties.cr55d_managementstatus), Value = "Lost"),
                       cr55d_islost: true,
                       cr55d_isprospect: false,
                       cr55d_ismanaged: false,
