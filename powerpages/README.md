@@ -5,6 +5,11 @@ architecture). **Hybrid** = standard Power Pages components for the management s
 (list + edit form, near-zero build) + one custom **web template** for the create widget
 (the piece that must be custom code).
 
+> **New to Power Pages? Start here:** `docs/POWERPAGES-CREATE-PAGE-RUNBOOK.md` — a
+> step-by-step, beginner runbook to get the Create-New page live as a staff-only page
+> (maker-portal clicks + the `pac` CLI code-deploy path). It skips table permissions/web
+> roles because the create page talks to n8n, not Dataverse — the smallest first build.
+
 ## Layout
 
 ```
