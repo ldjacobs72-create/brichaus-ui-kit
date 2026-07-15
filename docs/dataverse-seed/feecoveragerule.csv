@@ -1,0 +1,4 @@
+"Coverage","Source Category","Trigger Labels","Description","Active"
+"eviction","Tenant Friction","High,Severe","Eviction protection included when tenant friction is High or Severe.","Yes"
+"leasePlacement","Turnover Pressure","Severe","Lease-placement coverage included when turnover pressure is Severe.","Yes"
+"inspection","Maintenance Burden","High,Severe","Annual inspection included when maintenance burden is High or Severe.","Yes"

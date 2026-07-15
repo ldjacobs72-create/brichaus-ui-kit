@@ -318,15 +318,88 @@ Then add the seed rows I provide.
 
 ---
 
-## After Copilot builds them
+## Seed data
 
-1. **Verify logical names** Copilot assigned (it echoes them) against the specs above —
-   the `cr55d_` prefix and the exact column names matter for wiring n8n.
-2. **Confirm the seed rows** match the tables here (Copilot's row import occasionally
-   drops long text or trims choices — Table 3's 16 notes are the ones to spot-check).
-3. **Wire n8n as a pilot on Table 1 + Table 2 first** (OIA Bands + Score Labels): one
-   Dataverse GET at the top of `OIA Scoring`, cache the result, and fall back to the
-   current hardcoded arrays if the read fails — so a Dataverse blip can never take
-   scoring down. Once that's proven, move Tables 3–6 the same way.
-4. Leave the constants in the Code nodes as the **fallback default** even after wiring —
-   the table becomes the source of truth, the code becomes the safety net.
+Import-ready CSVs live in [`docs/dataverse-seed/`](./dataverse-seed/), one per table:
+`oiaband.csv`, `oiascorelabel.csv`, `oiaevidencenote.csv`, `feecoveragerule.csv`,
+`servicearea.csv`, `appconfig.csv`. All fields are quoted (the definitions/notes contain
+commas and em dashes). Load them via **Table → Import → Import data from Excel/CSV**, or
+paste the rows to Copilot after the table exists. They carry the exact live values, so the
+tables start out matching current behavior.
+
+---
+
+## Review checklist (verify each table Copilot built)
+
+For each table, confirm:
+
+- [ ] **Logical names** use the `cr55d_` prefix and match the column specs above (Copilot
+  echoes the names it assigned — the automation wires to these exact strings).
+- [ ] **Choice options** are exactly as listed, with no extras Copilot invented, and the
+  **labels match** the CSV values character-for-character (categories, labels, statuses,
+  data types). A mismatched choice label silently breaks the lookup.
+- [ ] **Decimal precision**: OIA Band `Raw Min/Max` = 4 dp (so `0.0625` isn't rounded to
+  `0.06`); Score = 2 dp.
+- [ ] **Alternate keys** exist and are on the columns noted (Band Name; Score; Category+Label;
+  Coverage; State Code; Config Key). These are what the automation queries by.
+- [ ] **Auditing is on** and every table has the **`Active` Yes/No** column defaulting to Yes.
+- [ ] **Seed rows** loaded completely — spot-check Table 3's 16 evidence notes for dropped
+  long text, and confirm `appconfig.emailUnverifiedStatuses` kept all six comma-separated
+  values in one cell.
+
+---
+
+## Redundancy: Dataverse-only, never the workflow  *(owner decision, 2026-07-15)*
+
+**The n8n workflow must NOT keep the constants as a hardcoded fallback.** A hidden literal
+copy is exactly the drift problem we're removing — it becomes the "real" logic nobody
+remembers editing. The source of truth is Dataverse, and so is the backup.
+
+**Two-tier, both in Dataverse:**
+
+1. **Primary** — the six config tables above (editable source of truth).
+2. **Backup** — a **`cr55d_configsnapshot`** table that mirrors the primary tables and is
+   populated *from them* by a scheduled Power Automate flow (Dataverse → Dataverse, never a
+   hand-typed value). One row per config table: `Snapshot Key` (which table),
+   `Snapshot Json` (the whole table serialized), `Taken At`, `Active`. The flow reads each
+   primary table on a cadence (e.g. nightly, or on-change) and upserts its row, so the
+   snapshot is always the last-known-good Dataverse state.
+
+**n8n read order at the top of a flow:** primary table → on empty/error, the matching
+`cr55d_configsnapshot` blob → **on both failing, fail closed** (do not run on guessed
+values): mark the submission for retry / human review rather than misprice it. For a
+pricing pipeline, holding is safer than silently running stale logic.
+
+> **Optional soft layer (still Dataverse-sourced, zero literals):** cache the last
+> successful Dataverse read in n8n static data and use it on a transient read failure. It's
+> a cached *Dataverse* value, not a hand-authored constant — so it honors "Dataverse only."
+> Without a cache hit, still fail closed.
+
+**Consequence to accept:** on a total Dataverse outage, scoring/fee-derivation **pauses**
+(fail-closed) instead of running on embedded defaults. That's the deliberate trade for a
+single, non-drifting source of truth.
+
+### `cr55d_configsnapshot` — Copilot prompt
+
+```
+Create a table named "Config Snapshot" (plural "Config Snapshots"). It stores a serialized
+backup copy of each configuration table, refreshed automatically from the live tables.
+Columns:
+- "Snapshot Key" — single line of text — primary name column — the name of the config
+  table this row backs up (e.g. "oiaband").
+- "Snapshot Json" — multiple lines of text (max length 1048576) — the full table contents
+  serialized as JSON.
+- "Taken At" — date and time — when this snapshot was captured.
+Add an alternate key named "Snapshot Key Key" on the Snapshot Key column.
+Do not add seed rows — a scheduled flow populates this table.
+```
+
+### Wiring sequence
+
+1. Build the six tables + `cr55d_configsnapshot`, seed the six from the CSVs.
+2. Build the **snapshot refresh** Power Automate flow (reads each primary table → upserts
+   its `cr55d_configsnapshot` row). Run it once so backups exist before n8n depends on them.
+3. **Pilot on OIA Bands + Score Labels:** one Dataverse GET at the top of `OIA Scoring`,
+   with the primary → snapshot → fail-closed order above. Delete the hardcoded `BANDS[]`
+   and `labelFor` literals from the Code node in the same change.
+4. Once proven, move Tables 3–6 the same way and strip their literals too.
