@@ -305,8 +305,11 @@
   function init() {
     fillScoreOptions();
     var addr = $('address-input');
-    // bui-address-input fires bui-change with the selected place on the element.
-    addr.addEventListener('bui-change', function (e) { onAddressSelected(e.detail || {}); });
+    // bui-address-input fires bui-change on every value change (no placeId in
+    // its detail) but bui-address-select specifically on a real suggestion
+    // pick, with { description, placeId, place } — that's the one this widget
+    // needs to trigger the routing lookup.
+    addr.addEventListener('bui-address-select', function (e) { onAddressSelected(e.detail || {}); });
     ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
       $(id).addEventListener('bui-change', deriveCoverage);
     });
