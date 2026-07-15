@@ -1,11 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
 <script>
   // Reads the Maps key from the Power Pages Site Setting named
-  // "google_maps_key" (Portal Management -> Site Settings -> New). This line
-  // sits outside the raw-literal block below on purpose (see that block's own
-  // comment for why one exists) -- it's the one part of the file Power Pages'
-  // Liquid engine IS meant to evaluate, so the key lives in exactly one place
-  // (the site setting) and survives every future full-file Source replace,
-  // instead of being retyped into the Source text each time. Local dev
+  // "google_maps_key" (Portal Management -> Site Settings -> New). This tag
+  // sits here, immediately after <head>, so the DOCTYPE above stays the
+  // literal first byte of the response (a <script> before the DOCTYPE would
+  // force the whole page into quirks mode -- comments are exempt, elements
+  // aren't). It's ALSO outside the raw-literal block below on purpose --
+  // it's the one part of the file Power Pages' Liquid engine IS meant to
+  // evaluate, so the key lives in exactly one place (the site setting) and
+  // survives every future full-file Source replace, instead of being
+  // retyped into the Source text each time. Local dev
   // (`powerpages/dev/serve-widget.js`) has no Liquid engine, so it
   // substitutes this exact line's tag with a real key itself at serve time --
   // keep the line intact/unmoved if you edit nearby. IMPORTANT: never write
@@ -54,6 +60,14 @@
       it exists the Generate button shows the assembled payload instead of
       posting (DRY_RUN), so this page is usable/verifiable now.
 -->
+<meta charset="utf-8">
+<!-- Without this, mobile browsers assume a ~980px desktop layout and scale
+     the whole page down to fit — the page LOOKS like it "shrinks to fit"
+     instead of actually reflowing to a narrow viewport. This tag is what
+     makes the .grid4 media query below (and everything else) respond to the
+     device's real width instead. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create New Proposal — Internal</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/address-input.js"></script>
@@ -80,6 +94,8 @@
   #bui-internal-create pre { background: var(--bui-color-surface-dark); color: var(--bui-color-text-on-dark); padding: 14px; border-radius: var(--bui-radius-md); overflow-x: auto; font-size: 0.75rem; }
   #bui-internal-create .bar { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
 </style>
+</head>
+<body>
 
 <div id="bui-internal-create">
   <h1>Create New Proposal</h1>
@@ -97,13 +113,10 @@
   <div class="card hidden" id="details-card">
     <h2>2 · Property details <span class="note">(pre-filled from RentCast · override as needed)</span></h2>
     <div class="grid2">
-      <bui-select id="f-propertytype" label="Property type">
-        <option value="Single Family">Single Family</option>
-        <option value="Condo">Condo</option>
-        <option value="Townhome">Townhome</option>
-        <option value="Multifamily">Multifamily</option>
-        <option value="Apartment">Apartment</option>
-      </bui-select>
+      <!-- Options are populated in init() (fillPropertyTypeOptions), not
+           authored here — see the note above the score selects below for why
+           static <option> children don't survive on a network-parsed page. -->
+      <bui-select id="f-propertytype" label="Property type"></bui-select>
       <bui-input id="f-units" label="Unit count" type="number" inputmode="numeric" value="1"></bui-input>
       <bui-input id="f-rent" label="Rent (per unit, monthly)" type="number" inputmode="numeric" prefix="$"></bui-input>
       <bui-input id="f-name" label="Property name (internal)" placeholder="e.g. 123 Main St"></bui-input>
@@ -114,6 +127,15 @@
   <div class="card hidden" id="scores-card">
     <h2>3 · Operational scores</h2>
     <div class="grid4">
+      <!-- Score vocabulary — value drives logic; label is display only (mirrors
+           the current cr55d_oiascorelabel rows). Options populated in init()
+           (fillScoreOptions), not authored here: bui-select's connectedCallback
+           fires the instant the HTML parser inserts its OPENING tag — before
+           it has parsed any nested <option> children — so on a normal
+           network-parsed page (as opposed to innerHTML injection) statically
+           authored options never make it into the internal <select>; they end
+           up as inert siblings next to it instead. Confirmed by direct DOM
+           inspection during Power Pages testing. -->
       <bui-select id="s-tenant" label="Tenant Friction"></bui-select>
       <bui-select id="s-turnover" label="Turnover Pressure"></bui-select>
       <bui-select id="s-maintenance" label="Maintenance Burden"></bui-select>
@@ -199,21 +221,42 @@
     { v: '2',   label: 'Intense' }
   ];
 
+  var PROPERTY_TYPES = ['Single Family', 'Condo', 'Townhome', 'Multifamily', 'Apartment'];
+
   var state = { placeId: '', formattedAddress: '', facts: {} };
 
   function $(id) { return document.getElementById(id); }
   function show(id) { $(id).classList.remove('hidden'); }
 
-  function fillScoreOptions() {
-    ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
-      var sel = $(id);
-      SCORES.forEach(function (s) {
-        var o = document.createElement('option');
-        o.value = s.v; o.textContent = s.label + ' (' + s.v + ')';
-        sel.appendChild(o);
-      });
-      sel.value = '1'; // default Normal
+  // bui-select's connectedCallback fires the instant the HTML parser inserts
+  // its OPENING tag — before it has parsed any nested <option> children — so
+  // on a normal network-parsed page (unlike innerHTML injection) statically
+  // authored <option> children never make it into the internal <select>; they
+  // end up as inert siblings next to it instead (confirmed by direct DOM
+  // inspection during Power Pages testing). Populate options here instead,
+  // directly into that internal element — by the time init() runs
+  // (DOMContentLoaded), every bui-select already in the initial document has
+  // already connected, so its real <select> reliably exists to target.
+  function fillSelectOptions(id, options, defaultValue) {
+    var host = $(id);
+    var real = host.querySelector('select');
+    options.forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt.value; o.textContent = opt.label;
+      real.appendChild(o);
     });
+    if (defaultValue !== undefined) host.value = defaultValue;
+  }
+
+  function fillScoreOptions() {
+    var opts = SCORES.map(function (s) { return { value: s.v, label: s.label + ' (' + s.v + ')' }; });
+    ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
+      fillSelectOptions(id, opts, '1'); // default Normal
+    });
+  }
+
+  function fillPropertyTypeOptions() {
+    fillSelectOptions('f-propertytype', PROPERTY_TYPES.map(function (t) { return { value: t, label: t }; }));
   }
 
   // Auto-derive coverage from the current scores (same thresholds as the
@@ -320,6 +363,7 @@
 
   function init() {
     fillScoreOptions();
+    fillPropertyTypeOptions();
     var addr = $('address-input');
     // bui-address-input fires bui-change on every value change (no placeId in
     // its detail) but bui-address-select specifically on a real suggestion
@@ -336,4 +380,6 @@
   else init();
 })();
 </script>
+</body>
+</html>
 {% endraw %}
