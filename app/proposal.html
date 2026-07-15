@@ -986,11 +986,24 @@
     'Compliance Burden': 'complianceBurden'
   };
 
+  // Keyed by SCORE threshold, not the label word — the operational labels are
+  // owner-editable in Dataverse (cr55d_oiascorelabel), so "High"/"Severe" are
+  // not stable. The score (0.5/1/1.5/2) is. Backend applies coverage on the same
+  // thresholds (see Main Pipeline: eviction/inspection >= 1.5, leasePlacement >= 2).
   var ASSET_SHIELD_TRIGGERS = {
-    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection'] },
-    turnoverPressure: { Severe: ['Lease Placement Protection'] },
-    maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
+    tenantFriction: { minScore: 1.5, items: ['Eviction Protection'] },
+    turnoverPressure: { minScore: 2, items: ['Lease Placement Protection'] },
+    maintenanceBurden: { minScore: 1.5, items: ['Annual Inspections'] }
   };
+
+  // Resolve a category's severity score. New proposals carry cat.score; older
+  // cached proposals (pre-score, pre-rename) carry only the old label words —
+  // map those so historical proposals keep working.
+  var LEGACY_LABEL_SCORE = { Low: 0.5, Normal: 1, High: 1.5, Severe: 2 };
+  function categoryScore(cat) {
+    if (cat && cat.score != null && cat.score !== '') return Number(cat.score);
+    return cat && LEGACY_LABEL_SCORE[cat.label] != null ? LEGACY_LABEL_SCORE[cat.label] : null;
+  }
 
   var ASSET_SHIELD_RATIONALE = {
     'Eviction Protection': 'Tenant friction on this property is running high, which raises the odds of needing to pursue an eviction — this covers that process if it becomes necessary.',
@@ -1006,9 +1019,11 @@
     var badged = new Set();
     categories.forEach(function (cat) {
       var key = CATEGORY_KEY_BY_NAME[cat.category];
-      var forKey = key && ASSET_SHIELD_TRIGGERS[key];
-      var forLabel = forKey && forKey[cat.label];
-      if (forLabel) forLabel.forEach(function (item) { badged.add(item); });
+      var rule = key && ASSET_SHIELD_TRIGGERS[key];
+      var score = categoryScore(cat);
+      if (rule && score != null && score >= rule.minScore) {
+        rule.items.forEach(function (item) { badged.add(item); });
+      }
     });
     return badged;
   }
@@ -1168,7 +1183,12 @@
       if (c.label) {
         var label = document.createElement('span');
         label.className = 'op-cat-label';
-        label.setAttribute('data-tone', String(c.label).trim().toLowerCase());
+        // Color by score band (low/normal/high/severe), not the label word, so a
+        // renamed label (e.g. "Intense", "Minimal") still gets the right tone.
+        var cs = categoryScore(c);
+        var tone = cs == null ? String(c.label).trim().toLowerCase()
+          : (cs >= 2 ? 'severe' : cs >= 1.5 ? 'high' : cs >= 1 ? 'normal' : 'low');
+        label.setAttribute('data-tone', tone);
         label.textContent = c.label;
         head.appendChild(label);
       }
