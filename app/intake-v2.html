@@ -1104,6 +1104,12 @@
             <p id="recognition-email-error" class="recognition-error hidden">That doesn't match what we have on file — please try again.</p>
             <bui-button id="recognition-confirm-btn" variant="slate">Confirm Email</bui-button>
           </div>
+          <div id="recognition-claim" class="recognition-state hidden">
+            <p class="recognition-message">Good news — we've already prepared a management proposal for this property. Enter your email to view it and claim it as yours.</p>
+            <bui-input id="recognition-claim-email-input" label="Email" type="email"></bui-input>
+            <p id="recognition-claim-error" class="recognition-error hidden">We couldn't claim this proposal just now — please try again in a moment.</p>
+            <bui-button id="recognition-claim-btn" variant="slate">View &amp; Claim Proposal</bui-button>
+          </div>
           <div id="recognition-phone" class="recognition-state hidden">
             <p class="recognition-message">We couldn't confirm your email. Leave a phone number and we'll have someone reach out to help.</p>
             <bui-input id="recognition-phone-input" label="Phone Number" type="tel"></bui-input>
@@ -1706,6 +1712,10 @@
   var recognitionDone = document.getElementById('recognition-done');
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
   var recognitionViewProposal = document.getElementById('recognition-view-proposal');
+  var recognitionClaim = document.getElementById('recognition-claim');
+  var recognitionClaimEmailInput = document.getElementById('recognition-claim-email-input');
+  var recognitionClaimError = document.getElementById('recognition-claim-error');
+  var recognitionClaimBtn = document.getElementById('recognition-claim-btn');
 
   var rentInput = document.getElementById('rent-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
@@ -2394,9 +2404,13 @@
     recognitionPhone.classList.add('hidden');
     recognitionDone.classList.add('hidden');
     recognitionViewProposal.classList.add('hidden');
+    recognitionClaim.classList.add('hidden');
+    recognitionClaimError.classList.add('hidden');
     recognitionEmailError.classList.add('hidden');
     recognitionEmailValue = '';
     recognitionPhoneValue = '';
+    recognitionClaimEmailValue = '';
+    state.claimable = false;
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
     addressVerifying.classList.add('hidden');
   }
@@ -2411,6 +2425,7 @@
 
   var recognitionEmailValue = '';
   var recognitionPhoneValue = '';
+  var recognitionClaimEmailValue = '';
   ['bui-input', 'bui-change'].forEach(function (eventName) {
     recognitionEmailInput.addEventListener(eventName, function (evt) {
       recognitionEmailValue = (evt.detail.value || '').trim();
@@ -2418,12 +2433,16 @@
     recognitionPhoneInput.addEventListener(eventName, function (evt) {
       recognitionPhoneValue = (evt.detail.value || '').trim();
     });
+    recognitionClaimEmailInput.addEventListener(eventName, function (evt) {
+      recognitionClaimEmailValue = (evt.detail.value || '').trim();
+    });
   });
 
   function showRecognitionState(name) {
     recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
     recognitionPhone.classList.toggle('hidden', name !== 'phone');
     recognitionDone.classList.toggle('hidden', name !== 'done');
+    recognitionClaim.classList.toggle('hidden', name !== 'claim');
   }
 
   // Site-selected routing (§A). Fired alongside the RentCast quicklook on
@@ -2485,6 +2504,17 @@
           // render-known / fetch-rentcast → continue the funnel. Clicking
           // Continue advances to rentcast-render with these propertyFacts.
           locationContinue.removeAttribute('disabled');
+          // Claimable = a proposal already exists for this property with no
+          // contact attached (an internally-prepared proposal). Offer a fast
+          // "view & claim" path: capture email → backend attaches the contact
+          // → jump straight to the saved proposal. Continue stays enabled so a
+          // fresh assessment remains available as the alternative.
+          if (state.route === 'render-known' && data.claimable) {
+            state.claimable = true;
+            state.claimPlaceId = data.placeId || placeId;
+            recognitionPanel.classList.remove('hidden');
+            showRecognitionState('claim');
+          }
         }
       })
       .catch(function (err) {
@@ -2553,6 +2583,52 @@
       .catch(function (err) {
         console.warn('[brichaus-assessment] Email confirmation failed:', err);
         recognitionEmailError.classList.remove('hidden');
+      });
+  });
+
+  // Claim an internally-prepared proposal. Unlike confirmEmail (which verifies
+  // the typed email against a stored contact), a claimable record has NO
+  // contact on file — so this CAPTURES the email and the backend attaches it:
+  // find-or-create the GHL contact, write cr55d_ghl_contactid, associate
+  // Owner↔Property. On success we hand the email to proposal.html (same-origin,
+  // sessionStorage) and jump straight there. Client pre-check only blocks
+  // obvious junk; the server §C gate (Phase 3) is the real mailbox check.
+  recognitionClaimBtn.addEventListener('bui-click', function () {
+    var placeId = state.claimPlaceId || state.address.placeId;
+    var emailAttempt = recognitionClaimEmailValue;
+    recognitionClaimError.classList.add('hidden');
+    if (!isValidEmail(emailAttempt) || isDisposableEmail(emailAttempt)) {
+      recognitionClaimError.textContent = 'Please enter a valid, non-disposable email so we can attach this proposal to you.';
+      recognitionClaimError.classList.remove('hidden');
+      return;
+    }
+    recognitionClaimBtn.setAttribute('disabled', '');
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'claimProposal', googlePlaceId: placeId, emailAttempt: emailAttempt })
+    })
+      .then(function (res) { return res.ok ? res.json() : { claimed: false }; })
+      .then(function (data) {
+        if (placeId !== (state.claimPlaceId || state.address.placeId)) return; // superseded
+        recognitionClaimBtn.removeAttribute('disabled');
+        if (data && data.claimed) {
+          // Same handoff proposal.html's gate reads, so it opens silently
+          // instead of prompting for the email a second time.
+          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
+          if (CONFIG.PROPOSAL_PAGE_URL) {
+            window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(placeId);
+          }
+          return;
+        }
+        recognitionClaimError.textContent = "We couldn't claim this proposal just now — please try again in a moment.";
+        recognitionClaimError.classList.remove('hidden');
+      })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Proposal claim failed:', err);
+        recognitionClaimBtn.removeAttribute('disabled');
+        recognitionClaimError.textContent = "We couldn't claim this proposal just now — please try again in a moment.";
+        recognitionClaimError.classList.remove('hidden');
       });
   });
 
