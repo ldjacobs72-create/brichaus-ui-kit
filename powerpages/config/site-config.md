@@ -106,10 +106,23 @@ Page permission: **Staff** role only.
 
 ---
 
-## Open items (blocked on other work)
+## Backend endpoints (n8n)
 
-- **Internal wrapper endpoint** (`internal-proposal-create`) — n8n; the create widget runs
-  DRY_RUN until it exists.
-- **Recalculate wrapper** — same engine, edit path.
+- **Internal create wrapper** — ✅ built + published: `PropScore: Internal Proposal Create`
+  (`aJsNgnkTqcl0iNAw`), webhook `POST /webhook/internal-proposal-create`. Reuses the OIA
+  Scoring sub-workflow + the same Power Automate fee endpoint, applies the create widget's
+  coverage **overrides** (no re-derive), assembles the report, and upserts `new_properties`
+  **without a contact id** (claimable). Verified with a pinned run (OIA live; fee + store
+  pinned = no writes). **Final gate before flipping the widget off DRY_RUN:** one live
+  end-to-end call with a disposable test placeId to confirm the real fee call + the
+  Dataverse write, then delete the test record.
+- **Recalculate wrapper** — not built yet (edit path; same engine, uses the record's saved
+  values).
+
+## Open items
+
 - **Owner-phase** rows (Entra External ID provider, Owner role, contact-scope permission)
   — deferred to the portal phase.
+- **v1 is "lighter"**: it uses the RentCast property facts the create page already fetched
+  and the staff-entered rent; it does not re-fetch AVM market rent + comps. Full AVM/comps
+  parity would come from extracting the shared Generate core (#58).
