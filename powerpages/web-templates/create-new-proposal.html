@@ -93,6 +93,9 @@
   #bui-internal-create .note { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin-top: 6px; }
   #bui-internal-create pre { background: var(--bui-color-surface-dark); color: var(--bui-color-text-on-dark); padding: 14px; border-radius: var(--bui-radius-md); overflow-x: auto; font-size: 0.75rem; }
   #bui-internal-create .bar { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  #bui-internal-create .fee-result { margin-bottom: 16px; }
+  #bui-internal-create .fee-result__pct { font-size: 1.75rem; font-weight: 700; color: var(--bui-color-text); line-height: 1.2; }
+  #bui-internal-create .fee-result__dollar { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }
 </style>
 </head>
 <body>
@@ -164,6 +167,13 @@
   </div>
 
   <div class="card hidden" id="submit-card">
+    <!-- Calculated fee, shown immediately on success — staff shouldn't have
+         to leave the widget (or open the public proposal page) just to see
+         what fee was actually calculated. -->
+    <div id="fee-result" class="fee-result hidden">
+      <div class="fee-result__pct" id="fee-pct"></div>
+      <div class="fee-result__dollar" id="fee-dollar"></div>
+    </div>
     <div class="bar">
       <bui-button id="generate-btn" variant="primary">Generate Proposal</bui-button>
       <span class="note" id="submit-status"></span>
@@ -357,6 +367,15 @@
       body: JSON.stringify(payload)
     }).then(function (r) { return r.json(); }).then(function (res) {
       var pid = res && (res.googlePlaceId || res.placeId) || state.placeId;
+      // Show the calculated fee immediately — staff shouldn't have to leave
+      // the widget (or open the public proposal page) just to see the
+      // number the backend actually calculated.
+      if (res && res.feeRate != null) {
+        var monthly = res.monthlyFee != null ? res.monthlyFee : (res.feeRate * (res.rentValue || 0) * (res.unitCount || 1));
+        $('fee-pct').textContent = (res.feeRate * 100).toFixed(2) + '% management fee';
+        $('fee-dollar').textContent = '$' + Number(monthly).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/mo';
+        show('fee-result');
+      }
       // &internal=1 lets proposal.html show this record even though it has
       // no contact yet (unclaimed) — see the matching comment in
       // app/proposal.html for why that's safe (only ever bypasses the gate
