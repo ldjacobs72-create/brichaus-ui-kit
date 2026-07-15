@@ -155,6 +155,20 @@ only). Add a first-class **claim** route:
 
 This lives in the Recognition / routing workflow — **not** the Main Pipeline.
 
+**Backend status — ✅ live** (`PropScore: Site-Selected Routing` `JoypA2AkglKBsIGh`,
+webhook `ghl-site-selected`, published `bd9c2152`). Backward-compatible (route strings
+unchanged): `Find Property By Address` now selects `cr55d_proposedmgmtfee`; `Route
+Decision` emits `claimable = (render-known && has a proposed fee)` plus the matched
+record's `placeId`; both flow through `Finalize Render Known` → `Respond`. A no-contact +
+has-fee match returns `{route:'render-known', claimable:true, placeId}` (pin-verified,
+exec 1244).
+
+**Front-end follow-up (not yet built):** `app/intake-v2.html` / `app/proposal.html` need
+to read the new `claimable`/`placeId` fields on the `render-known` response and, when
+`claimable`, show a **"View & claim this proposal"** CTA that captures the prospect's email
+→ calls the existing `confirmEmail` action to write `cr55d_ghl_contactid` + associate
+Owner↔Property. Until that CTA ships, `claimable` is emitted but not user-visible.
+
 ---
 
 ## Security notes
