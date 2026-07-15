@@ -53,9 +53,14 @@ function serveWidgetHtml(res) {
   // Point the CDN component tags at this server's /core and /components routes.
   html = html.split(CDN_PREFIX).join('/');
 
-  // Inject the Maps key (in memory only). Matches: GOOGLE_MAPS_KEY: '' or "".
+  // Inject the Maps key (in memory only, never written back to the file).
+  // On Power Pages, Liquid evaluates the {{ settings["google_maps_key"] }}
+  // tag near the top of the file (outside the {% raw %} block) into a real
+  // key at render time. This dev server has no Liquid engine, so it performs
+  // the same substitution itself, textually, against that exact tag.
+  const MAPS_KEY_LIQUID_TAG = '{{ settings["google_maps_key"] }}';
   if (KEY) {
-    html = html.replace(/GOOGLE_MAPS_KEY:\s*['"][^'"]*['"]/, "GOOGLE_MAPS_KEY: '" + KEY.replace(/'/g, "") + "'");
+    html = html.split(MAPS_KEY_LIQUID_TAG).join(KEY.replace(/"/g, ''));
   }
 
   res.writeHead(200, { 'Content-Type': MIME['.html'] });

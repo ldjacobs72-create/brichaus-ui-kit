@@ -71,13 +71,25 @@ correct). This app is where web templates / page templates / web pages live.
    - **Source:** paste the **entire contents** of
      `powerpages/web-templates/create-new-proposal.html`.
    - **MIME Type:** `text/html`
-3. **Before saving**, edit two things directly in the pasted Source:
-   - Find `GOOGLE_MAPS_KEY: ''` and put your key in the quotes:
-     `GOOGLE_MAPS_KEY: 'AIza...'`. (A Maps *browser* key is public by design — it's
-     protected by the referrer restriction in step A7, not by secrecy.)
-   - Nothing else needs changing — `INTERNAL_CREATE_URL` / `SITE_ROUTING_URL` already point
-     at your live n8n webhooks and `DRY_RUN` is already `false`.
+3. Nothing needs editing in the pasted Source — `INTERNAL_CREATE_URL` / `SITE_ROUTING_URL`
+   already point at your live n8n webhooks, `DRY_RUN` is already `false`, and the Maps key
+   is read from a **Site Setting** (step A3a below), not typed into the Source. That means
+   future updates to this page (re-copy the file from GitHub → paste over the Source →
+   Save) never disturb the key.
 4. **Save**.
+
+### A3a. Set the Maps key (once — survives future Source updates)
+
+1. In the management app left nav → **Site Settings** → **New**.
+2. Fill in:
+   - **Name:** `google_maps_key`
+   - **Website:** your site.
+   - **Value:** your Maps *browser* key (public by design — it's protected by the referrer
+     restriction in step A7, not by secrecy).
+3. **Save.**
+
+You only revisit this if you rotate the key later — it's independent of the Web Template's
+Source text from here on.
 
 ### A4. Create the Page Template (renders the template)
 
@@ -219,7 +231,7 @@ Notes:
 
 | Symptom | Cause → fix |
 |---|---|
-| Autocomplete does nothing | Maps key doesn't allow this domain (A7), or key not filled in the Source (A3). Check Console for a `maps.googleapis.com` referrer/`RefererNotAllowed` error. |
+| Autocomplete does nothing | Maps key doesn't allow this domain (A7), or the `google_maps_key` site setting (A3a) is missing/empty. Check Console for a `maps.googleapis.com` referrer/`RefererNotAllowed` error. |
 | Page shows site header/footer or looks doubled | Page Template still has **Use Website Header and Footer** checked (A4) — uncheck it. |
 | Blank page / components unstyled | CSP blocking jsDelivr. Check Console for `CSP` lines; confirm `https://cdn.jsdelivr.net` is in `script-src` (A8), then **Sync**. |
 | "Generate" does nothing / network error | CSP `connect-src` missing `https://brichaus.app.n8n.cloud` (A8). |

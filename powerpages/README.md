@@ -54,6 +54,18 @@ Console → your Maps API key → *Application restrictions → HTTP referrers*,
 `http://localhost:8000/*` (or set the key to **None** while testing). A domain-restricted
 key will otherwise silently reject the autocomplete requests and the box stays inert.
 
+## The Maps key on Power Pages (set once, not per update)
+
+The widget reads its Maps key from a Power Pages **Site Setting** named
+**`google_maps_key`** (Portal Management → Site Settings → New → Website: your site),
+not from the pasted Source text. A small snippet at the very top of the file (before the
+`{% raw %}` block) is the one part Liquid evaluates: it reads that site setting into
+`window.__BUI_MAPS_KEY`, which `CONFIG.GOOGLE_MAPS_KEY` then reads.
+
+This means the key **survives every future full-Source replace** — updating the widget
+code (copy the raw file from GitHub → paste into the Web Template's Source → Save) never
+touches the key again. Set the site setting once; only revisit it if you rotate the key.
+
 `DRY_RUN` is off, so completing the flow makes **real** writes (a real fee call + a
 no-contact Dataverse record). Use a disposable `TEST_…` address/placeId; the n8n app-user
 can't hard-delete, so clean up test records from the maker portal.

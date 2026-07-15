@@ -1,13 +1,31 @@
+<script>
+  // Reads the Maps key from the Power Pages Site Setting named
+  // "google_maps_key" (Portal Management -> Site Settings -> New). This line
+  // sits outside the raw-literal block below on purpose (see that block's own
+  // comment for why one exists) -- it's the one part of the file Power Pages'
+  // Liquid engine IS meant to evaluate, so the key lives in exactly one place
+  // (the site setting) and survives every future full-file Source replace,
+  // instead of being retyped into the Source text each time. Local dev
+  // (`powerpages/dev/serve-widget.js`) has no Liquid engine, so it
+  // substitutes this exact line's tag with a real key itself at serve time --
+  // keep the line intact/unmoved if you edit nearby. IMPORTANT: never write
+  // the literal Liquid raw-block tag syntax anywhere above this point in the
+  // file -- Liquid matches that tag as plain text regardless of comment
+  // context, so writing it here would start the raw region early and swallow
+  // this very settings lookup into inert literal text.
+  window.__BUI_MAPS_KEY = "{{ settings["google_maps_key"] }}";
+</script>
 {% raw %}
 <!--
-  This entire file is wrapped in a Liquid raw block (the tag pair opening this
-  file and closing it at the very end) so Power Pages' Liquid engine treats it
-  as literal text instead of trying to parse the JS/JSON curly braces below as
-  its own template syntax — without this, any stray double-curly-brace
-  sequence in the JS (e.g. a string literal or comparison) breaks the page
-  with a Liquid parse error before it ever reaches the browser. IMPORTANT: do
-  not write out the literal raw/endraw tag syntax anywhere in this comment
-  block — doing so would prematurely close the wrapper right here.
+  This entire file (from here down) is wrapped in a Liquid raw block (the tag
+  pair opening this comment and closing it at the very end) so Power Pages'
+  Liquid engine treats it as literal text instead of trying to parse the
+  JS/JSON curly braces below as its own template syntax — without this, any
+  stray double-curly-brace sequence in the JS (e.g. a string literal or
+  comparison) breaks the page with a Liquid parse error before it ever
+  reaches the browser. IMPORTANT: do not write out the literal raw/endraw tag
+  syntax anywhere in this comment block — doing so would prematurely close
+  the wrapper right here.
 
   Internal "Create New Proposal" — Power Pages web template (Surface 1).
 
@@ -148,16 +166,14 @@
     DRY_RUN: false,
     // Google Maps JS key for the address autocomplete. On the public funnel the
     // HOST page injects the Maps <script> (GHL merge tag); this standalone/Power
-    // Pages widget loads Maps itself from the key below. Leave blank in the repo
-    // (no secret committed). For LOCAL testing or on Power Pages, paste the key
-    // directly into the deployed copy — this whole file is wrapped in a Liquid
-    // raw block (see top/bottom), so Power Pages site-setting substitution
-    // doesn't apply inside it; a pasted key is the supported approach here.
+    // Pages widget loads Maps itself, reading the key from window.__BUI_MAPS_KEY
+    // — set just above, outside the raw block, from the "google_maps_key" site
+    // setting. Update the key in ONE place (that site setting), not here.
     // NOTE: the key's "Allowed referrers" must include wherever you open this —
     // a file:// page has no referrer Google will accept, so serve over
-    // http://localhost (local) or your Power Pages domain, and add that origin
-    // to the key's allowed referrers.
-    GOOGLE_MAPS_KEY: ''
+    // http://localhost (local dev server) or your Power Pages domain, and add
+    // that origin to the key's allowed referrers.
+    GOOGLE_MAPS_KEY: (window.__BUI_MAPS_KEY || '')
   };
 
   // Load Google Maps (Places) if the host page hasn't already. No-ops when
