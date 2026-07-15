@@ -135,8 +135,30 @@
     // Where staff preview the generated proposal.
     PROPOSAL_PAGE_URL: 'https://brichausgroup.com/mgmt_proposal',
     // Wrapper is live + verified end-to-end (real fee call + no-contact write).
-    DRY_RUN: false
+    DRY_RUN: false,
+    // Google Maps JS key for the address autocomplete. On the public funnel the
+    // HOST page injects the Maps <script> (GHL merge tag); this standalone/Power
+    // Pages widget loads Maps itself from the key below. Leave blank in the repo
+    // (no secret committed). For LOCAL testing paste a key here temporarily; for
+    // Power Pages, source it from a site setting, e.g. {{ settings["google_api_key"] }}.
+    // NOTE: the key's "Allowed referrers" must include wherever you open this —
+    // a file:// page has no referrer Google will accept, so serve over
+    // http://localhost and add localhost to the key's allowed referrers.
+    GOOGLE_MAPS_KEY: ''
   };
+
+  // Load Google Maps (Places) if the host page hasn't already. No-ops when
+  // window.google is present (host-injected) or no key is configured (dev),
+  // in which case autocomplete stays inert instead of erroring.
+  (function loadGoogleMaps() {
+    if (window.google && window.google.maps) return;
+    var key = CONFIG.GOOGLE_MAPS_KEY;
+    if (!key || key.indexOf('{{') !== -1) return;
+    var s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&libraries=places&loading=async';
+    s.async = true;
+    document.head.appendChild(s);
+  })();
 
   // Score vocabulary — value drives logic; label is display only (mirrors the
   // current cr55d_oiascorelabel rows). Shown as "Label (value)" so a future
