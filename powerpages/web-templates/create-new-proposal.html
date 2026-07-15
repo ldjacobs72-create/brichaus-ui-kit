@@ -1,0 +1,283 @@
+<!--
+  Internal "Create New Proposal" — Power Pages web template (Surface 1).
+
+  Staff-facing, EntraID-gated (the Power Pages page's Staff web role controls
+  access; this markup assumes an authenticated staff session).
+
+  REUSE = PARITY. This page does NOT fork the public funnel (app/intake-v2.html,
+  3,356 lines of consent/recognition/4-driver UX that staff don't need). It
+  reuses the only two things that MUST match for a proposal to be claimable
+  later:
+    1. <bui-address-input>  — the same Google Autocomplete control prospects use.
+    2. SITE_ROUTING_URL (ghl-site-selected) — the same canonicalization +
+       RentCast enrichment endpoint. Because staff and prospects both send the
+       autocomplete placeId through the SAME canonicalizer, the keys converge,
+       so a record created here is found when a prospect types the address.
+
+  Everything else is a lean staff form: pick the four OIA scores directly (no
+  driver quiz), confirm/override the RentCast facts, toggle coverage, set
+  leasing %, submit. Submission goes to the INTERNAL wrapper (no consent, no
+  GHL contact) which creates a NO-CONTACT (claimable) record and generates the
+  proposal via the shared Generate core.
+
+  Endpoints:
+    - SITE_ROUTING_URL   reused as-is (parity).
+    - INTERNAL_CREATE_URL new — the internal wrapper, still to be built. Until
+      it exists the Generate button shows the assembled payload instead of
+      posting (DRY_RUN), so this page is usable/verifiable now.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/address-input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/select.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
+
+<style>
+  #bui-internal-create { font-family: var(--bui-font-family); max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; color: var(--bui-color-text); }
+  #bui-internal-create h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  #bui-internal-create .sub { color: var(--bui-color-text-muted); font-size: var(--bui-font-size-sm); margin: 0 0 24px; }
+  #bui-internal-create .card { background: var(--bui-color-surface); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-lg); padding: 20px; margin-bottom: 16px; box-shadow: var(--bui-shadow-sm); }
+  #bui-internal-create .card h2 { font-size: 1rem; margin: 0 0 14px; }
+  #bui-internal-create .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  #bui-internal-create .grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (min-width: 640px) { #bui-internal-create .grid4 { grid-template-columns: repeat(4, 1fr); } }
+  #bui-internal-create .toggles { display: flex; flex-wrap: wrap; gap: 16px; }
+  #bui-internal-create .toggle { display: flex; align-items: center; gap: 8px; font-size: var(--bui-font-size-sm); font-weight: 600; }
+  #bui-internal-create .toggle input { width: 18px; height: 18px; accent-color: var(--bui-color-accent); }
+  #bui-internal-create .hidden { display: none !important; }
+  #bui-internal-create .facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+  #bui-internal-create .fact { font-size: var(--bui-font-size-sm); background: var(--bui-color-bg); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-pill); padding: 4px 12px; }
+  #bui-internal-create .note { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin-top: 6px; }
+  #bui-internal-create pre { background: var(--bui-color-surface-dark); color: var(--bui-color-text-on-dark); padding: 14px; border-radius: var(--bui-radius-md); overflow-x: auto; font-size: 0.75rem; }
+  #bui-internal-create .bar { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+</style>
+
+<div id="bui-internal-create">
+  <h1>Create New Proposal</h1>
+  <p class="sub">Internal · staff only. Creates an unclaimed (no-contact) property record + proposal that an owner can claim online by entering this address.</p>
+
+  <!-- Step 1: address gate (reuses the public autocomplete + canonicalizer) -->
+  <div class="card">
+    <h2>1 · Property address</h2>
+    <bui-address-input id="address-input" label="Address" placeholder="Start typing the property address…"></bui-address-input>
+    <p class="note" id="address-status">Select an address to verify and pull property data.</p>
+    <div class="facts hidden" id="address-facts"></div>
+  </div>
+
+  <!-- Step 2: facts + overrides (revealed after routing returns) -->
+  <div class="card hidden" id="details-card">
+    <h2>2 · Property details <span class="note">(pre-filled from RentCast · override as needed)</span></h2>
+    <div class="grid2">
+      <bui-select id="f-propertytype" label="Property type">
+        <option value="Single Family">Single Family</option>
+        <option value="Condo">Condo</option>
+        <option value="Townhome">Townhome</option>
+        <option value="Multifamily">Multifamily</option>
+        <option value="Apartment">Apartment</option>
+      </bui-select>
+      <bui-input id="f-units" label="Unit count" type="number" inputmode="numeric" value="1"></bui-input>
+      <bui-input id="f-rent" label="Rent (per unit, monthly)" type="number" inputmode="numeric" prefix="$"></bui-input>
+      <bui-input id="f-name" label="Property name (internal)" placeholder="e.g. 123 Main St"></bui-input>
+    </div>
+  </div>
+
+  <!-- Step 3: OIA scores (staff pick directly — no driver quiz) -->
+  <div class="card hidden" id="scores-card">
+    <h2>3 · Operational scores</h2>
+    <div class="grid4">
+      <bui-select id="s-tenant" label="Tenant Friction"></bui-select>
+      <bui-select id="s-turnover" label="Turnover Pressure"></bui-select>
+      <bui-select id="s-maintenance" label="Maintenance Burden"></bui-select>
+      <bui-select id="s-compliance" label="Compliance Burden"></bui-select>
+    </div>
+    <p class="note">Labels mirror <code>cr55d_oiascorelabel</code>; the score value is what drives the fee. Coverage defaults derive from these (eviction/inspection ≥ 1.5, lease-placement ≥ 2) and can be overridden below.</p>
+  </div>
+
+  <!-- Step 4: fee inputs / coverage overrides -->
+  <div class="card hidden" id="fee-card">
+    <h2>4 · Fee inputs</h2>
+    <div class="grid2">
+      <bui-select id="f-leasing" label="Leasing fee (% of one month's rent)">
+        <option value="50">50%</option>
+        <option value="100">100%</option>
+        <option value="20">20%</option>
+      </bui-select>
+    </div>
+    <p class="note" style="margin-top:14px;">Coverage (auto-derived from scores; override to force on/off):</p>
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="c-eviction"> Eviction Protection</label>
+      <label class="toggle"><input type="checkbox" id="c-leaseplacement"> Lease Placement</label>
+      <label class="toggle"><input type="checkbox" id="c-inspection"> Annual Inspection</label>
+      <label class="toggle"><input type="checkbox" id="c-pet"> Pet Protection</label>
+    </div>
+  </div>
+
+  <div class="card hidden" id="submit-card">
+    <div class="bar">
+      <bui-button id="generate-btn" variant="primary">Generate Proposal</bui-button>
+      <span class="note" id="submit-status"></span>
+    </div>
+    <pre id="payload-preview" class="hidden"></pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CONFIG = {
+    // REUSED from the public funnel — same canonicalizer = same placeId = claimable.
+    SITE_ROUTING_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-site-selected',
+    // NEW — internal wrapper (Generate core + no-contact create). Not built yet;
+    // until it responds, the Generate button runs DRY_RUN (shows the payload).
+    INTERNAL_CREATE_URL: 'https://brichaus.app.n8n.cloud/webhook/internal-proposal-create',
+    // Where staff preview the generated proposal.
+    PROPOSAL_PAGE_URL: 'https://brichausgroup.com/mgmt_proposal',
+    DRY_RUN: true
+  };
+
+  // Score vocabulary — value drives logic; label is display only (mirrors the
+  // current cr55d_oiascorelabel rows). Shown as "Label (value)" so a future
+  // label rename never confuses staff about which severity they picked.
+  var SCORES = [
+    { v: '0.5', label: 'Minimal' },
+    { v: '1',   label: 'Normal' },
+    { v: '1.5', label: 'High' },
+    { v: '2',   label: 'Intense' }
+  ];
+
+  var state = { placeId: '', formattedAddress: '', facts: {} };
+
+  function $(id) { return document.getElementById(id); }
+  function show(id) { $(id).classList.remove('hidden'); }
+
+  function fillScoreOptions() {
+    ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
+      var sel = $(id);
+      SCORES.forEach(function (s) {
+        var o = document.createElement('option');
+        o.value = s.v; o.textContent = s.label + ' (' + s.v + ')';
+        sel.appendChild(o);
+      });
+      sel.value = '1'; // default Normal
+    });
+  }
+
+  // Auto-derive coverage from the current scores (same thresholds as the
+  // backend fee rules). Staff can still override the checkboxes afterward.
+  function deriveCoverage() {
+    var tf = Number($('s-tenant').value), tp = Number($('s-turnover').value),
+        mb = Number($('s-maintenance').value);
+    $('c-eviction').checked = tf >= 1.5;
+    $('c-leaseplacement').checked = tp >= 2;
+    $('c-inspection').checked = mb >= 1.5;
+    // pet defaults off (baseline); staff toggle on demand.
+  }
+
+  function onAddressSelected(detail) {
+    var placeId = detail && (detail.placeId || detail.place_id);
+    if (!placeId) return;
+    $('address-status').textContent = 'Verifying address & pulling property data…';
+
+    fetch(CONFIG.SITE_ROUTING_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googlePlaceId: placeId, formattedAddress: detail.formattedAddress || detail.description || '' })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      // Canonical placeId comes back from the SAME canonicalizer the funnel uses.
+      state.placeId = (data && (data.googlePlaceId || data.placeId)) || placeId;
+      state.formattedAddress = (data && data.formattedAddress) || detail.formattedAddress || '';
+      state.facts = (data && (data.propertyFacts || data.facts)) || {};
+      renderFacts(state.facts);
+      prefill(state.facts);
+      $('address-status').textContent = 'Verified · ' + state.formattedAddress;
+      show('details-card'); show('scores-card'); show('fee-card'); show('submit-card');
+      deriveCoverage();
+    }).catch(function () {
+      $('address-status').textContent = 'Could not reach the address service. Try again.';
+    });
+  }
+
+  function renderFacts(f) {
+    var box = $('address-facts'); box.innerHTML = '';
+    var pairs = [
+      ['Type', f.propertyType], ['Beds', f.bedrooms], ['Baths', f.bathrooms],
+      ['SqFt', f.squareFootage], ['Year', f.yearBuilt], ['County', f.county]
+    ];
+    pairs.forEach(function (p) {
+      if (p[1] == null || p[1] === '') return;
+      var el = document.createElement('span'); el.className = 'fact';
+      el.textContent = p[0] + ': ' + p[1]; box.appendChild(el);
+    });
+    box.classList.toggle('hidden', !box.children.length);
+  }
+
+  function prefill(f) {
+    if (f.propertyType) $('f-propertytype').value = f.propertyType;
+    $('f-name').value = state.formattedAddress.split(',')[0] || '';
+  }
+
+  function buildPayload() {
+    return {
+      internal: true,
+      createWithoutContact: true,
+      googlePlaceId: state.placeId,
+      formattedAddress: state.formattedAddress,
+      propertyName: $('f-name').value,
+      propertyType: $('f-propertytype').value,
+      unitCount: Number($('f-units').value) || 1,
+      rentValue: Number($('f-rent').value) || 0,
+      tenantFrictionScore: Number($('s-tenant').value),
+      turnoverPressureScore: Number($('s-turnover').value),
+      maintenanceBurdenScore: Number($('s-maintenance').value),
+      complianceBurdenScore: Number($('s-compliance').value),
+      leasingFeePct: Number($('f-leasing').value),
+      // Coverage OVERRIDES — the internal wrapper uses these directly (it does
+      // not re-derive; human choice is the saved value).
+      coverageOverride: {
+        eviction: $('c-eviction').checked,
+        leasePlacement: $('c-leaseplacement').checked,
+        inspection: $('c-inspection').checked,
+        pet: $('c-pet').checked
+      }
+    };
+  }
+
+  function onGenerate() {
+    if (!state.placeId) { $('submit-status').textContent = 'Select an address first.'; return; }
+    var payload = buildPayload();
+
+    if (CONFIG.DRY_RUN) {
+      var pre = $('payload-preview');
+      pre.textContent = JSON.stringify(payload, null, 2);
+      pre.classList.remove('hidden');
+      $('submit-status').textContent = 'DRY RUN — internal wrapper not wired yet. Payload above.';
+      return;
+    }
+
+    $('submit-status').textContent = 'Generating…';
+    fetch(CONFIG.INTERNAL_CREATE_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      var pid = res && (res.googlePlaceId || res.placeId) || state.placeId;
+      $('submit-status').innerHTML = 'Created. <a href="' + CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(pid) + '" target="_blank">Preview proposal →</a>';
+    }).catch(function () { $('submit-status').textContent = 'Create failed — check the internal wrapper.'; });
+  }
+
+  function init() {
+    fillScoreOptions();
+    var addr = $('address-input');
+    // bui-address-input fires bui-change with the selected place on the element.
+    addr.addEventListener('bui-change', function (e) { onAddressSelected(e.detail || {}); });
+    ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
+      $(id).addEventListener('bui-change', deriveCoverage);
+    });
+    $('generate-btn').addEventListener('click', onGenerate);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
