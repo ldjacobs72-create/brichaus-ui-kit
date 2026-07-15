@@ -1,4 +1,14 @@
+{% raw %}
 <!--
+  This entire file is wrapped in a Liquid raw block (the tag pair opening this
+  file and closing it at the very end) so Power Pages' Liquid engine treats it
+  as literal text instead of trying to parse the JS/JSON curly braces below as
+  its own template syntax — without this, any stray double-curly-brace
+  sequence in the JS (e.g. a string literal or comparison) breaks the page
+  with a Liquid parse error before it ever reaches the browser. IMPORTANT: do
+  not write out the literal raw/endraw tag syntax anywhere in this comment
+  block — doing so would prematurely close the wrapper right here.
+
   Internal "Create New Proposal" — Power Pages web template (Surface 1).
 
   Staff-facing, EntraID-gated (the Power Pages page's Staff web role controls
@@ -139,11 +149,14 @@
     // Google Maps JS key for the address autocomplete. On the public funnel the
     // HOST page injects the Maps <script> (GHL merge tag); this standalone/Power
     // Pages widget loads Maps itself from the key below. Leave blank in the repo
-    // (no secret committed). For LOCAL testing paste a key here temporarily; for
-    // Power Pages, source it from a site setting, e.g. {{ settings["google_api_key"] }}.
+    // (no secret committed). For LOCAL testing or on Power Pages, paste the key
+    // directly into the deployed copy — this whole file is wrapped in a Liquid
+    // raw block (see top/bottom), so Power Pages site-setting substitution
+    // doesn't apply inside it; a pasted key is the supported approach here.
     // NOTE: the key's "Allowed referrers" must include wherever you open this —
     // a file:// page has no referrer Google will accept, so serve over
-    // http://localhost and add localhost to the key's allowed referrers.
+    // http://localhost (local) or your Power Pages domain, and add that origin
+    // to the key's allowed referrers.
     GOOGLE_MAPS_KEY: ''
   };
 
@@ -304,3 +317,4 @@
   else init();
 })();
 </script>
+{% endraw %}
