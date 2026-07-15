@@ -31,6 +31,28 @@ powerpages/
 | **Create New** (address gate + staff inputs) | **custom web template** | `web-templates/create-new-proposal.html` |
 | Web roles / table permissions / identity | studio security config | `config/site-config.md` |
 
+## Test the Create widget locally
+
+The address autocomplete needs Google Maps, which can't initialize on a `file://` page
+(Google rejects the null referrer). Use the bundled dev server — it serves the widget over
+`http://localhost`, injects your Maps key at serve time (never written to the file / never
+committed), and serves the `bui-*` components from your local repo:
+
+```bash
+node powerpages/dev/serve-widget.js --key AIza...your-maps-key...
+#   …then open the http://localhost:8000/ URL it prints
+#   --port 8080 to change the port; GOOGLE_MAPS_KEY=… also works instead of --key
+```
+
+**One Google-side step:** the Maps key must allow the localhost origin. In Google Cloud
+Console → your Maps API key → *Application restrictions → HTTP referrers*, add
+`http://localhost:8000/*` (or set the key to **None** while testing). A domain-restricted
+key will otherwise silently reject the autocomplete requests and the box stays inert.
+
+`DRY_RUN` is off, so completing the flow makes **real** writes (a real fee call + a
+no-contact Dataverse record). Use a disposable `TEST_…` address/placeId; the n8n app-user
+can't hard-delete, so clean up test records from the maker portal.
+
 ## Deploy (Power Platform CLI)
 
 Prereqs (see `docs/INTERNAL-TOOL-PLAN.md` §"Resources to provision"): environment with
