@@ -357,7 +357,12 @@
       body: JSON.stringify(payload)
     }).then(function (r) { return r.json(); }).then(function (res) {
       var pid = res && (res.googlePlaceId || res.placeId) || state.placeId;
-      $('submit-status').innerHTML = 'Created. <a href="' + CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(pid) + '" target="_blank">Preview proposal →</a>';
+      // &internal=1 lets proposal.html show this record even though it has
+      // no contact yet (unclaimed) — see the matching comment in
+      // app/proposal.html for why that's safe (only ever bypasses the gate
+      // for no-contact records; any record with a real contact still goes
+      // through the full recognize+confirmEmail check regardless).
+      $('submit-status').innerHTML = 'Created. <a href="' + CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(pid) + '&internal=1" target="_blank">Preview proposal →</a>';
     }).catch(function () { $('submit-status').textContent = 'Create failed — check the internal wrapper.'; });
   }
 

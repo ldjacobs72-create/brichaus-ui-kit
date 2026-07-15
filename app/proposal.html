@@ -661,6 +661,17 @@
   }
 
   var placeId = new URLSearchParams(window.location.search).get('placeId');
+  // Staff-preview bypass (Power Pages Create-New widget's "Preview proposal"
+  // link only — never surfaced publicly). Effective ONLY when recognize()
+  // finds no contact at all: there's no owner identity to protect yet, so
+  // skipping straight to loadProposal() (which itself has no contact
+  // dependency — it just reads cr55d_onlineproposaljson by placeId) is safe.
+  // A record that DOES have a contact still goes through the full
+  // recognize -> confirmEmail gate regardless of this flag, so this can
+  // never be used to view a real, claimed owner's proposal by guessing their
+  // placeId — the "placeId can't expose another owner's proposal" guarantee
+  // above is unchanged for every record that matters.
+  var internalPreview = new URLSearchParams(window.location.search).get('internal') === '1';
 
   /* =====================================================================
    * Email-confirmation gate (ported from app/index.html's recognition
@@ -812,6 +823,7 @@
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (!data || !data.recognized) {
+          if (internalPreview) { loadProposal(); return; }
           showPanel('notfound');
           return;
         }
