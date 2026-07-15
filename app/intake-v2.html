@@ -1481,6 +1481,16 @@
     // to the render step with a manual property-type choice).
     SITE_ROUTING_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-site-selected',
 
+    // Claim endpoint (§ claim flow). When site-selected routing marks a
+    // render-known match as claimable (a proposal exists for the property but
+    // no contact is attached — an internally-prepared proposal), the claim CTA
+    // posts { action:'claimProposal', googlePlaceId, emailAttempt } here. The
+    // backend upserts the GHL contact and writes cr55d_ghl_contactid (the
+    // 'claimed' write), then the widget jumps to the saved proposal. Its own
+    // lean workflow, not the node-heavy recognition webhook. Leave blank to
+    // disable claiming (the render-known branch still offers a fresh assessment).
+    CLAIM_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-claim-proposal',
+
     // Service-area gating, checked the moment an address is selected
     // (before any RentCast/recognition calls are spent on it).
     // - active: full assessment runs normally.
@@ -2602,8 +2612,9 @@
       recognitionClaimError.classList.remove('hidden');
       return;
     }
+    var claimUrl = CONFIG.CLAIM_URL || CONFIG.CONTACT_RECOGNITION_URL;
     recognitionClaimBtn.setAttribute('disabled', '');
-    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+    fetch(claimUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'claimProposal', googlePlaceId: placeId, emailAttempt: emailAttempt })

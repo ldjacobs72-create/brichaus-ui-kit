@@ -155,7 +155,7 @@ only). Add a first-class **claim** route:
 
 This lives in the Recognition / routing workflow — **not** the Main Pipeline.
 
-**Backend status — ✅ live** (`PropScore: Site-Selected Routing` `JoypA2AkglKBsIGh`,
+**Detection — ✅ live** (`PropScore: Site-Selected Routing` `JoypA2AkglKBsIGh`,
 webhook `ghl-site-selected`, published `bd9c2152`). Backward-compatible (route strings
 unchanged): `Find Property By Address` now selects `cr55d_proposedmgmtfee`; `Route
 Decision` emits `claimable = (render-known && has a proposed fee)` plus the matched
@@ -163,11 +163,26 @@ record's `placeId`; both flow through `Finalize Render Known` → `Respond`. A n
 has-fee match returns `{route:'render-known', claimable:true, placeId}` (pin-verified,
 exec 1244).
 
-**Front-end follow-up (not yet built):** `app/intake-v2.html` / `app/proposal.html` need
-to read the new `claimable`/`placeId` fields on the `render-known` response and, when
-`claimable`, show a **"View & claim this proposal"** CTA that captures the prospect's email
-→ calls the existing `confirmEmail` action to write `cr55d_ghl_contactid` + associate
-Owner↔Property. Until that CTA ships, `claimable` is emitted but not user-visible.
+**Claim action — ✅ live** (`PropScore: Claim Proposal` `0lLU4E45ulPs139I`, webhook
+`ghl-claim-proposal`, published `aa7c3b7a`). A **separate lean workflow** (not bolted into
+the node-heavy Recognition webhook). Flow: `Lookup Property (Claim)` (Dataverse GET by
+placeId) → `Evaluate Claim` (claimable only if a proposed fee exists **and** no
+`cr55d_ghl_contactid`, and email well-formed; else reason `no-proposal` / `already-claimed`
+/ `invalid-email`) → `Claimable?` gate → **onTrue** `Upsert Claim Contact` (GHL
+find-or-create, tag `claimed-proposal`) → `Save ContactId (Claim)` (PATCH
+`cr55d_ghl_contactid` — the load-bearing "claimed" write) → `Respond Claimed`; **onFalse**
+`Respond Not Claimable` (no writes). Note: internally-created records have **no GHL
+custom-object property record**, so there's no GHL contact↔property association to make —
+`cr55d_ghl_contactid` **is** the association of record. **No extra gate** on the write
+(consistent with the funnel); the Phase 3 ZeroBounce check will later cover all contact
+writes. Pin-verified both routes (claimable writes; already-claimed makes zero writes).
+
+**Front-end — ✅ built + verified.** `app/intake-v2.html` reads `claimable`/`placeId` on
+the `render-known` response and shows a **"View & Claim Proposal"** panel (Location step):
+client pre-check (valid + non-disposable) → POST `{action:'claimProposal', googlePlaceId,
+emailAttempt}` to `CLAIM_URL` (`ghl-claim-proposal`) → on `{claimed:true}` stash the email
+(sessionStorage) and jump to the saved proposal. Playwright-verified 10/10. Continue stays
+enabled so a fresh assessment remains the alternative.
 
 ---
 
@@ -191,8 +206,10 @@ Owner↔Property. Until that CTA ships, `claimable` is emitted but not user-visi
    Manage/Edit pages (list + edit form + Recalculate button + preview link).
 4. **Create-New page** — embed the intake-v2 widget in internal mode (autocomplete gate),
    posting through the authenticated session to the internal wrapper.
-5. **Claim route** — add to Recognition; test end-to-end (internal create → prospect
-   claims by address).
+5. **Claim route** — ✅ done. Detection in Site-Selected Routing + a **separate** lean
+   `PropScore: Claim Proposal` workflow (`ghl-claim-proposal`) + the intake-v2 claim CTA.
+   Remaining: one live end-to-end pass (internal create → prospect claims by address) once
+   a real claimable record exists.
 6. **Owner portal (later)** — Entra External ID provider + `Owner` web role +
    contact-scoped table permissions + owner pages.
 
