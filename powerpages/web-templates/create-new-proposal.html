@@ -578,6 +578,21 @@
       $(id).addEventListener('bui-change', deriveCoverage);
     });
     $('generate-btn').addEventListener('click', onGenerate);
+
+    // Deep link from the Property Lookup page: ?placeId=...&address=... skips
+    // re-typing the address through Google Autocomplete — the lookup page
+    // already confirmed the record exists, so go straight to the existing-
+    // proposal load instead of the full site-routing round trip.
+    var params = new URLSearchParams(window.location.search);
+    var linkedPlaceId = params.get('placeId');
+    if (linkedPlaceId) {
+      state.placeId = linkedPlaceId;
+      state.formattedAddress = params.get('address') || '';
+      addr.value = state.formattedAddress || linkedPlaceId;
+      show('details-card'); show('scores-card'); show('fee-card'); show('submit-card');
+      $('address-status').textContent = 'Loading existing proposal…';
+      loadExistingProposal(linkedPlaceId);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

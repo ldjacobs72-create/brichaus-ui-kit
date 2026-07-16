@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+{% raw %}
+<!--
+  Internal "Property Lookup" — Power Pages web template.
+
+  Staff-facing, EntraID-gated (the Power Pages page's Staff web role controls
+  access; this markup assumes an authenticated staff session).
+
+  Read-only search over new_properties, queried DIRECTLY from the browser via
+  the Power Pages Web API (/_api/new_properties) using the visiting staff
+  member's own portal session — deliberately NOT routed through any n8n
+  webhook. This is a lookup, not a write path, so there's nothing for a
+  workflow round trip to add except latency and one more thing that can fail.
+
+  Clicking a result jumps into the Proposal Engine
+  (create-new-proposal.html?placeId=...&address=...), which already knows how
+  to load an existing property straight from those two query params (see the
+  "Deep link from the Property Lookup page" block in that file's init()).
+
+  REQUIRED Dataverse/Power Pages setup (one-time, done in Portal Management —
+  not something this file can configure):
+    1. A Table Permission on new_properties granting at least Read, scoped
+       Global (or to whatever web role gates staff pages), assigned to the
+       Staff web role.
+    2. The Power Pages Web API enabled for the new_properties table (Table
+       Permissions -> new_properties -> enable for Web API), so GET requests
+       to /_api/new_properties are actually served.
+  GET requests need no anti-forgery token (that's only required for
+  POST/PATCH/DELETE), so once permissions are in place this page needs no
+  further wiring.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Property Lookup — Internal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
+
+<style>
+  #bui-property-lookup { font-family: var(--bui-font-family); max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; color: var(--bui-color-text); }
+  #bui-property-lookup h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  #bui-property-lookup .sub { color: var(--bui-color-text-muted); font-size: var(--bui-font-size-sm); margin: 0 0 20px; }
+  #bui-property-lookup .card { background: var(--bui-color-surface); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-lg); padding: 20px; box-shadow: var(--bui-shadow-sm); }
+  #bui-property-lookup .note { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin: 10px 0 0; }
+  #bui-property-lookup .hidden { display: none !important; }
+  #bui-property-lookup table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: var(--bui-font-size-sm); }
+  #bui-property-lookup th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--bui-color-border); color: var(--bui-color-text-muted); font-weight: 600; }
+  #bui-property-lookup td { padding: 10px; border-bottom: 1px solid var(--bui-color-border); vertical-align: top; }
+  #bui-property-lookup tbody tr { cursor: pointer; }
+  #bui-property-lookup tbody tr:hover { background: var(--bui-color-bg); }
+  #bui-property-lookup .badges { display: flex; gap: 4px; flex-wrap: wrap; }
+  #bui-property-lookup .badge { font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: var(--bui-radius-pill); background: var(--bui-color-bg); border: 1px solid var(--bui-color-border); color: var(--bui-color-text-muted); }
+  #bui-property-lookup .status-pill { font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: var(--bui-radius-pill); white-space: nowrap; }
+  #bui-property-lookup .status-pill[data-tone="claimed"] { background: #fff4e5; color: #7a4a00; }
+  #bui-property-lookup .status-pill[data-tone="unclaimed"] { background: var(--bui-color-bg); color: var(--bui-color-text-muted); border: 1px solid var(--bui-color-border); }
+</style>
+</head>
+<body>
+
+<div id="bui-property-lookup">
+  <h1>Property Lookup</h1>
+  <p class="sub">Internal · staff only. Search existing properties by name, address, or place ID. This is read-only — nothing here creates or changes a proposal. Click a result to open it in the Proposal Engine.</p>
+
+  <div class="card">
+    <bui-input id="q" label="Search" placeholder="Property name, street, city, ZIP, or place ID…"></bui-input>
+    <p class="note" id="lookup-status">Type at least 2 characters to search.</p>
+    <table class="hidden" id="results-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>Units</th>
+          <th>Fee</th>
+          <th>Coverage</th>
+          <th>Status</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  var CONFIG = {
+    // Same-origin Power Pages Web API — proxies Dataverse using the visiting
+    // staff member's own portal session + table permissions, no service
+    // credentials and no n8n round trip.
+    WEBAPI_URL: '/_api/new_properties',
+    PROPOSAL_ENGINE_URL: 'create-new-proposal.html'
+  };
+
+  var SELECT_FIELDS = [
+    'new_goggleplace_id', 'new_propertyname', 'cr55d_street', 'cr55d_city', 'cr55d_state', 'cr55d_postalcode',
+    'new_unitcount', 'cr55d_proposedmgmtfee', 'cr55d_evictioncoverage', 'cr55d_petcoverage',
+    'cr55d_leaseplacementcoverage', 'cr55d_annualinspection', 'cr55d_ghl_contactid', 'modifiedon'
+  ];
+
+  function $(id) { return document.getElementById(id); }
+  function show(id) { $(id).classList.remove('hidden'); }
+  function hide(id) { $(id).classList.add('hidden'); }
+  function stripHtml(s) { return String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+  // GETs JSON with the same non-generic-error treatment as the Proposal
+  // Engine's postJson — a bad response should say WHY, not just "search
+  // failed". GET needs no anti-forgery token (only write verbs do), so this
+  // is intentionally simpler than a POST helper would be.
+  function getJson(url) {
+    return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) {
+      if (r.ok) return r.json();
+      return r.text().then(function (text) {
+        var reason = 'HTTP ' + r.status;
+        try {
+          var parsed = JSON.parse(text);
+          var msg = (parsed && parsed.error && parsed.error.message) || (parsed && parsed.message) || '';
+          if (msg) reason = stripHtml(msg);
+        } catch (e) { /* not JSON — keep the plain HTTP-status reason */ }
+        throw new Error(reason);
+      });
+    });
+  }
+
+  // OData literal escaping: a single quote inside a string literal is
+  // written as two single quotes. Without this, a search for e.g. "O'Brien
+  // Ave" would break the $filter syntax instead of just failing to match.
+  function odataEscape(s) { return String(s).replace(/'/g, "''"); }
+
+  function buildFilter(q) {
+    var esc = odataEscape(q);
+    return [
+      "contains(new_propertyname,'" + esc + "')",
+      "contains(cr55d_street,'" + esc + "')",
+      "contains(cr55d_city,'" + esc + "')",
+      "contains(cr55d_postalcode,'" + esc + "')",
+      "new_goggleplace_id eq '" + esc + "'"
+    ].join(' or ');
+  }
+
+  function formatAddress(row) {
+    var parts = [row.cr55d_street, row.cr55d_city, row.cr55d_state, row.cr55d_postalcode].filter(Boolean);
+    return parts.join(', ');
+  }
+
+  function renderRows(rows) {
+    var body = $('results-body');
+    body.innerHTML = '';
+    rows.forEach(function (row) {
+      var tr = document.createElement('tr');
+      var placeId = row.new_goggleplace_id;
+      var address = formatAddress(row);
+      tr.addEventListener('click', function () {
+        var url = CONFIG.PROPOSAL_ENGINE_URL + '?placeId=' + encodeURIComponent(placeId) + '&address=' + encodeURIComponent(address);
+        window.location.href = url;
+      });
+
+      var nameTd = document.createElement('td');
+      var nameEl = document.createElement('div'); nameEl.textContent = row.new_propertyname || '(unnamed)';
+      nameEl.style.fontWeight = '600';
+      var addrEl = document.createElement('div'); addrEl.className = 'note'; addrEl.style.margin = '2px 0 0';
+      addrEl.textContent = address || placeId;
+      nameTd.appendChild(nameEl); nameTd.appendChild(addrEl);
+
+      var unitsTd = document.createElement('td'); unitsTd.textContent = row.new_unitcount != null ? row.new_unitcount : '—';
+
+      var feeTd = document.createElement('td');
+      feeTd.textContent = row.cr55d_proposedmgmtfee != null ? Number(row.cr55d_proposedmgmtfee).toFixed(2) + '%' : '—';
+
+      var covTd = document.createElement('td');
+      var badges = document.createElement('div'); badges.className = 'badges';
+      [
+        ['E', row.cr55d_evictioncoverage], ['P', row.cr55d_petcoverage],
+        ['LP', row.cr55d_leaseplacementcoverage], ['I', row.cr55d_annualinspection]
+      ].forEach(function (pair) {
+        if (!pair[1]) return;
+        var b = document.createElement('span'); b.className = 'badge'; b.textContent = pair[0];
+        badges.appendChild(b);
+      });
+      covTd.appendChild(badges);
+
+      var statusTd = document.createElement('td');
+      var pill = document.createElement('span'); pill.className = 'status-pill';
+      var claimed = !!row.cr55d_ghl_contactid;
+      pill.dataset.tone = claimed ? 'claimed' : 'unclaimed';
+      pill.textContent = claimed ? 'Claimed' : 'Unclaimed';
+      statusTd.appendChild(pill);
+
+      var updatedTd = document.createElement('td');
+      updatedTd.textContent = row.modifiedon ? new Date(row.modifiedon).toLocaleDateString() : '—';
+
+      [nameTd, unitsTd, feeTd, covTd, statusTd, updatedTd].forEach(function (td) { tr.appendChild(td); });
+      body.appendChild(tr);
+    });
+  }
+
+  var searchSeq = 0;
+
+  function runSearch(q) {
+    var mySeq = ++searchSeq;
+    var url = CONFIG.WEBAPI_URL + '?$select=' + SELECT_FIELDS.join(',')
+      + '&$filter=' + encodeURIComponent(buildFilter(q))
+      + '&$top=25&$orderby=modifiedon desc';
+
+    $('lookup-status').textContent = 'Searching…';
+    getJson(url).then(function (data) {
+      if (mySeq !== searchSeq) return; // superseded by a newer keystroke
+      var rows = (data && data.value) || [];
+      if (!rows.length) {
+        hide('results-table');
+        $('lookup-status').textContent = 'No properties match "' + q + '".';
+        return;
+      }
+      renderRows(rows);
+      show('results-table');
+      $('lookup-status').textContent = rows.length + ' result' + (rows.length === 1 ? '' : 's') + (rows.length === 25 ? ' (showing first 25 — refine your search)' : '') + '.';
+    }).catch(function (err) {
+      if (mySeq !== searchSeq) return;
+      hide('results-table');
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('lookup-status').textContent = 'Search failed' + reason + '.';
+    });
+  }
+
+  var debounceTimer = null;
+
+  function onQueryInput(e) {
+    var q = String((e.detail && e.detail.value) || '').trim();
+    clearTimeout(debounceTimer);
+    if (q.length < 2) {
+      searchSeq++; // invalidate any in-flight search
+      hide('results-table');
+      $('lookup-status').textContent = 'Type at least 2 characters to search.';
+      return;
+    }
+    debounceTimer = setTimeout(function () { runSearch(q); }, 300);
+  }
+
+  function init() {
+    $('q').addEventListener('bui-input', onQueryInput);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
+{% endraw %}
