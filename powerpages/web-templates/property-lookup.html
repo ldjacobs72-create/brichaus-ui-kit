@@ -8,11 +8,23 @@
   Staff-facing, EntraID-gated (the Power Pages page's Staff web role controls
   access; this markup assumes an authenticated staff session).
 
-  Read-only search over new_properties, queried DIRECTLY from the browser via
-  the Power Pages Web API (/_api/new_properties) using the visiting staff
-  member's own portal session — deliberately NOT routed through any n8n
+  Read-only search over the Properties table, queried DIRECTLY from the
+  browser via the Power Pages Web API (/_api/new_property) using the visiting
+  staff member's own portal session — deliberately NOT routed through any n8n
   webhook. This is a lookup, not a write path, so there's nothing for a
   workflow round trip to add except latency and one more thing that can fail.
+
+  IMPORTANT: the Power Pages Web API (/_api/...) routes by the table's
+  LOGICAL name (singular — "new_property"), which is a different convention
+  from the raw Dataverse Web API v9.2 used everywhere else in this project
+  (n8n's direct org985aea18.api.crm.dynamics.com calls use the pluralized
+  ENTITY SET name, "new_properties"). Confirmed the hard way: requesting
+  /_api/new_properties (plural) here produced "Resource not found for the
+  segment 'new_property'" — the portal normalizes to the logical name for
+  its own permission/site-setting lookup regardless of what's requested, so
+  everything on the Power Pages side (Table Permission's Table Name, the
+  Webapi/*/enabled and Webapi/*/fields site settings, and this URL) has to
+  agree on the SINGULAR form.
 
   Clicking a result jumps into the Proposal Engine
   (create-new-proposal.html?placeId=...&address=...), which already knows how
@@ -21,12 +33,12 @@
 
   REQUIRED Dataverse/Power Pages setup (one-time, done in Portal Management —
   not something this file can configure):
-    1. A Table Permission on new_properties granting at least Read, scoped
-       Global (or to whatever web role gates staff pages), assigned to the
-       Staff web role.
-    2. The Power Pages Web API enabled for the new_properties table (Table
-       Permissions -> new_properties -> enable for Web API), so GET requests
-       to /_api/new_properties are actually served.
+    1. A Table Permission with Table Name new_property granting at least
+       Read, scoped Global (or to whatever web role gates staff pages),
+       assigned to the Staff web role.
+    2. Site settings Webapi/new_property/enabled = true and
+       Webapi/new_property/fields = the field list this page selects, so GET
+       requests to /_api/new_property are actually served.
   GET requests need no anti-forgery token (that's only required for
   POST/PATCH/DELETE), so once permissions are in place this page needs no
   further wiring.
@@ -88,7 +100,8 @@
     // Same-origin Power Pages Web API — proxies Dataverse using the visiting
     // staff member's own portal session + table permissions, no service
     // credentials and no n8n round trip.
-    WEBAPI_URL: '/_api/new_properties',
+    // Singular — see the "IMPORTANT" note above the file header for why.
+    WEBAPI_URL: '/_api/new_property',
     PROPOSAL_ENGINE_URL: 'create-new-proposal.html'
   };
 
