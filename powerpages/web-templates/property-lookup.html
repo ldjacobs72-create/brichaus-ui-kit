@@ -52,9 +52,25 @@
   #bui-property-lookup .status-pill { font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: var(--bui-radius-pill); white-space: nowrap; }
   #bui-property-lookup .status-pill[data-tone="claimed"] { background: #fff4e5; color: #7a4a00; }
   #bui-property-lookup .status-pill[data-tone="unclaimed"] { background: var(--bui-color-bg); color: var(--bui-color-text-muted); border: 1px solid var(--bui-color-border); }
+
+  /* Shared internal-tool nav — these are standalone Web Template pages with
+     no site header/footer, so there's no built-in way to move between them
+     except typing the URL. Kept intentionally minimal/duplicated per file
+     rather than a Liquid include, matching how the rest of this file is a
+     fully self-contained document. */
+  .bui-internal-nav { font-family: var(--bui-font-family); display: flex; gap: 4px; padding: 12px 16px; background: var(--bui-color-surface); border-bottom: 1px solid var(--bui-color-border); }
+  .bui-internal-nav a { font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-text-muted); text-decoration: none; padding: 6px 12px; border-radius: var(--bui-radius-pill); }
+  .bui-internal-nav a:hover { background: var(--bui-color-bg); }
+  .bui-internal-nav a.active { color: var(--bui-color-text); background: var(--bui-color-bg); }
 </style>
 </head>
 <body>
+
+<nav class="bui-internal-nav">
+  <a href="/">Home</a>
+  <a href="/proposal-engine/">Proposal Engine</a>
+  <a href="/property-lookup/" class="active">Property Lookup</a>
+</nav>
 
 <div id="bui-property-lookup">
   <h1>Property Lookup</h1>
