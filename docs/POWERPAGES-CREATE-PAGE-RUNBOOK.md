@@ -1,7 +1,7 @@
 # Power Pages — get the Create-New-Proposal page live (beginner runbook)
 
 Goal: one **authenticated, staff-only** page in Power Pages that hosts the
-`create-new-proposal` widget, so a staff member can create a claimable proposal from a real
+`proposal-engine` widget, so a staff member can create a claimable proposal from a real
 web address instead of curl. This is the "just the Create page" MVP — the smallest thing
 that teaches the whole Power Pages stack once.
 
@@ -33,7 +33,7 @@ Edit screens that read Dataverse directly.
 - You need the **Maker/Owner** role in the `org985aea18` environment (the one with
   `new_properties`). If you can open https://make.powerpages.microsoft.com and see/create
   sites there, you're set.
-- Have the widget file open: `powerpages/web-templates/create-new-proposal.html` (you'll
+- Have the widget file open: `powerpages/web-templates/proposal-engine.html` (you'll
   paste its contents).
 - Have a **Google Maps JS API key** ready (the same one the funnel uses is fine).
 
@@ -69,7 +69,7 @@ correct). This app is where web templates / page templates / web pages live.
    - **Name:** `Create New Proposal`
    - **Website:** select your site (click the field, press Enter, pick it).
    - **Source:** paste the **entire contents** of
-     `powerpages/web-templates/create-new-proposal.html`.
+     `powerpages/web-templates/proposal-engine.html`.
    - **MIME Type:** `text/html`
 3. Nothing needs editing in the pasted Source — `INTERNAL_CREATE_URL` / `SITE_ROUTING_URL`
    already point at your live n8n webhooks, `DRY_RUN` is already `false`, and the Maps key
@@ -198,8 +198,8 @@ pac pages list -v
 pac pages download --path ./powerpages/site --webSiteId <WEBSITE_ID> --modelVersion 2
 
 # 4. Edit the web-template source file that appears under the downloaded tree
-#    (…/web-templates/create-new-proposal/…source.html). Paste updates from
-#    powerpages/web-templates/create-new-proposal.html into it.
+#    (…/web-templates/proposal-engine/…source.html). Paste updates from
+#    powerpages/web-templates/proposal-engine.html into it.
 
 # 5. Upload just the changes back
 pac pages upload --path ./powerpages/site/<downloaded-site-folder> --modelVersion 2
@@ -208,7 +208,7 @@ pac pages upload --path ./powerpages/site/<downloaded-site-folder> --modelVersio
 Notes:
 - After `download`, the exact filenames appear on disk — the web template's Source lands in
   its own `.html` file you can diff/commit. Keep the canonical copy in
-  `powerpages/web-templates/create-new-proposal.html` and copy it into the tree before
+  `powerpages/web-templates/proposal-engine.html` and copy it into the tree before
   upload (or symlink your edits).
 - `pac pages upload` within the **same** environment does a **delta** (only changed files).
   Cross-environment uploads are always full — use `--forceUploadAll` if state drifts.

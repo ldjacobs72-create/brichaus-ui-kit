@@ -21,7 +21,7 @@ powerpages/
 │                                        (apply in the design studio, or as pac YAML
 │                                        once a base site exists to download)
 └─ web-templates/
-   └─ create-new-proposal.html        ← the custom half: Surface 1 (Create New),
+   └─ proposal-engine.html            ← the custom half: Surface 1 (Create New),
                                         reuses <bui-address-input> + ghl-site-selected
                                         for placeId parity. Real code, works today in
                                         DRY_RUN until the internal wrapper is built.
@@ -33,7 +33,7 @@ powerpages/
 |---|---|---|
 | Proposals list (all) | standard **List** over a `new_properties` view | `config/site-config.md` → studio |
 | Proposal edit + Recalculate | standard **Basic Form** + a small action button | `config/site-config.md` → studio |
-| **Create New** (address gate + staff inputs) | **custom web template** | `web-templates/create-new-proposal.html` |
+| **Create New** (address gate + staff inputs) | **custom web template** | `web-templates/proposal-engine.html` |
 | Web roles / table permissions / identity | studio security config | `config/site-config.md` |
 
 ## Test the Create widget locally
@@ -90,7 +90,7 @@ pac pages download --path ./powerpages/site --webSiteId <SITE_GUID> --modelVersi
 pac pages upload   --path ./powerpages/site --modelVersion 2
 ```
 
-> The `web-templates/create-new-proposal.html` here is authored standalone so it's
+> The `web-templates/proposal-engine.html` here is authored standalone so it's
 > reviewable and testable now. On deploy it becomes a **Web Template** record (with a
 > Web Page + Page Template) inside the downloaded `./powerpages/site` tree. Until a base
 > site is downloaded, treat `config/site-config.md` as the studio setup checklist.

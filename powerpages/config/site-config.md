@@ -87,8 +87,8 @@ Page permission: **Staff** role only.
 
 ## 6 · Create New page (Surface 1)
 
-- A web page whose content is the **`create-new-proposal` web template**
-  (`../web-templates/create-new-proposal.html`).
+- A web page whose content is the **`proposal-engine` web template**
+  (`../web-templates/proposal-engine.html`).
 - Page permission: **Staff** role only.
 - Launched from the Proposals list ("+ Create New") and/or main nav.
 

@@ -24,7 +24,7 @@
   Microsoft support resolves the underlying issue.
 
   Clicking a result jumps into the Proposal Engine
-  (create-new-proposal.html?placeId=...&address=...), which already knows how
+  (proposal-engine.html?placeId=...&address=...), which already knows how
   to load an existing property straight from those two query params (see the
   "Deep link from the Property Lookup page" block in that file's init()).
 -->
@@ -83,7 +83,7 @@
 (function () {
   var CONFIG = {
     LOOKUP_URL: 'https://brichaus.app.n8n.cloud/webhook/internal-property-lookup',
-    PROPOSAL_ENGINE_URL: 'create-new-proposal.html'
+    PROPOSAL_ENGINE_URL: 'proposal-engine.html'
   };
 
   function $(id) { return document.getElementById(id); }

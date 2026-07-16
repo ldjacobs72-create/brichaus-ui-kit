@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /*
- * Local dev server for the Create-New-Proposal widget.
+ * Local dev server for the Proposal Engine widget.
  *
- * Serves powerpages/web-templates/create-new-proposal.html over http://localhost
+ * Serves powerpages/web-templates/proposal-engine.html over http://localhost
  * so the Google Places autocomplete can initialize (it can't on a file:// page —
  * Google rejects the null referrer). It:
  *   - injects your Google Maps key at serve time (never written to the file,
@@ -34,7 +34,7 @@ const KEY = argVal('--key') || process.env.GOOGLE_MAPS_KEY || '';
 const PORT = Number(argVal('--port') || process.env.PORT || 8000);
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
-const WIDGET = path.join(REPO_ROOT, 'powerpages/web-templates/create-new-proposal.html');
+const WIDGET = path.join(REPO_ROOT, 'powerpages/web-templates/proposal-engine.html');
 const CDN_PREFIX = 'https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/';
 
 const MIME = {
@@ -82,13 +82,13 @@ function serveRepoFile(urlPath, res) {
 
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
-  if (urlPath === '/' || urlPath === '/create-new-proposal.html') return serveWidgetHtml(res);
+  if (urlPath === '/' || urlPath === '/proposal-engine.html') return serveWidgetHtml(res);
   return serveRepoFile(urlPath, res);
 });
 
 server.listen(PORT, () => {
   const url = 'http://localhost:' + PORT + '/';
-  console.log('\n  Create-New-Proposal widget — local dev server');
+  console.log('\n  Proposal Engine widget — local dev server');
   console.log('  ---------------------------------------------');
   console.log('  Serving:  ' + url);
   console.log('  Widget:   ' + path.relative(REPO_ROOT, WIDGET));
