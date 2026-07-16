@@ -260,6 +260,35 @@
     $('generate-btn').textContent = mode === 'recalculate' ? 'Recalculate & Update' : 'Generate Proposal';
   }
 
+  function stripHtml(s) { return String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+  // POSTs JSON and parses the response, but — unlike a bare fetch().then(r =>
+  // r.json()) — gives every failure mode a DISTINCT, useful reason instead of
+  // funneling network errors, non-2xx statuses, and JS exceptions into one
+  // generic "could not reach" message. That generic message once masked a
+  // real n8n account execution-limit error as an indistinguishable
+  // connectivity problem during live testing. On a non-2xx response, surfaces
+  // the backend's own error text (HTML-stripped) when present, else the
+  // plain HTTP status.
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      if (r.ok) return r.json();
+      return r.text().then(function (text) {
+        var reason = 'HTTP ' + r.status;
+        try {
+          var parsed = JSON.parse(text);
+          var msg = (parsed && (parsed.message || parsed.error)) || '';
+          if (msg) reason = stripHtml(msg);
+        } catch (e) { /* not JSON — keep the plain HTTP-status reason */ }
+        throw new Error(reason);
+      });
+    });
+  }
+
   // bui-select's connectedCallback fires the instant the HTML parser inserts
   // its OPENING tag — before it has parsed any nested <option> children — so
   // on a normal network-parsed page (unlike innerHTML injection) statically
@@ -321,11 +350,8 @@
     resetExistingState();
     $('address-status').textContent = 'Verifying address & pulling property data…';
 
-    fetch(CONFIG.SITE_ROUTING_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ googlePlaceId: placeId, formattedAddress: detail.formattedAddress || detail.description || '' })
-    }).then(function (r) { return r.json(); }).then(function (data) {
+    postJson(CONFIG.SITE_ROUTING_URL, { googlePlaceId: placeId, formattedAddress: detail.formattedAddress || detail.description || '' })
+    .then(function (data) {
       // Canonical placeId comes back from the SAME canonicalizer the funnel uses.
       state.placeId = (data && (data.googlePlaceId || data.placeId)) || placeId;
       state.formattedAddress = (data && data.formattedAddress) || detail.formattedAddress || '';
@@ -355,8 +381,9 @@
         deriveCoverage();
         $('address-status').textContent = 'Verified · ' + state.formattedAddress;
       }
-    }).catch(function () {
-      $('address-status').textContent = 'Could not reach the address service. Try again.';
+    }).catch(function (err) {
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('address-status').textContent = 'Could not reach the address service' + reason + '. Try again in a moment.';
     });
   }
 
@@ -367,11 +394,8 @@
   // property has been claimed.
   function loadExistingProposal(placeId) {
     $('address-status').textContent = 'Loading existing proposal…';
-    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getCachedProposal', googlePlaceId: placeId })
-    }).then(function (r) { return r.json(); }).then(function (data) {
+    postJson(CONFIG.CONTACT_RECOGNITION_URL, { action: 'getCachedProposal', googlePlaceId: placeId })
+    .then(function (data) {
       if (placeId !== state.placeId) return; // superseded by a newer selection
       if (!data || !data.found) {
         // Routing said a proposal exists but the cache lookup came up empty —
@@ -385,8 +409,9 @@
       prefillFromExisting(data);
       setMode('recalculate');
       $('address-status').textContent = 'Verified · ' + state.formattedAddress;
-    }).catch(function () {
-      $('address-status').textContent = 'Verified, but could not load the existing proposal — check the connection and retry.';
+    }).catch(function (err) {
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('address-status').textContent = 'Verified, but could not load the existing proposal' + reason + ' — check the connection and retry.';
     });
   }
 
@@ -515,10 +540,7 @@
     }
 
     $('submit-status').textContent = isRecalc ? 'Recalculating…' : 'Generating…';
-    fetch(isRecalc ? CONFIG.RECALCULATE_URL : CONFIG.INTERNAL_CREATE_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function (r) { return r.json(); }).then(function (res) {
+    postJson(isRecalc ? CONFIG.RECALCULATE_URL : CONFIG.INTERNAL_CREATE_URL, payload).then(function (res) {
       var pid = res && (res.googlePlaceId || res.placeId) || state.placeId;
       // Show the calculated fee immediately — staff shouldn't have to leave
       // the widget (or open the public proposal page) just to see the
@@ -536,8 +558,9 @@
       // through the full recognize+confirmEmail check regardless).
       var actionLabel = isRecalc ? 'Updated.' : 'Created.';
       $('submit-status').innerHTML = actionLabel + ' <a href="' + CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(pid) + '&internal=1" target="_blank">Preview proposal →</a>';
-    }).catch(function () {
-      $('submit-status').textContent = (isRecalc ? 'Recalculate' : 'Create') + ' failed — check the internal wrapper.';
+    }).catch(function (err) {
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('submit-status').textContent = (isRecalc ? 'Recalculate' : 'Create') + ' failed' + reason + ' — check the internal wrapper.';
     });
   }
 
