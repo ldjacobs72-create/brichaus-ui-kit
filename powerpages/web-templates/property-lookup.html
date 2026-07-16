@@ -8,40 +8,25 @@
   Staff-facing, EntraID-gated (the Power Pages page's Staff web role controls
   access; this markup assumes an authenticated staff session).
 
-  Read-only search over the Properties table, queried DIRECTLY from the
-  browser via the Power Pages Web API (/_api/new_property) using the visiting
-  staff member's own portal session — deliberately NOT routed through any n8n
-  webhook. This is a lookup, not a write path, so there's nothing for a
-  workflow round trip to add except latency and one more thing that can fail.
+  Read-only search over the Properties table via an n8n webhook
+  (PropScore: Property Lookup) rather than the Power Pages Web API directly.
 
-  IMPORTANT: the Power Pages Web API (/_api/...) routes by the table's
-  LOGICAL name (singular — "new_property"), which is a different convention
-  from the raw Dataverse Web API v9.2 used everywhere else in this project
-  (n8n's direct org985aea18.api.crm.dynamics.com calls use the pluralized
-  ENTITY SET name, "new_properties"). Confirmed the hard way: requesting
-  /_api/new_properties (plural) here produced "Resource not found for the
-  segment 'new_property'" — the portal normalizes to the logical name for
-  its own permission/site-setting lookup regardless of what's requested, so
-  everything on the Power Pages side (Table Permission's Table Name, the
-  Webapi/*/enabled and Webapi/*/fields site settings, and this URL) has to
-  agree on the SINGULAR form.
+  That direct-Web-API path (/_api/new_property) was the original design —
+  no n8n round trip needed for a page that only reads. It's still the right
+  architecture in principle, but hit a wall in practice: even with the Table
+  Permission, Web API site settings, and portal Contact/Web Role all
+  confirmed correct, every request returned an opaque, unchanging
+  {"code":"9004010A","message":"An unexpected error occurred..."} with no
+  further detail even with Webapi/error/innererror enabled. That points to a
+  failure below where client-side config can reach, so this now goes
+  through the same n8n + Dataverse OAuth2 path every other write/read in
+  this project already uses reliably. Revisit the direct Web API later if
+  Microsoft support resolves the underlying issue.
 
   Clicking a result jumps into the Proposal Engine
   (create-new-proposal.html?placeId=...&address=...), which already knows how
   to load an existing property straight from those two query params (see the
   "Deep link from the Property Lookup page" block in that file's init()).
-
-  REQUIRED Dataverse/Power Pages setup (one-time, done in Portal Management —
-  not something this file can configure):
-    1. A Table Permission with Table Name new_property granting at least
-       Read, scoped Global (or to whatever web role gates staff pages),
-       assigned to the Staff web role.
-    2. Site settings Webapi/new_property/enabled = true and
-       Webapi/new_property/fields = the field list this page selects, so GET
-       requests to /_api/new_property are actually served.
-  GET requests need no anti-forgery token (that's only required for
-  POST/PATCH/DELETE), so once permissions are in place this page needs no
-  further wiring.
 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -97,58 +82,35 @@
 <script>
 (function () {
   var CONFIG = {
-    // Same-origin Power Pages Web API — proxies Dataverse using the visiting
-    // staff member's own portal session + table permissions, no service
-    // credentials and no n8n round trip.
-    // Singular — see the "IMPORTANT" note above the file header for why.
-    WEBAPI_URL: '/_api/new_property',
+    LOOKUP_URL: 'https://brichaus.app.n8n.cloud/webhook/internal-property-lookup',
     PROPOSAL_ENGINE_URL: 'create-new-proposal.html'
   };
-
-  var SELECT_FIELDS = [
-    'new_goggleplace_id', 'new_propertyname', 'cr55d_street', 'cr55d_city', 'cr55d_state', 'cr55d_postalcode',
-    'new_unitcount', 'cr55d_proposedmgmtfee', 'cr55d_evictioncoverage', 'cr55d_petcoverage',
-    'cr55d_leaseplacementcoverage', 'cr55d_annualinspection', 'cr55d_ghl_contactid', 'modifiedon'
-  ];
 
   function $(id) { return document.getElementById(id); }
   function show(id) { $(id).classList.remove('hidden'); }
   function hide(id) { $(id).classList.add('hidden'); }
   function stripHtml(s) { return String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
 
-  // GETs JSON with the same non-generic-error treatment as the Proposal
+  // POSTs JSON with the same non-generic-error treatment as the Proposal
   // Engine's postJson — a bad response should say WHY, not just "search
-  // failed". GET needs no anti-forgery token (only write verbs do), so this
-  // is intentionally simpler than a POST helper would be.
-  function getJson(url) {
-    return fetch(url, { headers: { Accept: 'application/json' } }).then(function (r) {
+  // failed".
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
       if (r.ok) return r.json();
       return r.text().then(function (text) {
         var reason = 'HTTP ' + r.status;
         try {
           var parsed = JSON.parse(text);
-          var msg = (parsed && parsed.error && parsed.error.message) || (parsed && parsed.message) || '';
+          var msg = (parsed && (parsed.message || parsed.error)) || '';
           if (msg) reason = stripHtml(msg);
         } catch (e) { /* not JSON — keep the plain HTTP-status reason */ }
         throw new Error(reason);
       });
     });
-  }
-
-  // OData literal escaping: a single quote inside a string literal is
-  // written as two single quotes. Without this, a search for e.g. "O'Brien
-  // Ave" would break the $filter syntax instead of just failing to match.
-  function odataEscape(s) { return String(s).replace(/'/g, "''"); }
-
-  function buildFilter(q) {
-    var esc = odataEscape(q);
-    return [
-      "contains(new_propertyname,'" + esc + "')",
-      "contains(cr55d_street,'" + esc + "')",
-      "contains(cr55d_city,'" + esc + "')",
-      "contains(cr55d_postalcode,'" + esc + "')",
-      "new_goggleplace_id eq '" + esc + "'"
-    ].join(' or ');
   }
 
   function formatAddress(row) {
@@ -211,12 +173,9 @@
 
   function runSearch(q) {
     var mySeq = ++searchSeq;
-    var url = CONFIG.WEBAPI_URL + '?$select=' + SELECT_FIELDS.join(',')
-      + '&$filter=' + encodeURIComponent(buildFilter(q))
-      + '&$top=25&$orderby=modifiedon desc';
 
     $('lookup-status').textContent = 'Searching…';
-    getJson(url).then(function (data) {
+    postJson(CONFIG.LOOKUP_URL, { query: q }).then(function (data) {
       if (mySeq !== searchSeq) return; // superseded by a newer keystroke
       var rows = (data && data.value) || [];
       if (!rows.length) {
