@@ -1598,6 +1598,13 @@
     // synchronously with the full report, ~30s).
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
 
+    // Services catalog (the 5 branded service cards + AssetShield), read
+    // live from Dataverse (single source of truth, also used by contracts
+    // and elsewhere) instead of hardcoded here. If this fetch fails or is
+    // slow, FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD below keep the
+    // section working — a catalog outage should never blank the proposal.
+    SERVICES_CATALOG_URL: 'https://brichaus.app.n8n.cloud/webhook/services-catalog',
+
     // The GHL booking calendar. No longer a navigation target — the
     // "Schedule your consultation" CTA now advances to the funnel's own
     // Schedule step, where this URL loads INSIDE an iframe (see
@@ -3529,9 +3536,12 @@
   }
 
   /* =====================================================================
-   * Proposal — 5 branded service cards (4 static + AssetShield, dynamic).
+   * Proposal — 6 branded service cards (5 static + AssetShield, dynamic).
+   * Live source is Dataverse (see SERVICES_CATALOG_URL / fetchServicesCatalog
+   * below) — FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD here are only used
+   * if that fetch fails or is slow, so the section never blanks out.
    * =================================================================== */
-  var SERVICE_CARDS = [
+  var FALLBACK_SERVICE_CARDS = [
     { icon: '🏠', title: 'Market-to-Move-In™',
       desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
       items: [
@@ -3572,6 +3582,16 @@
         'Confirm Utilities Transfer',
         'Coordinate Tenant Communications',
         'Negotiate Lease Renewals &amp; Agreements'
+      ] },
+    { icon: '👥', title: 'Managed Tenants™',
+      desc: 'Keep residents engaged and your property compliant with consistent, professional tenant relationship management throughout the lease term.',
+      items: [
+        'Resident Portal Access &amp; Support',
+        'Lease Renewal Management',
+        'Policy &amp; Community Standards Enforcement',
+        'Routine Tenant Communications',
+        'Complaint &amp; Conflict Resolution',
+        'Resident Satisfaction Check-ins'
       ] }
   ];
 
@@ -3580,7 +3600,7 @@
   // corresponding input field there) — Leasing Fee Protection, Lost Rent
   // Coverage, and Malicious Tenant Damage Coverage were dropped because
   // Power Automate's fee formula has no field to price them at all.
-  var ASSET_SHIELD = {
+  var FALLBACK_ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
     desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
     items: [
@@ -3590,6 +3610,38 @@
       'Eviction Protection'
     ]
   };
+
+  // Fetches the live catalog (Dataverse-backed single source of truth) and
+  // resolves to { cards, assetShield } — the shape buildServiceCard/
+  // renderProposalServiceCards already expect. NEVER rejects: any failure
+  // (network error, bad JSON, empty/malformed response, or simply taking
+  // too long) resolves to the FALLBACK_* constants above instead, so a
+  // catalog outage degrades to slightly-stale content, not a blank section.
+  function fetchServicesCatalog() {
+    var fallback = { cards: FALLBACK_SERVICE_CARDS, assetShield: FALLBACK_ASSET_SHIELD };
+    if (!CONFIG.SERVICES_CATALOG_URL) return Promise.resolve(fallback);
+
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(fallback); }, 4000); });
+    var live = fetch(CONFIG.SERVICES_CATALOG_URL).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      var categories = (data && data.categories) || [];
+      if (!categories.length) throw new Error('empty catalog');
+      var assetShield = null;
+      var cards = [];
+      categories.forEach(function (c) {
+        var card = { icon: c.icon, title: c.title, desc: c.desc, items: c.items || [] };
+        if (c.title === 'AssetShield™') assetShield = card; else cards.push(card);
+      });
+      if (!assetShield) throw new Error('catalog missing AssetShield™');
+      return { cards: cards, assetShield: assetShield };
+    }).catch(function () { return fallback; });
+
+    return Promise.race([live, timeout]);
+  }
+
+  var catalogPromise = fetchServicesCatalog();
 
   // Bridges the real server field (report.operationalProfile.categories[].category,
   // a display string) to the machine keys ASSET_SHIELD_TRIGGERS is keyed by —
@@ -3776,11 +3828,16 @@
     var cats = (profile && profile.categories) || [];
     var badgedItems = computeBadgedAssetShieldItems(cats);
 
-    serviceCardsList.innerHTML = '';
-    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
-    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
-    cards.push(assetShieldCard);
-    runRevealSequence(cards, assetShieldCard);
+    // catalogPromise was kicked off at load time (in parallel with the
+    // scoring webhook), so by the time this fires it's almost always
+    // already resolved — this await just guards the rare case it hasn't.
+    catalogPromise.then(function (catalog) {
+      serviceCardsList.innerHTML = '';
+      var cards = catalog.cards.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
+      var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(catalog.assetShield, badgedItems));
+      cards.push(assetShieldCard);
+      runRevealSequence(cards, assetShieldCard);
+    });
   }
 
   downloadReportBtn.addEventListener('click', function () {

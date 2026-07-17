@@ -642,7 +642,13 @@
     // per new tenant signed; setup is a flat one-time fee. Update these two
     // values here (or later, wire them into the scoring response).
     LEASING_FEE_PCT: 50,
-    SETUP_FEE: 250
+    SETUP_FEE: 250,
+    // Services catalog (the branded service cards + AssetShield), read live
+    // from Dataverse (single source of truth, also used by contracts and
+    // elsewhere) instead of hardcoded here. If this fetch fails or is slow,
+    // FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD below keep the section
+    // working — a catalog outage should never blank the proposal.
+    SERVICES_CATALOG_URL: 'https://brichaus.app.n8n.cloud/webhook/services-catalog'
   };
 
   var root = document.getElementById('brichaus-proposal');
@@ -930,10 +936,12 @@
   }
 
   /* =====================================================================
-   * Proposal — 5 branded service cards (verbatim from app/index.html;
-   * see that file for the full doc comments on each table).
+   * Proposal — 6 branded service cards. Live source is Dataverse (see
+   * SERVICES_CATALOG_URL / fetchServicesCatalog below) — the FALLBACK_*
+   * constants here are only used if that fetch fails or is slow, so the
+   * section never blanks out.
    * =================================================================== */
-  var SERVICE_CARDS = [
+  var FALLBACK_SERVICE_CARDS = [
     { icon: '🏠', title: 'Market-to-Move-In™', leasing: true,
       desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
       items: [
@@ -974,10 +982,20 @@
         'Confirm Utilities Transfer',
         'Coordinate Tenant Communications',
         'Negotiate Lease Renewals &amp; Agreements'
+      ] },
+    { icon: '👥', title: 'Managed Tenants™',
+      desc: 'Keep residents engaged and your property compliant with consistent, professional tenant relationship management throughout the lease term.',
+      items: [
+        'Resident Portal Access &amp; Support',
+        'Lease Renewal Management',
+        'Policy &amp; Community Standards Enforcement',
+        'Routine Tenant Communications',
+        'Complaint &amp; Conflict Resolution',
+        'Resident Satisfaction Check-ins'
       ] }
   ];
 
-  var ASSET_SHIELD = {
+  var FALLBACK_ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
     desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
     items: [
@@ -987,6 +1005,42 @@
       'Eviction Protection'
     ]
   };
+
+  // Fetches the live catalog (Dataverse-backed single source of truth) and
+  // resolves to { cards, assetShield } — the shape buildServiceCard/
+  // renderProposalServiceCards already expect. NEVER rejects: any failure
+  // (network error, bad JSON, empty/malformed response, or simply taking
+  // too long) resolves to the FALLBACK_* constants above instead, so a
+  // catalog outage degrades to slightly-stale content, not a blank section.
+  // `leasing: true` on Market-to-Move-In™ is app-level display logic (shows
+  // the leasing % inline on that one card), not catalog content, so it's
+  // set here by title match rather than expected from Dataverse.
+  function fetchServicesCatalog() {
+    var fallback = { cards: FALLBACK_SERVICE_CARDS, assetShield: FALLBACK_ASSET_SHIELD };
+    if (!CONFIG.SERVICES_CATALOG_URL) return Promise.resolve(fallback);
+
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(fallback); }, 4000); });
+    var live = fetch(CONFIG.SERVICES_CATALOG_URL).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      var categories = (data && data.categories) || [];
+      if (!categories.length) throw new Error('empty catalog');
+      var assetShield = null;
+      var cards = [];
+      categories.forEach(function (c) {
+        var card = { icon: c.icon, title: c.title, desc: c.desc, items: c.items || [] };
+        if (c.title === 'Market-to-Move-In™') card.leasing = true;
+        if (c.title === 'AssetShield™') assetShield = card; else cards.push(card);
+      });
+      if (!assetShield) throw new Error('catalog missing AssetShield™');
+      return { cards: cards, assetShield: assetShield };
+    }).catch(function () { return fallback; });
+
+    return Promise.race([live, timeout]);
+  }
+
+  var catalogPromise = fetchServicesCatalog();
 
   var CATEGORY_KEY_BY_NAME = {
     'Tenant Friction': 'tenantFriction',
@@ -1162,11 +1216,16 @@
     var cats = (profile && profile.categories) || [];
     var badgedItems = computeBadgedAssetShieldItems(cats);
 
-    serviceCardsList.innerHTML = '';
-    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card, null, leasingPct)); });
-    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
-    cards.push(assetShieldCard);
-    runRevealSequence(cards, assetShieldCard, serviceCardsList);
+    // catalogPromise was kicked off at load time, so by the time this fires
+    // it's almost always already resolved — this await just guards the
+    // rare case it hasn't.
+    catalogPromise.then(function (catalog) {
+      serviceCardsList.innerHTML = '';
+      var cards = catalog.cards.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card, null, leasingPct)); });
+      var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(catalog.assetShield, badgedItems));
+      cards.push(assetShieldCard);
+      runRevealSequence(cards, assetShieldCard, serviceCardsList);
+    });
   }
 
   function renderOperationalProfile(report) {
