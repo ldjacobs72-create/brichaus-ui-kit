@@ -194,15 +194,16 @@
      obvious which property this is. A small uppercase "Prepared for: <name>"
      tag sits above it, and a quieter "City, ST Zip" locality line sits
      beneath it. */
-  /* Street View hero (subject property) — served by the n8n image proxy,
-     cached per property. Hidden until the image actually loads; if Google has
-     no imagery the proxy returns 204 and onerror keeps it hidden, so the
-     report reads normally without it. */
-  #brichaus-proposal .property-hero {
-    display: block; width: 100%; height: 240px;
-    object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
-    margin: var(--bui-space-3) 0 var(--bui-space-4); background: var(--bui-color-surface-sunken, #EEF1F4);
+  /* Link to Google Maps for this address, in place of a static cached photo
+     — lets the visitor look around (Street View, satellite, etc.) and
+     confirm the location themselves rather than us asserting a single
+     image is definitely their building. */
+  #brichaus-proposal .street-view-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12.5px; font-weight: 600; color: var(--bui-color-accent);
+    text-decoration: none; margin: 2px 0 var(--bui-space-4);
   }
+  #brichaus-proposal .street-view-link:hover { text-decoration: underline; }
   /* One-time setup fee note, shown at the end of the management-fee block. */
   #brichaus-proposal .fee-setup-note {
     margin: var(--bui-space-3) 0 0; font-size: 12px; line-height: 1.5;
@@ -547,16 +548,11 @@
   <div data-state="report" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div class="step-body-pad">
-        <!-- Subject-property Street View photo (see .property-hero). src is
-             set in renderProposal() → loadPropertyImages(); stays hidden until
-             it loads so a no-imagery property just shows no banner. -->
         <p id="prepared-for" class="prepared-for hidden"></p>
         <p id="report-address" class="report-address hidden"></p>
         <p id="report-locality" class="report-locality hidden"></p>
-        <!-- Subject-property Street View — a thin banner under the address (see
-             .property-hero). src set in loadPropertyImages(); stays hidden until
-             it loads so a no-imagery property just shows no banner. -->
-        <img id="property-hero" class="property-hero hidden" alt="" />
+        <!-- Link to Google Maps for this address, set in renderStreetViewLink(). -->
+        <a id="street-view-link" class="street-view-link hidden" href="#" target="_blank" rel="noopener">View property on Google Maps ↗</a>
 
         <!-- Report order (per owner review): the management fee first (with the
              one-time setup-fee note beneath it), then the service cards — the
@@ -632,11 +628,6 @@
     // Where "Schedule Consultation" sends the visitor. Leave blank to no-op
     // with a console warning instead of navigating to a dead link.
     BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
-    // n8n image proxy: server-side-generated, per-property-cached Google
-    // images. GET ?type=streetview|compsmap&placeId=<id> → 200 image, or 204
-    // (no imagery / no comps) which trips the <img> onerror so we hide it.
-    // The Google key stays server-side; this page never sees it.
-    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image',
     // Additional pricing terms shown with the management fee. PLACEHOLDERS —
     // not yet wired to the pipeline. Leasing fee is a % of one month's rent
     // per new tenant signed; setup is a flat one-time fee. Update these two
@@ -1355,7 +1346,7 @@
     renderOperationalProfile(report);
     renderProposalServiceCards(report, resolveLeasingPct(data));
     renderFeeSetupNote();
-    loadPropertyImages();
+    renderStreetViewLink(rawAddr);
   }
 
   // Leasing % shown as the Market-to-Move-In subheading. ALWAYS uses the % the
@@ -1380,25 +1371,18 @@
       ' may apply to new owners joining the BRICHAUS family.';
   }
 
-  // Point the Street View hero + comps map at the n8n image proxy, keyed by
-  // this proposal's placeId. Each image reveals only once it actually loads;
-  // a 204 (no Street View imagery / no comp coordinates) trips onerror and the
-  // element stays hidden, so the report is complete with or without them.
-  // No Google key is ever exposed here — the proxy holds it and caches the
-  // result per property, so repeat views never re-trigger a Google call.
-  function loadPropertyImages() {
-    if (!placeId || !CONFIG.IMAGE_PROXY_URL) return;
-    var base = CONFIG.IMAGE_PROXY_URL + '?placeId=' + encodeURIComponent(placeId) + '&type=';
-
-    var hero = document.getElementById('property-hero');
-    if (hero) {
-      hero.onload = function () { hero.classList.remove('hidden'); };
-      hero.onerror = function () { hero.classList.add('hidden'); };
-      hero.src = base + 'streetview';
-    }
-    // The comps map is NOT rendered on the proposal — it belongs in the intake
-    // comparables section (interactive: subject centered, comps tagged with
-    // address + amount, hover for beds/baths/sqft). See the pending intake build.
+  // A live link to Google Maps for this address — lets the visitor look
+  // around (Street View, satellite, etc.) and confirm the location
+  // themselves, instead of us asserting a single static photo is definitely
+  // their building. Driven by the same address string Google Places resolved
+  // during intake, not a stored lat/lng, so there's no coordinate to go
+  // stale or point at the wrong building, and nothing to cache.
+  function renderStreetViewLink(address) {
+    var link = document.getElementById('street-view-link');
+    if (!link) return;
+    if (!address) { link.classList.add('hidden'); return; }
+    link.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
+    link.classList.remove('hidden');
   }
 
   /* =====================================================================
