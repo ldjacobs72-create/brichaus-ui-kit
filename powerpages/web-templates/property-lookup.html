@@ -41,9 +41,15 @@
   #bui-property-lookup .sub { color: var(--bui-color-text-muted); font-size: var(--bui-font-size-sm); margin: 0 0 20px; }
   #bui-property-lookup .card { background: var(--bui-color-surface); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-lg); padding: 20px; box-shadow: var(--bui-shadow-sm); }
   #bui-property-lookup .note { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin: 10px 0 0; }
+  #bui-property-lookup .map-link { display: inline-block; font-size: 0.75rem; font-weight: 600; color: var(--bui-color-accent); text-decoration: none; margin-top: 2px; }
+  #bui-property-lookup .map-link:hover { text-decoration: underline; }
   #bui-property-lookup .hidden { display: none !important; }
+  /* Contains the table's horizontal scroll to the card itself — without
+     this, a narrow (mobile) viewport lets the table spill past the page
+     edge instead of scrolling in place. */
+  #bui-property-lookup .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   #bui-property-lookup table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: var(--bui-font-size-sm); }
-  #bui-property-lookup th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--bui-color-border); color: var(--bui-color-text-muted); font-weight: 600; }
+  #bui-property-lookup th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--bui-color-border); color: var(--bui-color-text-muted); font-weight: 600; white-space: nowrap; }
   #bui-property-lookup td { padding: 10px; border-bottom: 1px solid var(--bui-color-border); vertical-align: top; }
   #bui-property-lookup tbody tr { cursor: pointer; }
   #bui-property-lookup tbody tr:hover { background: var(--bui-color-bg); }
@@ -52,6 +58,21 @@
   #bui-property-lookup .status-pill { font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: var(--bui-radius-pill); white-space: nowrap; }
   #bui-property-lookup .status-pill[data-tone="claimed"] { background: #fff4e5; color: #7a4a00; }
   #bui-property-lookup .status-pill[data-tone="unclaimed"] { background: var(--bui-color-bg); color: var(--bui-color-text-muted); border: 1px solid var(--bui-color-border); }
+  /* The focus-ring box-shadow (a soft halo just outside the field's own
+     border) doubles up visually with that border and reads as "two
+     borders" / a nested box. The border already switches to accent color
+     on focus — that alone is a clear, sufficient indicator here. */
+  #bui-property-lookup .bui-field__control-wrap:focus-within { box-shadow: none; }
+
+  /* Reclaim screen width on mobile: less outer/card padding, tighter table
+     cells, and drop the least-essential column so the remaining ones don't
+     have to fight for space. */
+  @media (max-width: 560px) {
+    #bui-property-lookup { padding: 16px 10px 40px; }
+    #bui-property-lookup .card { padding: 14px; }
+    #bui-property-lookup th, #bui-property-lookup td { padding: 7px 6px; }
+    #bui-property-lookup .col-updated, #bui-property-lookup .col-coverage { display: none; }
+  }
 
   /* Shared internal-tool nav — these are standalone Web Template pages with
      no site header/footer, so there's no built-in way to move between them
@@ -77,21 +98,23 @@
   <p class="sub">Internal · staff only. Search existing properties by name, address, or place ID. This is read-only — nothing here creates or changes a proposal. Click a result to open it in the Proposal Engine.</p>
 
   <div class="card">
-    <bui-input id="q" label="Search" placeholder="Property name, street, city, ZIP, or place ID…"></bui-input>
+    <bui-input id="q" label="Search" placeholder="Property name, street, city, ZIP, or place ID…" clearable></bui-input>
     <p class="note" id="lookup-status">Type at least 2 characters to search.</p>
-    <table class="hidden" id="results-table">
-      <thead>
-        <tr>
-          <th>Property</th>
-          <th>Units</th>
-          <th>Fee</th>
-          <th>Coverage</th>
-          <th>Status</th>
-          <th>Updated</th>
-        </tr>
-      </thead>
-      <tbody id="results-body"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="hidden" id="results-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Units</th>
+            <th>Fee</th>
+            <th class="col-coverage">Coverage</th>
+            <th>Status</th>
+            <th class="col-updated">Updated</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -159,12 +182,30 @@
       addrEl.textContent = address || placeId;
       nameTd.appendChild(nameEl); nameTd.appendChild(addrEl);
 
+      // Google Maps link — lets staff look around (Street View, aerial) and
+      // visually confirm the property from the results list. Only shown when
+      // there's an actual address/name to search for (a bare placeId isn't a
+      // usable Maps query). stopPropagation so it doesn't also fire the row's
+      // own click-to-navigate handler.
+      var mapQuery = address || row.new_propertyname;
+      if (mapQuery) {
+        var mapLink = document.createElement('a');
+        mapLink.className = 'map-link';
+        mapLink.textContent = 'Map ↗';
+        mapLink.target = '_blank';
+        mapLink.rel = 'noopener';
+        mapLink.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mapQuery);
+        mapLink.addEventListener('click', function (e) { e.stopPropagation(); });
+        nameTd.appendChild(mapLink);
+      }
+
       var unitsTd = document.createElement('td'); unitsTd.textContent = row.new_unitcount != null ? row.new_unitcount : '—';
 
       var feeTd = document.createElement('td');
       feeTd.textContent = row.cr55d_proposedmgmtfee != null ? Number(row.cr55d_proposedmgmtfee).toFixed(2) + '%' : '—';
 
       var covTd = document.createElement('td');
+      covTd.className = 'col-coverage';
       var badges = document.createElement('div'); badges.className = 'badges';
       [
         ['E', row.cr55d_evictioncoverage], ['P', row.cr55d_petcoverage],
@@ -184,6 +225,7 @@
       statusTd.appendChild(pill);
 
       var updatedTd = document.createElement('td');
+      updatedTd.className = 'col-updated';
       updatedTd.textContent = row.modifiedon ? new Date(row.modifiedon).toLocaleDateString() : '—';
 
       [nameTd, unitsTd, feeTd, covTd, statusTd, updatedTd].forEach(function (td) { tr.appendChild(td); });

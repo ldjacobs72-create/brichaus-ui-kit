@@ -91,6 +91,8 @@
   #bui-internal-create .facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
   #bui-internal-create .fact { font-size: var(--bui-font-size-sm); background: var(--bui-color-bg); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-pill); padding: 4px 12px; }
   #bui-internal-create .note { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin-top: 6px; }
+  #bui-internal-create .street-view-link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-accent); text-decoration: none; margin-top: 4px; }
+  #bui-internal-create .street-view-link:hover { text-decoration: underline; }
   #bui-internal-create pre { background: var(--bui-color-surface-dark); color: var(--bui-color-text-on-dark); padding: 14px; border-radius: var(--bui-radius-md); overflow-x: auto; font-size: 0.75rem; }
   #bui-internal-create .bar { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
   #bui-internal-create .fee-result { margin-bottom: 16px; }
@@ -99,6 +101,18 @@
   #bui-internal-create .existing-banner { margin-top: 10px; padding: 8px 12px; border-radius: var(--bui-radius-sm); font-weight: 600; }
   #bui-internal-create .existing-banner[data-tone="unclaimed"] { background: var(--bui-color-bg); color: var(--bui-color-text); border: 1px solid var(--bui-color-border); }
   #bui-internal-create .existing-banner[data-tone="claimed"] { background: #fff4e5; color: #7a4a00; border: 1px solid #f0c987; }
+  /* The focus-ring box-shadow (a soft halo just outside the field's own
+     border) doubles up visually with that border and reads as "two
+     borders" / a nested box — most visible on the address search field.
+     The border already switches to accent color on focus — that alone is
+     a clear, sufficient indicator here. */
+  #bui-internal-create .bui-field__control-wrap:focus-within { box-shadow: none; }
+
+  /* Reclaim screen width on mobile. */
+  @media (max-width: 560px) {
+    #bui-internal-create { padding: 16px 10px 40px; }
+    #bui-internal-create .card { padding: 14px; }
+  }
 
   /* Shared internal-tool nav — these are standalone Web Template pages with
      no site header/footer, so there's no built-in way to move between them
@@ -128,6 +142,10 @@
     <h2>1 · Property address</h2>
     <bui-address-input id="address-input" label="Address" placeholder="Start typing the property address…"></bui-address-input>
     <p class="note" id="address-status">Select an address to verify and pull property data.</p>
+    <!-- Link to Google Maps for the verified address — lets staff look around
+         (Street View, aerial/satellite) and visually confirm the property
+         before generating a proposal. Set in updateStreetViewLink(). -->
+    <a id="street-view-link" class="street-view-link hidden" href="#" target="_blank" rel="noopener">View on Google Maps ↗</a>
     <div class="facts hidden" id="address-facts"></div>
     <p class="note existing-banner hidden" id="existing-banner"></p>
   </div>
@@ -357,7 +375,18 @@
   function resetExistingState() {
     hide('fee-result');
     hide('existing-banner');
+    hide('street-view-link');
     setMode('create');
+  }
+
+  // Points the Google Maps link at the currently verified address so staff
+  // can look around (Street View, aerial/satellite) and confirm it's the
+  // right property before generating a proposal.
+  function updateStreetViewLink() {
+    var link = $('street-view-link');
+    if (!state.formattedAddress) { hide('street-view-link'); return; }
+    link.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(state.formattedAddress);
+    show('street-view-link');
   }
 
   function onAddressSelected(detail) {
@@ -372,6 +401,7 @@
       state.placeId = (data && (data.googlePlaceId || data.placeId)) || placeId;
       state.formattedAddress = (data && data.formattedAddress) || detail.formattedAddress || '';
       state.facts = (data && (data.propertyFacts || data.facts)) || {};
+      updateStreetViewLink();
       renderFacts(state.facts);
       show('details-card'); show('scores-card'); show('fee-card'); show('submit-card');
 
@@ -605,6 +635,7 @@
       state.placeId = linkedPlaceId;
       state.formattedAddress = params.get('address') || '';
       addr.value = state.formattedAddress || linkedPlaceId;
+      updateStreetViewLink();
       show('details-card'); show('scores-card'); show('fee-card'); show('submit-card');
       $('address-status').textContent = 'Loading existing proposal…';
       loadExistingProposal(linkedPlaceId);

@@ -538,15 +538,13 @@
      (see ensureUnitCountInCard). The card centers its text; the field
      reads better left-aligned. */
   #brichaus-assessment .bui-choice-card #unit-count-field { text-align: left; }
-  /* Satellite + Street View of the selected address, side by side (see
-     showAddressMap). Stacks on narrow screens. */
+  /* Satellite view of the selected address (see showAddressMap). */
   #brichaus-assessment .address-media {
     display: flex;
     gap: var(--bui-space-3);
     margin-top: var(--bui-space-3);
   }
-  #brichaus-assessment .address-map,
-  #brichaus-assessment .address-streetview {
+  #brichaus-assessment .address-map {
     flex: 1 1 0;
     min-width: 0;
     height: 220px;
@@ -554,16 +552,16 @@
     border-radius: var(--bui-radius-md);
     overflow: hidden;
   }
-  #brichaus-assessment .address-streetview {
-    object-fit: cover;
-    display: block;
-    background: var(--bui-color-surface-sunken, #EEF1F4);
+  /* Link to Google Maps for the selected address, in place of a static
+     cached Street View photo — lets the visitor look around (Street View,
+     aerial) and confirm the location themselves rather than us asserting a
+     single image is definitely their building. */
+  #brichaus-assessment .street-view-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-accent);
+    text-decoration: none; margin-top: var(--bui-space-2);
   }
-  /* When Street View has no imagery it's hidden and the map takes the full
-     width on its own. */
-  @media (max-width: 640px) {
-    #brichaus-assessment .address-media { flex-direction: column; }
-  }
+  #brichaus-assessment .street-view-link:hover { text-decoration: underline; }
   #brichaus-assessment #expansion-capture bui-button {
     margin-top: var(--bui-space-3);
   }
@@ -1094,8 +1092,8 @@
              new one. Street View self-hides when Google has no imagery there. -->
         <div id="address-media" class="address-media hidden">
           <div id="address-map" class="address-map"></div>
-          <img id="address-streetview" class="address-streetview hidden" alt="Street View of the selected property" />
         </div>
+        <a id="street-view-link" class="street-view-link hidden" href="#" target="_blank" rel="noopener">View on Google Maps ↗</a>
 
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-welcome" class="recognition-state hidden">
@@ -1533,16 +1531,7 @@
     // stores it for internal use (call scripts / follow-up). It is never
     // fetched back for display — the funnel hands off to the proposal page
     // the moment scoring returns, and the narrative isn't shown to customers.
-    REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
-
-    // n8n image proxy — the cached, server-side Google image endpoint (the
-    // Google key stays server-side). Used here on the Location step to show a
-    // Street View of the selected property beside the satellite map:
-    // GET ?type=streetview&placeId=<id>&lat=<lat>&lng=<lng>. Passing lat/lng
-    // lets the proxy render a brand-new property that has no Dataverse row yet
-    // (it falls back to a record lookup when they're absent). 204 = no imagery
-    // → the <img> onerror hides it. Same endpoint proposal.html uses.
-    IMAGE_PROXY_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-image'
+    REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status'
   };
 
   // Resolve the PROPOSAL_PAGE_URL custom value. If GHL interpolated it, use it;
@@ -2113,29 +2102,24 @@
   // blocker.
   var addressMediaDiv = document.getElementById('address-media');
   var addressMapDiv = document.getElementById('address-map');
-  var addressStreetView = document.getElementById('address-streetview');
   var addressMap = null;
   var addressMarker = null;
 
   function hideAddressMap() {
     addressMediaDiv.classList.add('hidden');
-    addressStreetView.classList.add('hidden');
-    addressStreetView.removeAttribute('src');
+    document.getElementById('street-view-link').classList.add('hidden');
   }
 
-  // Load the property's Street View beside the satellite map, from the cached
-  // n8n image proxy. lat/lng are passed so the proxy can render even before a
-  // Dataverse row exists (intake). It reveals only once the image loads; a 204
-  // (no imagery for this address) trips onerror and it stays hidden, leaving
-  // the satellite map full-width.
-  function loadAddressStreetView(lat, lng) {
-    if (!CONFIG.IMAGE_PROXY_URL || !state.address.placeId) { addressStreetView.classList.add('hidden'); return; }
-    addressStreetView.classList.add('hidden');
-    addressStreetView.onload = function () { addressStreetView.classList.remove('hidden'); };
-    addressStreetView.onerror = function () { addressStreetView.classList.add('hidden'); };
-    addressStreetView.src = CONFIG.IMAGE_PROXY_URL +
-      '?type=streetview&placeId=' + encodeURIComponent(state.address.placeId) +
-      '&lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng);
+  // A live link to Google Maps for the selected address — lets the visitor
+  // look around (Street View, aerial) and confirm the location themselves,
+  // instead of us asserting a single static photo is definitely their
+  // building. Driven by the address string, not a stored/cached image.
+  function updateStreetViewLink() {
+    var link = document.getElementById('street-view-link');
+    if (!link) return;
+    if (!state.address.formattedAddress) { link.classList.add('hidden'); return; }
+    link.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(state.address.formattedAddress);
+    link.classList.remove('hidden');
   }
 
   function showAddressMap(loc) {
@@ -2147,11 +2131,8 @@
       hideAddressMap();
       return;
     }
-    // Street View (image proxy, an <img>) is independent of the Maps JS API —
-    // reveal the media row and load it first, so it shows even if the
-    // satellite map can't render.
     addressMediaDiv.classList.remove('hidden');
-    loadAddressStreetView(lat, lng);
+    updateStreetViewLink();
     if (!(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
       return; // satellite map unavailable; Street View still shows
     }
