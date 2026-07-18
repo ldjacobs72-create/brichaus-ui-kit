@@ -44,6 +44,7 @@
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/select.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/address-input.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/card.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/progress-bar.js"></script>
@@ -885,6 +886,10 @@
   }
   #brichaus-assessment .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
   #brichaus-assessment .evidence-spec span:last-child { font-weight: 650; }
+  #brichaus-assessment .review-driver-row { margin-top: var(--bui-space-4); }
+  #brichaus-assessment .review-driver-caption {
+    margin: 6px 0 0; font-size: 12px; color: var(--bui-color-text-muted); line-height: 1.5;
+  }
   #brichaus-assessment .report-cta { margin-top: var(--bui-space-5); }
   #brichaus-assessment .cta-followup-note {
     margin: var(--bui-space-2) 0 0; font-size: 11.5px; color: var(--bui-color-text-muted);
@@ -1334,6 +1339,58 @@
     </bui-card>
   </section>
 
+  <!-- ============ STEP: review profile (confirm + edit before the fee is generated) ============
+       Only reachable pre-contact — see renderReviewStep()/reviewContinue. Once a
+       Contact is associated with this property (returning-owner re-open, or after
+       this very submission completes), these same fields become read-only
+       everywhere else; only internal staff can adjust them via Proposal Engine.
+       Rationale: don't let the party whose fee is being calculated also set the
+       inputs that calculate it, once they're on record as the property's contact. -->
+  <section data-step="review" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Review Your Profile" id="review-header-progress" value="80"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Review your property profile</h2>
+        <p>These details are the basis for your fee proposal — please confirm they're accurate, or adjust anything below, before we generate it.</p>
+
+        <div class="evidence-specs">
+          <div class="evidence-spec"><span>Property Type</span><span id="review-property-type-value"></span></div>
+        </div>
+
+        <div id="review-unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="review-unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2"></bui-input>
+        </div>
+
+        <div style="margin-top: var(--bui-space-4);">
+          <bui-input id="review-rent-input" label="Average Monthly Rent (per unit)" type="number" inputmode="numeric" prefix="$"></bui-input>
+        </div>
+
+        <div class="review-driver-row">
+          <bui-select id="review-tenant-select" label="Tenant Friction"></bui-select>
+          <p class="review-driver-caption" id="review-tenant-caption"></p>
+        </div>
+        <div class="review-driver-row">
+          <bui-select id="review-turnover-select" label="Turnover Pressure"></bui-select>
+          <p class="review-driver-caption" id="review-turnover-caption"></p>
+        </div>
+        <div class="review-driver-row">
+          <bui-select id="review-maintenance-select" label="Maintenance Burden"></bui-select>
+          <p class="review-driver-caption" id="review-maintenance-caption"></p>
+        </div>
+        <div class="review-driver-row">
+          <bui-select id="review-compliance-select" label="Compliance &amp; Administration"></bui-select>
+          <p class="review-driver-caption" id="review-compliance-caption"></p>
+        </div>
+      </div>
+      <div slot="footer" class="step-footer">
+        <bui-button variant="secondary" data-back="driver">Back</bui-button>
+        <bui-button id="review-continue" variant="slate">Looks Good, Continue</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
   <!-- ============ STEP: contact capture (creates the linked Contact + Property record) ============ -->
   <section data-step="contact" class="hidden">
     <bui-card variant="elevated" padding="sm">
@@ -1383,7 +1440,7 @@
         </label>
       </div>
       <div slot="footer" class="step-footer">
-        <bui-button variant="secondary" data-back="driver">Back</bui-button>
+        <bui-button variant="secondary" data-back="review">Back</bui-button>
         <bui-button id="contact-continue" variant="primary" disabled>Get My Report</bui-button>
       </div>
     </bui-card>
@@ -1688,6 +1745,7 @@
     snapshot: root.querySelector('[data-step="snapshot"]'),
     revenue: root.querySelector('[data-step="revenue"]'),
     driver: root.querySelector('[data-step="driver"]'),
+    review: root.querySelector('[data-step="review"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
   };
@@ -1757,6 +1815,24 @@
   var driverSubProgress = document.getElementById('driver-sub-progress');
   var driverChoiceGroup = document.getElementById('driver-choice-group');
   var driverBack = document.getElementById('driver-back');
+
+  var reviewPropertyTypeValue = document.getElementById('review-property-type-value');
+  var reviewUnitCountField = document.getElementById('review-unit-count-field');
+  var reviewUnitCountInput = document.getElementById('review-unit-count-input');
+  var reviewRentInput = document.getElementById('review-rent-input');
+  var reviewContinue = document.getElementById('review-continue');
+  var reviewDriverSelects = {
+    tenant: document.getElementById('review-tenant-select'),
+    turnover: document.getElementById('review-turnover-select'),
+    maintenance: document.getElementById('review-maintenance-select'),
+    compliance: document.getElementById('review-compliance-select')
+  };
+  var reviewDriverCaptions = {
+    tenant: document.getElementById('review-tenant-caption'),
+    turnover: document.getElementById('review-turnover-caption'),
+    maintenance: document.getElementById('review-maintenance-caption'),
+    compliance: document.getElementById('review-compliance-caption')
+  };
 
   var contactNameInput = document.getElementById('contact-name-input');
   var contactEmailInput = document.getElementById('contact-email-input');
@@ -3007,9 +3083,80 @@
       driverStepIndex++;
       renderDriverStep();
     } else {
-      showStep('contact');
+      renderReviewStep();
+      showStep('review');
     }
   }
+
+  /* =====================================================================
+   * Step 8b: Review Your Profile — confirm + edit before the fee is
+   * generated. Only reachable here, pre-contact (see the section comment in
+   * the markup): unit count, rent, and the 4 driver scores are editable;
+   * property type is shown read-only (chosen earlier, RentCast-assisted).
+   * Once a Contact exists for this property, this same data is locked —
+   * only internal staff can change it via Proposal Engine.
+   * =================================================================== */
+  var DRIVER_SCORE_OPTIONS = [
+    { value: 'streamlined', label: 'Minimal (0.5x)' },
+    { value: 'standard', label: 'Standard (1.0x)' },
+    { value: 'active', label: 'Active (1.5x)' },
+    { value: 'intensive', label: 'Intense (2.0x)' }
+  ];
+
+  // bui-select's connectedCallback can fire before nested <option> children
+  // are parsed on a network-served page (confirmed live on Power Pages —
+  // see proposal-engine.html), so options are populated here in JS rather
+  // than authored as static markup.
+  Object.keys(reviewDriverSelects).forEach(function (key) {
+    var real = reviewDriverSelects[key].querySelector('select');
+    DRIVER_SCORE_OPTIONS.forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt.value; o.textContent = opt.label;
+      real.appendChild(o);
+    });
+  });
+
+  function updateReviewDriverCaption(key) {
+    var nuanced = (DRIVER_REFERENCE[key] || {})[reviewDriverSelects[key].value];
+    reviewDriverCaptions[key].textContent = nuanced || '';
+  }
+
+  Object.keys(reviewDriverSelects).forEach(function (key) {
+    reviewDriverSelects[key].addEventListener('bui-change', function () {
+      state.drivers[key] = reviewDriverSelects[key].value;
+      updateReviewDriverCaption(key);
+    });
+  });
+
+  function renderReviewStep() {
+    scrollToTop();
+    reviewPropertyTypeValue.textContent = state.propertyType === 'multi' ? 'Multifamily' : 'Single Family / Condo / Townhome';
+
+    var isMulti = state.propertyType === 'multi';
+    reviewUnitCountField.classList.toggle('hidden', !isMulti);
+    if (isMulti) reviewUnitCountInput.value = state.unitCount || 2;
+
+    reviewRentInput.value = state.rentPerUnit || '';
+
+    DRIVER_STEPS.forEach(function (step) {
+      reviewDriverSelects[step.key].value = state.drivers[step.key] || 'standard';
+      updateReviewDriverCaption(step.key);
+    });
+  }
+
+  root.querySelector('[data-back="review"]').addEventListener('bui-click', function () {
+    renderReviewStep();
+    showStep('review');
+  });
+
+  reviewContinue.addEventListener('bui-click', function () {
+    if (state.propertyType === 'multi') {
+      state.unitCount = parseInt(reviewUnitCountInput.value, 10) || 2;
+    }
+    state.rentPerUnit = parseFloat(reviewRentInput.value) || 0;
+    // state.drivers already kept live in sync by each select's bui-change above.
+    showStep('contact');
+  });
 
 
   /* =====================================================================
