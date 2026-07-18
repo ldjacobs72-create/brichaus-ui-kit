@@ -185,6 +185,14 @@
     color: var(--bui-color-danger);
   }
   #brichaus-proposal .recognition-state bui-button { margin-top: var(--bui-space-3); }
+  #brichaus-proposal .review-panel bui-button { margin-top: var(--bui-space-4); }
+  #brichaus-proposal .evidence-specs { display: flex; flex-direction: column; }
+  #brichaus-proposal .evidence-spec {
+    display: flex; justify-content: space-between; gap: var(--bui-space-2);
+    font-size: 13px; padding: 4px 0;
+  }
+  #brichaus-proposal .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
+  #brichaus-proposal .evidence-spec span:last-child { font-weight: 650; }
 
   /* ---- Report layout (ported verbatim from app/index.html's Results step:
      Operational Workload + Proposal service cards + CTA. Evidence/comps/
@@ -542,6 +550,29 @@
     </div>
   </div>
 
+  <!-- Confirm-your-profile step, shown after the gate and before the report
+       renders — every path here (recognize/confirmEmail, silent handoff,
+       internalPreview) already has a Contact associated with this property,
+       so per the fee-integrity rule these fields are read-only: confirm-
+       and-continue, no inputs. Once a Contact exists for a property, only
+       internal staff can change this data, via Proposal Engine. (Pre-
+       contact visitors get the editable version of this same idea —
+       intake-v2.html's own review step, before a Contact ever gets
+       created.) -->
+  <div data-state="review" class="proposal-panel hidden">
+    <div class="recognition-panel review-panel">
+      <p class="recognition-message" id="review-intro-message">Here's the profile on file for this property — please confirm it's accurate before we show your proposal.</p>
+
+      <div class="evidence-specs">
+        <div class="evidence-spec"><span>Property Type</span><span id="review-property-type-value"></span></div>
+      </div>
+
+      <div class="evidence-specs" id="review-readonly-specs"></div>
+
+      <bui-button id="review-continue-btn" variant="slate">View My Proposal</bui-button>
+    </div>
+  </div>
+
   <!-- The rendered proposal — ported from app/index.html's Results step
        (Operational Workload + Proposal service cards + CTA). No progress
        bar/header here; this isn't a funnel step. -->
@@ -820,7 +851,7 @@
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (!data || !data.recognized) {
-          if (internalPreview) { loadProposal(); return; }
+          if (internalPreview) { loadProposal(true); return; }
           showPanel('notfound');
           return;
         }
@@ -870,7 +901,11 @@
       });
   }
 
-  function loadProposal() {
+  // skipReview is set only by the internalPreview bypass: that path has no
+  // real Contact behind it (recognize() found nothing), so there's no saved
+  // profile to confirm — go straight to the report, same as before this
+  // step existed.
+  function loadProposal(skipReview) {
     showPanel('loading');
     document.getElementById('loading-status-text').textContent = 'Loading your proposal…';
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
@@ -884,13 +919,79 @@
           showPanel('unavailable');
           return;
         }
-        renderProposal(data);
-        showPanel('report');
+        if (skipReview) {
+          renderProposal(data);
+          showPanel('report');
+          return;
+        }
+        presentProposal(data);
       })
       .catch(function (err) {
         console.warn('[brichaus-proposal] getCachedProposal failed:', err);
         showPanel('unavailable');
       });
+  }
+
+  /* =====================================================================
+   * Confirm-your-profile step — shown after the gate, before the report.
+   * Read-only for now (see the markup comment above data-state="review"):
+   * a contact is already associated with this property by the time we get
+   * here (the gate/internalPreview bypass are the only ways in), so per the
+   * fee-integrity rule these fields aren't visitor-editable here — that's
+   * intake-v2's review step's job, pre-contact. This is confirm-and-
+   * continue only; editable claim-flow support is deferred (see task #64).
+   * =================================================================== */
+  var DRIVER_SCORE_LABELS = { 0.5: 'Minimal', 1: 'Standard', 1.5: 'Active', 2: 'Intense' };
+  var CATEGORY_KEYS = {
+    'Tenant Friction': 'tenant', 'Turnover Pressure': 'turnover',
+    'Maintenance Burden': 'maintenance', 'Compliance & Administration': 'compliance'
+  };
+
+  function scoreLabel(score) {
+    return DRIVER_SCORE_LABELS[score] || (score != null ? String(score) : '—');
+  }
+
+  function presentProposal(data) {
+    var reviewIntroMessage = document.getElementById('review-intro-message');
+    var reviewPropertyTypeValue = document.getElementById('review-property-type-value');
+    var readonlySpecs = document.getElementById('review-readonly-specs');
+    var reviewContinueBtn = document.getElementById('review-continue-btn');
+
+    reviewIntroMessage.textContent = recognition.firstName
+      ? 'Welcome back, ' + recognition.firstName + '. Here’s the profile on file for this property — please confirm it’s accurate before we show your proposal.'
+      : 'Here’s the profile on file for this property — please confirm it’s accurate before we show your proposal.';
+
+    reviewPropertyTypeValue.textContent = data.propertyType || '—';
+
+    readonlySpecs.innerHTML = '';
+    if (data.propertyType === 'Multifamily' && data.unitCount) {
+      readonlySpecs.appendChild(buildEvidenceSpecRow('Number of Units', String(data.unitCount)));
+    }
+    if (data.rentPerUnit != null) {
+      readonlySpecs.appendChild(buildEvidenceSpecRow('Average Monthly Rent', currency(data.rentPerUnit) + '/mo'));
+    }
+    var categories = (data.report && data.report.operationalProfile && data.report.operationalProfile.categories) || [];
+    categories.forEach(function (cat) {
+      var key = CATEGORY_KEYS[cat.category];
+      if (!key) return;
+      readonlySpecs.appendChild(buildEvidenceSpecRow(cat.category, scoreLabel(cat.score)));
+    });
+
+    reviewContinueBtn.onclick = function () {
+      renderProposal(data);
+      showPanel('report');
+    };
+
+    showPanel('review');
+  }
+
+  function buildEvidenceSpecRow(label, value) {
+    var row = document.createElement('div');
+    row.className = 'evidence-spec';
+    var l = document.createElement('span'); l.textContent = label;
+    var v = document.createElement('span'); v.textContent = value;
+    row.appendChild(l); row.appendChild(v);
+    return row;
   }
 
   /* =====================================================================
