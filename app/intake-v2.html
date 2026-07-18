@@ -2697,12 +2697,24 @@
         if (placeId !== (state.claimPlaceId || state.address.placeId)) return; // superseded
         recognitionClaimBtn.removeAttribute('disabled');
         if (data && data.claimed) {
-          // Same handoff proposal.html's gate reads, so it opens silently
-          // instead of prompting for the email a second time.
-          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
-          if (CONFIG.PROPOSAL_PAGE_URL) {
-            window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(placeId);
-          }
+          // Claiming just attached this visitor as the property's Contact —
+          // there's no saved profile to show yet (that's what "claimable"
+          // means: an internally-prepared record with no assessment behind
+          // it). Rather than build a second, parallel editable-review UI
+          // backed by a new recalculate endpoint (a real fee-manipulation
+          // surface on a fully public page), continue this SAME funnel —
+          // seeded with whatever RentCast already told us about the
+          // property (state.propertyFacts, fetched back on the Location
+          // step) and the email they just claimed with. It ends at the
+          // exact same review step (see renderReviewStep()) and submits
+          // through the existing, already-safe create/upsert path
+          // (buildWebhookPayload() always sends LeasingFeePct: 50 — no
+          // override vector), instead of proposal.html.
+          state.contact.email = emailAttempt;
+          contactEmailInput.value = emailAttempt;
+          recognitionPanel.classList.add('hidden');
+          showStep('rentcast-render');
+          renderRentcastRender();
           return;
         }
         recognitionClaimError.textContent = "We couldn't claim this proposal just now — please try again in a moment.";
