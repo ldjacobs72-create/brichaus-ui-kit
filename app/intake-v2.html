@@ -1105,6 +1105,15 @@
           <div id="recognition-claim" class="recognition-state hidden">
             <p class="recognition-message">Good news — we've already prepared a management proposal for this property. Enter your email to view it and claim it as yours.</p>
             <bui-input id="recognition-claim-email-input" label="Email" type="email"></bui-input>
+            <!-- Self-certification — this property record has no contact on file
+                 (e.g. internally prepared from prospecting), so there's nothing
+                 to verify the claimant against. Cheap deterrent against a casual
+                 lookup by someone with no real relationship to the property; not
+                 airtight, but establishes intent and a paper trail. -->
+            <label class="consent-line" id="claim-cert-line">
+              <input type="checkbox" id="claim-cert-checkbox" />
+              <span>I certify that I am the owner of this property, or an authorized representative acting on the owner's behalf.</span>
+            </label>
             <p id="recognition-claim-error" class="recognition-error hidden">We couldn't claim this proposal just now — please try again in a moment.</p>
             <bui-button id="recognition-claim-btn" variant="slate">View &amp; Claim Proposal</bui-button>
           </div>
@@ -1713,6 +1722,7 @@
   var recognitionViewProposal = document.getElementById('recognition-view-proposal');
   var recognitionClaim = document.getElementById('recognition-claim');
   var recognitionClaimEmailInput = document.getElementById('recognition-claim-email-input');
+  var recognitionClaimCertifyInput = document.getElementById('claim-cert-checkbox');
   var recognitionClaimError = document.getElementById('recognition-claim-error');
   var recognitionClaimBtn = document.getElementById('recognition-claim-btn');
 
@@ -2401,6 +2411,7 @@
     recognitionEmailValue = '';
     recognitionPhoneValue = '';
     recognitionClaimEmailValue = '';
+    if (recognitionClaimCertifyInput) recognitionClaimCertifyInput.checked = false;
     state.claimable = false;
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
     addressVerifying.classList.add('hidden');
@@ -2588,6 +2599,11 @@
     var placeId = state.claimPlaceId || state.address.placeId;
     var emailAttempt = recognitionClaimEmailValue;
     recognitionClaimError.classList.add('hidden');
+    if (!recognitionClaimCertifyInput || !recognitionClaimCertifyInput.checked) {
+      recognitionClaimError.textContent = 'Please certify your relationship to this property before claiming it.';
+      recognitionClaimError.classList.remove('hidden');
+      return;
+    }
     if (!isValidEmail(emailAttempt) || isDisposableEmail(emailAttempt)) {
       recognitionClaimError.textContent = 'Please enter a valid, non-disposable email so we can attach this proposal to you.';
       recognitionClaimError.classList.remove('hidden');
@@ -2598,7 +2614,7 @@
     fetch(claimUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'claimProposal', googlePlaceId: placeId, emailAttempt: emailAttempt })
+      body: JSON.stringify({ action: 'claimProposal', googlePlaceId: placeId, emailAttempt: emailAttempt, ownershipCertified: true })
     })
       .then(function (res) { return res.ok ? res.json() : { claimed: false }; })
       .then(function (data) {
