@@ -84,6 +84,12 @@
     '  background: transparent;',
     '  border: none;',
     '  outline: none;',
+    /* Without this, iOS Safari keeps its own native text-field chrome (a
+       faint inset rounded box) layered underneath our custom
+       .bui-field__control-wrap border — reads as a stray "double border"
+       once the wrap is focus-styled. Same fix as bui-address-input. */
+    '  -webkit-appearance: none;',
+    '  appearance: none;',
     '  padding: 0.6em 0.75em;',
     '  width: 100%;',
     '  min-width: 0;',
