@@ -194,6 +194,49 @@
   #brichaus-proposal .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
   #brichaus-proposal .evidence-spec span:last-child { font-weight: 650; }
 
+  /* ---- Confirm-your-profile step — same facts-card + badge-row language
+     as intake-v2's review step, so a returning owner recognizes it as "the
+     same kind of screen." No chevrons/click targets here: nothing is
+     editable once a Contact is on file (see the markup comment above
+     data-state="review"). ---- */
+  #brichaus-proposal .review-facts-card {
+    display: flex; align-items: flex-start; gap: var(--bui-space-3);
+    padding: var(--bui-space-3) var(--bui-space-4);
+    background: var(--bui-color-surface);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+    margin-top: var(--bui-space-3);
+  }
+  #brichaus-proposal .review-facts-icon { font-size: 26px; line-height: 1.2; }
+  #brichaus-proposal .review-facts-title { font-weight: 700; font-size: 15px; color: var(--bui-color-text); }
+  #brichaus-proposal .review-facts-sub { font-size: 12.5px; color: var(--bui-color-text-muted); margin-top: 2px; }
+  #brichaus-proposal .review-drivers { margin-top: var(--bui-space-4); }
+  #brichaus-proposal .review-drivers-heading {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-2);
+  }
+  #brichaus-proposal .review-driver-ro {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+    margin-bottom: 8px; background: var(--bui-color-surface);
+  }
+  #brichaus-proposal .review-driver-ro__icon { font-size: 17px; }
+  #brichaus-proposal .review-driver-ro__name { font-weight: 650; font-size: 13.5px; color: var(--bui-color-text); flex: 1; }
+  #brichaus-proposal .review-driver-ro__badge {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: var(--bui-radius-pill); white-space: nowrap;
+  }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="slate"] { background: var(--bui-color-info-bg); color: var(--bui-color-slate); }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="accent"] { background: var(--bui-color-accent-bg); color: var(--bui-color-accent-hover); }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="warning"] { background: var(--bui-color-warning-bg); color: var(--bui-color-warning); }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="danger"] { background: var(--bui-color-accent-bg); color: var(--bui-color-danger); }
+  #brichaus-proposal .review-lock-note {
+    margin: var(--bui-space-3) 0 0;
+    font-size: 12.5px; line-height: 1.55; color: var(--bui-color-text-muted);
+  }
+  #brichaus-proposal .review-lock-link { color: var(--bui-color-accent); font-weight: 700; text-decoration: none; }
+  #brichaus-proposal .review-lock-link:hover { text-decoration: underline; }
+
   /* ---- Report layout (ported verbatim from app/index.html's Results step:
      Operational Workload + Proposal service cards + CTA. Evidence/comps/
      RentCast blocks are intentionally NOT ported — that raw data isn't part
@@ -566,13 +609,21 @@
        created.) -->
   <div data-state="review" class="proposal-panel hidden">
     <div class="recognition-panel review-panel">
-      <p class="recognition-message" id="review-intro-message">Here's the profile on file for this property — please confirm it's accurate before we show your proposal.</p>
+      <p class="recognition-message" id="review-intro-message">Here's the profile behind your proposal.</p>
 
-      <div class="evidence-specs">
-        <div class="evidence-spec"><span>Property Type</span><span id="review-property-type-value"></span></div>
+      <div class="review-facts-card">
+        <span class="review-facts-icon">🏠</span>
+        <div>
+          <div class="review-facts-title" id="review-facts-title"></div>
+          <div class="review-facts-sub" id="review-facts-sub"></div>
+        </div>
       </div>
 
       <div class="evidence-specs" id="review-readonly-specs"></div>
+
+      <div class="review-drivers" id="review-drivers"></div>
+
+      <p class="review-lock-note" id="review-lock-note">Something changed since this was put together? <a href="#" id="review-lock-link" class="review-lock-link">Schedule a quick call</a> and we'll update your profile and proposal.</p>
 
       <bui-button id="review-continue-btn" variant="slate">View My Proposal</bui-button>
     </div>
@@ -945,17 +996,22 @@
 
   /* =====================================================================
    * Confirm-your-profile step — shown after the gate, before the report.
-   * Read-only for now (see the markup comment above data-state="review"):
-   * a contact is already associated with this property by the time we get
+   * Read-only (see the markup comment above data-state="review"): a
+   * contact is already associated with this property by the time we get
    * here (the gate/internalPreview bypass are the only ways in), so per the
-   * fee-integrity rule these fields aren't visitor-editable here — that's
-   * intake-v2's review step's job, pre-contact. This is confirm-and-
-   * continue only; editable claim-flow support is deferred (see task #64).
+   * fee-integrity rule these fields aren't visitor-editable — that's
+   * intake-v2's review step's job, pre-contact. This just presents what
+   * the proposal is based on; the copy deliberately does NOT ask the
+   * visitor to "confirm" anything, since they have no way to act on that —
+   * it offers a real corrective path (schedule a call) instead. Same
+   * facts-card + badge-row visual language as intake-v2's review step,
+   * minus the click targets.
    * =================================================================== */
   var DRIVER_SCORE_LABELS = { 0.5: 'Minimal', 1: 'Standard', 1.5: 'Active', 2: 'Intense' };
-  var CATEGORY_KEYS = {
-    'Tenant Friction': 'tenant', 'Turnover Pressure': 'turnover',
-    'Maintenance Burden': 'maintenance', 'Compliance & Administration': 'compliance'
+  var DRIVER_SCORE_TONES = { 0.5: 'slate', 1: 'accent', 1.5: 'warning', 2: 'danger' };
+  var CATEGORY_ICONS = {
+    'Tenant Friction': '👥', 'Turnover Pressure': '🔄',
+    'Maintenance Burden': '🔧', 'Compliance & Administration': '⚖️'
   };
 
   function scoreLabel(score) {
@@ -964,29 +1020,40 @@
 
   function presentProposal(data) {
     var reviewIntroMessage = document.getElementById('review-intro-message');
-    var reviewPropertyTypeValue = document.getElementById('review-property-type-value');
+    var factsTitle = document.getElementById('review-facts-title');
+    var factsSub = document.getElementById('review-facts-sub');
     var readonlySpecs = document.getElementById('review-readonly-specs');
+    var driversWrap = document.getElementById('review-drivers');
+    var lockLink = document.getElementById('review-lock-link');
     var reviewContinueBtn = document.getElementById('review-continue-btn');
 
     reviewIntroMessage.textContent = recognition.firstName
-      ? 'Welcome back, ' + recognition.firstName + '. Here’s the profile on file for this property — please confirm it’s accurate before we show your proposal.'
-      : 'Here’s the profile on file for this property — please confirm it’s accurate before we show your proposal.';
+      ? 'Welcome back, ' + recognition.firstName + ' — here’s the profile behind your proposal.'
+      : 'Here’s the profile behind your proposal.';
 
-    reviewPropertyTypeValue.textContent = data.propertyType || '—';
+    factsTitle.textContent = data.propertyName || data.formattedAddress || '';
+    var subParts = [data.propertyType || ''];
+    if (data.propertyType === 'Multifamily' && data.unitCount) subParts.push(data.unitCount + ' units');
+    factsSub.textContent = subParts.filter(Boolean).join(' · ');
 
     readonlySpecs.innerHTML = '';
-    if (data.propertyType === 'Multifamily' && data.unitCount) {
-      readonlySpecs.appendChild(buildEvidenceSpecRow('Number of Units', String(data.unitCount)));
-    }
     if (data.rentPerUnit != null) {
       readonlySpecs.appendChild(buildEvidenceSpecRow('Average Monthly Rent', currency(data.rentPerUnit) + '/mo'));
     }
+
+    driversWrap.innerHTML = '';
     var categories = (data.report && data.report.operationalProfile && data.report.operationalProfile.categories) || [];
-    categories.forEach(function (cat) {
-      var key = CATEGORY_KEYS[cat.category];
-      if (!key) return;
-      readonlySpecs.appendChild(buildEvidenceSpecRow(cat.category, scoreLabel(cat.score)));
-    });
+    if (categories.length) {
+      var heading = document.createElement('p');
+      heading.className = 'review-drivers-heading';
+      heading.textContent = 'Operational Assessment';
+      driversWrap.appendChild(heading);
+      categories.forEach(function (cat) {
+        driversWrap.appendChild(buildDriverRoRow(cat));
+      });
+    }
+
+    if (lockLink && CONFIG.BOOKING_URL) lockLink.href = CONFIG.BOOKING_URL;
 
     reviewContinueBtn.onclick = function () {
       renderProposal(data);
@@ -994,6 +1061,23 @@
     };
 
     showPanel('review');
+  }
+
+  function buildDriverRoRow(cat) {
+    var row = document.createElement('div');
+    row.className = 'review-driver-ro';
+    var icon = document.createElement('span');
+    icon.className = 'review-driver-ro__icon';
+    icon.textContent = CATEGORY_ICONS[cat.category] || '';
+    var name = document.createElement('span');
+    name.className = 'review-driver-ro__name';
+    name.textContent = cat.category;
+    var badge = document.createElement('span');
+    badge.className = 'review-driver-ro__badge';
+    badge.setAttribute('data-tone', DRIVER_SCORE_TONES[cat.score] || 'accent');
+    badge.textContent = scoreLabel(cat.score);
+    row.appendChild(icon); row.appendChild(name); row.appendChild(badge);
+    return row;
   }
 
   function buildEvidenceSpecRow(label, value) {
