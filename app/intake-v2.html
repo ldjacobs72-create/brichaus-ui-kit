@@ -1343,16 +1343,6 @@
               description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
           </bui-choice-group>
         </div>
-        <!-- Turnover-only: a couple of real numbers behind the self-reported
-             tier above. Feed the proposal report's Property Metrics section
-             server-side; the tier picked above still drives pricing on its
-             own (see DemandEngine) — these are additive, not a rescoring. -->
-        <div id="turnover-extra-fields" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-counter id="days-to-churn-input" label="Avg. Days Move-Out to Move-In" min="0" hint="Typical turnaround time between a move-out and the next move-in."></bui-counter>
-          <div style="margin-top: var(--bui-space-3);">
-            <bui-counter id="annual-vacancies-input" label="Vacancies in the Last 12 Months" min="0"></bui-counter>
-          </div>
-        </div>
       </div>
       <!-- No Continue here on purpose: picking an option flips the card and
            reveals its own "Confirm & Continue" button (see
@@ -1794,12 +1784,6 @@
     unitCount: 1,
     rentPerUnit: 0,
     vacantUnits: 0,
-    // Turnover-adjacent facts, captured alongside the Turnover Pressure
-    // driver question (not derived from it) — feed the proposal report's
-    // Property Metrics section server-side. avgDaysToChurn: average turnaround
-    // from move-out to move-in. annualVacancies: vacancies in the last 12mo.
-    avgDaysToChurn: 0,
-    annualVacancies: 0,
     // No pre-selected value for any driver — the visitor must actively pick
     // one, which reveals the in-card Confirm & Continue button (the only
     // way forward; see addDriverConfirmButton).
@@ -1940,9 +1924,6 @@
   var driverHeaderProgress = document.getElementById('driver-header-progress');
   var driverSubProgress = document.getElementById('driver-sub-progress');
   var driverChoiceGroup = document.getElementById('driver-choice-group');
-  var turnoverExtraFields = document.getElementById('turnover-extra-fields');
-  var daysToChurnInput = document.getElementById('days-to-churn-input');
-  var annualVacanciesInput = document.getElementById('annual-vacancies-input');
   var driverBack = document.getElementById('driver-back');
 
   var reviewFactsTitle = document.getElementById('review-facts-title');
@@ -3156,14 +3137,6 @@
     // must deterministically reset them to this question's own state.
     resetDriverCardDescriptions();
     if (current) showDriverCardReference(step.key, current, false);
-
-    // Turnover-only extra fields — shown on that one question, prefilled
-    // from state so a Back-and-forth round trip doesn't lose them.
-    turnoverExtraFields.classList.toggle('hidden', step.key !== 'turnover');
-    if (step.key === 'turnover') {
-      daysToChurnInput.value = state.avgDaysToChurn || '';
-      annualVacanciesInput.value = state.annualVacancies || '';
-    }
   }
 
   // Reveals the exact reference text the final report will use for a given
@@ -3257,11 +3230,6 @@
 
     // Not mirrored to a native field — n8n writes driver scores to the
     // Property record directly after search+update.
-
-    if (step.key === 'turnover') {
-      state.avgDaysToChurn = Math.max(0, parseInt(daysToChurnInput.value, 10) || 0);
-      state.annualVacancies = Math.max(0, parseInt(annualVacanciesInput.value, 10) || 0);
-    }
 
     if (driverStepIndex < DRIVER_STEPS.length - 1) {
       driverStepIndex++;
@@ -3541,13 +3509,16 @@
       ComplianceScore: DemandEngine.multiplier[state.drivers.compliance],
       MaintenanceScore: DemandEngine.multiplier[state.drivers.maintenance],
       RentValue: state.rentPerUnit,
-      // Vacancy inputs (Property Details + Turnover Pressure steps) — feed
-      // the proposal report's Property Metrics section server-side. Not used
-      // for scoring; the self-reported Turnover Pressure tier above still
-      // drives pricing on its own.
+      // Vacancy input (Property Details step) — feeds the proposal report's
+      // Property Metrics section server-side. Not used for scoring; the
+      // self-reported Turnover Pressure tier above still drives pricing on
+      // its own. AvgDaysToChurn/AnnualVacancies are deliberately NOT captured
+      // in this funnel — captured on a follow-up call instead and fed into
+      // the same report.performanceMetrics via the internal proposal engine
+      // worksheet (Main Pipeline's Normalize Intake/Compute Performance
+      // Metrics already default them to 0 when absent, so this degrades
+      // gracefully until that path exists).
       VacantUnits: state.vacantUnits,
-      AvgDaysToChurn: state.avgDaysToChurn,
-      AnnualVacancies: state.annualVacancies,
       // Fee-calc coverage baseline for a new property. Eviction / lease-
       // placement / inspections are DERIVED server-side from the OIA labels
       // (see the pipeline's Fee Calc node), so the values sent here for those
