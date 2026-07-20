@@ -1252,6 +1252,14 @@
         <div id="unit-number-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-number-input" label="Unit Number" placeholder="e.g. 4B"></bui-input>
         </div>
+        <!-- Vacant Units — shown once a property type is picked (both Single
+             Family and Multifamily). Single: a 0/1 currently-vacant flag.
+             Multifamily: a real count, paired visually with Number of Units
+             (see updateUnitFields). A plain sibling like Unit Number above,
+             not relocated into a card. -->
+        <div id="vacant-units-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="vacant-units-input" type="number" inputmode="numeric" min="0" placeholder="0"></bui-input>
+        </div>
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="location">Back</bui-button>
@@ -1376,6 +1384,16 @@
             <bui-choice-card value="intensive" label="Intense"
               description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
           </bui-choice-group>
+        </div>
+        <!-- Turnover-only: a couple of real numbers behind the self-reported
+             tier above. Feed the proposal report's Property Metrics section
+             server-side; the tier picked above still drives pricing on its
+             own (see DemandEngine) — these are additive, not a rescoring. -->
+        <div id="turnover-extra-fields" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-input id="days-to-churn-input" label="Avg. Days Move-Out to Move-In" type="number" inputmode="numeric" min="0" placeholder="e.g. 21"></bui-input>
+          <div style="margin-top: var(--bui-space-3);">
+            <bui-input id="annual-vacancies-input" label="Vacancies in the Last 12 Months" type="number" inputmode="numeric" min="0" placeholder="e.g. 3"></bui-input>
+          </div>
         </div>
       </div>
       <!-- No Continue here on purpose: picking an option flips the card and
@@ -1790,6 +1808,13 @@
     propertyFacts: null,
     unitCount: 1,
     rentPerUnit: 0,
+    vacantUnits: 0,
+    // Turnover-adjacent facts, captured alongside the Turnover Pressure
+    // driver question (not derived from it) — feed the proposal report's
+    // Property Metrics section server-side. avgDaysToChurn: average turnaround
+    // from move-out to move-in. annualVacancies: vacancies in the last 12mo.
+    avgDaysToChurn: 0,
+    annualVacancies: 0,
     // No pre-selected value for any driver — the visitor must actively pick
     // one, which reveals the in-card Confirm & Continue button (the only
     // way forward; see addDriverConfirmButton).
@@ -1870,6 +1895,8 @@
   var propertyTypeContinue = document.getElementById('rentcast-render-continue');
   var unitNumberField = document.getElementById('unit-number-field');
   var unitNumberInput = document.getElementById('unit-number-input');
+  var vacantUnitsField = document.getElementById('vacant-units-field');
+  var vacantUnitsInput = document.getElementById('vacant-units-input');
   var rcFacts = document.getElementById('rc-facts');
   var rcFactsGrid = document.getElementById('rc-facts-grid');
   var rcAssistNote = document.getElementById('rc-assist-note');
@@ -1926,6 +1953,9 @@
   var driverHeaderProgress = document.getElementById('driver-header-progress');
   var driverSubProgress = document.getElementById('driver-sub-progress');
   var driverChoiceGroup = document.getElementById('driver-choice-group');
+  var turnoverExtraFields = document.getElementById('turnover-extra-fields');
+  var daysToChurnInput = document.getElementById('days-to-churn-input');
+  var annualVacanciesInput = document.getElementById('annual-vacancies-input');
   var driverBack = document.getElementById('driver-back');
 
   var reviewFactsTitle = document.getElementById('review-facts-title');
@@ -2078,6 +2108,19 @@
 
     var showNumber = !hasSub && isCondoTown && !isMulti;
     unitNumberField.classList.toggle('hidden', !showNumber);
+
+    // Vacant Units — visible once any property type is chosen. Multifamily
+    // asks a real count (paired under Number of Units); Single Family asks a
+    // simple 0/1 (there's no unit-count field on that card to pair with).
+    var hasType = !!propertyTypeChoiceGroup.value;
+    vacantUnitsField.classList.toggle('hidden', !hasType);
+    if (hasType) {
+      vacantUnitsInput.setAttribute('label', isMulti ? 'Vacant Units' : 'Is this property currently vacant?');
+      vacantUnitsInput.setAttribute('hint', isMulti
+        ? 'How many of those units are vacant right now? Enter 0 if fully occupied.'
+        : 'Enter 1 if vacant right now, 0 if occupied.');
+      if (isMulti) vacantUnitsInput.removeAttribute('max'); else vacantUnitsInput.setAttribute('max', '1');
+    }
   }
 
   // Presentational tidy for the raw enum-ish strings RentCast returns for
@@ -2201,6 +2244,7 @@
     if (propertyTypeContinue.hasAttribute('disabled')) return;
     state.propertyType = propertyTypeChoiceGroup.value;
     state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
+    state.vacantUnits = Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0);
     // Unit number: keep the silently-captured subpremise; otherwise read the
     // Condo/Townhouse Unit Number field when it's the one being shown.
     if (!state.address.unitFromSubpremise) {
@@ -2676,6 +2720,7 @@
     if (propertyTypeChoiceGroup.value) propertyTypeChoiceGroup.value = '';
     unitCountInput.value = '';
     unitNumberInput.value = '';
+    vacantUnitsInput.value = '';
     if (!state.address.placeId) return;
     if (!CONFIG.SITE_ROUTING_URL) {
       // No routing configured → behave as fetch-rentcast (manual choice).
@@ -3131,6 +3176,14 @@
     // must deterministically reset them to this question's own state.
     resetDriverCardDescriptions();
     if (current) showDriverCardReference(step.key, current, false);
+
+    // Turnover-only extra fields — shown on that one question, prefilled
+    // from state so a Back-and-forth round trip doesn't lose them.
+    turnoverExtraFields.classList.toggle('hidden', step.key !== 'turnover');
+    if (step.key === 'turnover') {
+      daysToChurnInput.value = state.avgDaysToChurn || '';
+      annualVacanciesInput.value = state.annualVacancies || '';
+    }
   }
 
   // Reveals the exact reference text the final report will use for a given
@@ -3224,6 +3277,11 @@
 
     // Not mirrored to a native field — n8n writes driver scores to the
     // Property record directly after search+update.
+
+    if (step.key === 'turnover') {
+      state.avgDaysToChurn = Math.max(0, parseInt(daysToChurnInput.value, 10) || 0);
+      state.annualVacancies = Math.max(0, parseInt(annualVacanciesInput.value, 10) || 0);
+    }
 
     if (driverStepIndex < DRIVER_STEPS.length - 1) {
       driverStepIndex++;
@@ -3503,6 +3561,13 @@
       ComplianceScore: DemandEngine.multiplier[state.drivers.compliance],
       MaintenanceScore: DemandEngine.multiplier[state.drivers.maintenance],
       RentValue: state.rentPerUnit,
+      // Vacancy inputs (Property Details + Turnover Pressure steps) — feed
+      // the proposal report's Property Metrics section server-side. Not used
+      // for scoring; the self-reported Turnover Pressure tier above still
+      // drives pricing on its own.
+      VacantUnits: state.vacantUnits,
+      AvgDaysToChurn: state.avgDaysToChurn,
+      AnnualVacancies: state.annualVacancies,
       // Fee-calc coverage baseline for a new property. Eviction / lease-
       // placement / inspections are DERIVED server-side from the OIA labels
       // (see the pipeline's Fee Calc node), so the values sent here for those
