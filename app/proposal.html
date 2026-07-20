@@ -1007,16 +1007,10 @@
    * facts-card + badge-row visual language as intake-v2's review step,
    * minus the click targets.
    * =================================================================== */
-  var DRIVER_SCORE_LABELS = { 0.5: 'Minimal', 1: 'Standard', 1.5: 'Active', 2: 'Intense' };
-  var DRIVER_SCORE_TONES = { 0.5: 'slate', 1: 'accent', 1.5: 'warning', 2: 'danger' };
   var CATEGORY_ICONS = {
     'Tenant Friction': '👥', 'Turnover Pressure': '🔄',
     'Maintenance Burden': '🔧', 'Compliance & Administration': '⚖️'
   };
-
-  function scoreLabel(score) {
-    return DRIVER_SCORE_LABELS[score] || (score != null ? String(score) : '—');
-  }
 
   function presentProposal(data) {
     var reviewIntroMessage = document.getElementById('review-intro-message');
@@ -1042,7 +1036,8 @@
     }
 
     driversWrap.innerHTML = '';
-    var categories = (data.report && data.report.operationalProfile && data.report.operationalProfile.categories) || [];
+    var categories = ((data.report && data.report.operationalProfile && data.report.operationalProfile.categories) || [])
+      .filter(function (cat) { return cat && cat.label; });
     if (categories.length) {
       var heading = document.createElement('p');
       heading.className = 'review-drivers-heading';
@@ -1063,6 +1058,11 @@
     showPanel('review');
   }
 
+  // Uses the property's real, already-assessed OIA label (cat.label) and
+  // score band verbatim — the same source renderOperationalProfile() reads
+  // further down this page — rather than a separate invented vocabulary.
+  // categoryScore() (defined below, hoisted) resolves either the current
+  // numeric cat.score or an older cached proposal's label-only shape.
   function buildDriverRoRow(cat) {
     var row = document.createElement('div');
     row.className = 'review-driver-ro';
@@ -1074,8 +1074,10 @@
     name.textContent = cat.category;
     var badge = document.createElement('span');
     badge.className = 'review-driver-ro__badge';
-    badge.setAttribute('data-tone', DRIVER_SCORE_TONES[cat.score] || 'accent');
-    badge.textContent = scoreLabel(cat.score);
+    var cs = categoryScore(cat);
+    var tone = cs == null ? 'accent' : (cs >= 2 ? 'danger' : cs >= 1.5 ? 'warning' : cs >= 1 ? 'accent' : 'slate');
+    badge.setAttribute('data-tone', tone);
+    badge.textContent = cat.label;
     row.appendChild(icon); row.appendChild(name); row.appendChild(badge);
     return row;
   }
