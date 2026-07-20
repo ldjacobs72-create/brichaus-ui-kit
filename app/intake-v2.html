@@ -1727,8 +1727,39 @@
     // stores it for internal use (call scripts / follow-up). It is never
     // fetched back for display — the funnel hands off to the proposal page
     // the moment scoring returns, and the narrative isn't shown to customers.
-    REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status'
+    REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
+
+    // Shared-secret header sent on every PropScore webhook call above, matched
+    // against a Header Auth credential on each n8n trigger node. This is a
+    // first layer against automated/opportunistic abuse of the public
+    // endpoints, not a real secret — it ships in this public page's JS, so
+    // anyone can read it via view-source. A GHL custom value, same pattern as
+    // PROPOSAL_PAGE_URL below, so the key lives in ONE place (GHL → Settings →
+    // Custom Values) and can be rotated without a code/paste change. Leave
+    // the custom value unset (or this file un-interpolated) to send no auth
+    // header at all — matches today's unauthenticated webhooks, fails open.
+    WEBHOOK_AUTH_HEADER_VALUE: '{{custom_values.propscore_webhook_key}}'
   };
+
+  // Resolve WEBHOOK_AUTH_HEADER_VALUE the same way as PROPOSAL_PAGE_URL below:
+  // if GHL didn't interpolate it (raw file, or the custom value is unset —
+  // placeholder still contains "{{"), send no auth header rather than the
+  // literal placeholder text.
+  if (!CONFIG.WEBHOOK_AUTH_HEADER_VALUE || CONFIG.WEBHOOK_AUTH_HEADER_VALUE.indexOf('{{') !== -1) {
+    CONFIG.WEBHOOK_AUTH_HEADER_VALUE = '';
+  }
+
+  var WEBHOOK_AUTH_HEADER_NAME = 'X-PropScore-Key';
+
+  // Merges the shared-secret auth header (when configured) into a fetch()
+  // headers object without repeating this at every call site.
+  function authHeaders(extra) {
+    var headers = Object.assign({}, extra);
+    if (CONFIG.WEBHOOK_AUTH_HEADER_VALUE) {
+      headers[WEBHOOK_AUTH_HEADER_NAME] = CONFIG.WEBHOOK_AUTH_HEADER_VALUE;
+    }
+    return headers;
+  }
 
   // Resolve the PROPOSAL_PAGE_URL custom value. If GHL interpolated it, use it;
   // if not (raw file, or the custom value is unset — the placeholder still
@@ -2282,7 +2313,7 @@
     if (!stateCode || !CONFIG.SERVICE_AREA_URL) return Promise.resolve('active');
     return fetch(CONFIG.SERVICE_AREA_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ stateCode: stateCode })
     })
       .then(function (res) { return res.ok ? res.json() : { tier: 'active' }; })
@@ -2329,7 +2360,7 @@
     var stateName = state.address.stateName || state.address.stateCode || 'your area';
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         action: 'expansionLead',
         email: email,
@@ -2605,7 +2636,7 @@
 
     fetch(CONFIG.RENTCAST_QUICKLOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       // GooglePlaceID lets the quicklook key its RentCast cache by the same
       // universal join key the main pipeline uses, so the estimate fetched
       // here is reused there instead of being re-fetched. Empty when the
@@ -2737,7 +2768,7 @@
     addressVerifying.classList.remove('hidden');
     fetch(CONFIG.SITE_ROUTING_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ googlePlaceId: placeId, formattedAddress: state.address.formattedAddress || '', unitNumber: unitNumber })
     })
       .then(function (res) { return res.ok ? res.json() : { route: 'fetch-rentcast', recognized: false, propertyFacts: null }; })
@@ -2796,7 +2827,7 @@
     recognitionEmailError.classList.add('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
     })
       .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
@@ -2868,7 +2899,7 @@
     recognitionClaimBtn.setAttribute('disabled', '');
     fetch(claimUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'claimProposal', googlePlaceId: placeId, emailAttempt: emailAttempt, ownershipCertified: true })
     })
       .then(function (res) { return res.ok ? res.json() : { claimed: false }; })
@@ -2912,7 +2943,7 @@
     if (!phone) return;
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         action: 'conflict',
         googlePlaceId: state.address.placeId,
@@ -3733,7 +3764,7 @@
 
     fetch(CONFIG.WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(buildWebhookPayload())
     })
       .then(function (res) {

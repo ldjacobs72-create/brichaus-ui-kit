@@ -805,8 +805,37 @@
     // elsewhere) instead of hardcoded here. If this fetch fails or is slow,
     // FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD below keep the section
     // working — a catalog outage should never blank the proposal.
-    SERVICES_CATALOG_URL: 'https://brichaus.app.n8n.cloud/webhook/services-catalog'
+    SERVICES_CATALOG_URL: 'https://brichaus.app.n8n.cloud/webhook/services-catalog',
+
+    // Shared-secret header sent on every ghl-contact-recognition call below,
+    // matched against a Header Auth credential on the n8n trigger node. This
+    // is a first layer against automated/opportunistic abuse of the public
+    // endpoint, not a real secret — it ships in this public page's JS, so
+    // anyone can read it via view-source. A GHL custom value (same one
+    // intake-v2.html reads) so the key lives in ONE place and can be
+    // rotated without a code/paste change. Leave the custom value unset
+    // (or this file un-interpolated) to send no auth header — fails open.
+    WEBHOOK_AUTH_HEADER_VALUE: '{{custom_values.propscore_webhook_key}}'
   };
+
+  // Resolve WEBHOOK_AUTH_HEADER_VALUE: if GHL didn't interpolate it (raw
+  // file, or the custom value is unset), send no auth header rather than
+  // the literal placeholder text.
+  if (!CONFIG.WEBHOOK_AUTH_HEADER_VALUE || CONFIG.WEBHOOK_AUTH_HEADER_VALUE.indexOf('{{') !== -1) {
+    CONFIG.WEBHOOK_AUTH_HEADER_VALUE = '';
+  }
+
+  var WEBHOOK_AUTH_HEADER_NAME = 'X-PropScore-Key';
+
+  // Merges the shared-secret auth header (when configured) into a fetch()
+  // headers object without repeating this at every call site.
+  function authHeaders(extra) {
+    var headers = Object.assign({}, extra);
+    if (CONFIG.WEBHOOK_AUTH_HEADER_VALUE) {
+      headers[WEBHOOK_AUTH_HEADER_NAME] = CONFIG.WEBHOOK_AUTH_HEADER_VALUE;
+    }
+    return headers;
+  }
 
   var root = document.getElementById('brichaus-proposal');
   var panels = {};
@@ -879,7 +908,7 @@
     recognitionEmailError.classList.add('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
     })
       .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
@@ -915,7 +944,7 @@
     if (!phone) return;
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         action: 'conflict',
         googlePlaceId: placeId,
@@ -980,7 +1009,7 @@
     }
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
     })
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
@@ -1005,7 +1034,7 @@
         if (handedOff) {
           fetch(CONFIG.CONTACT_RECOGNITION_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: handedOff })
           })
             .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
@@ -1045,7 +1074,7 @@
     document.getElementById('loading-status-text').textContent = 'Loading your proposal…';
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'getCachedProposal', googlePlaceId: placeId })
     })
       .then(function (res) { return res.ok ? res.json() : { found: false }; })
