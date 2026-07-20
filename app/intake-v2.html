@@ -1732,19 +1732,23 @@
     // Shared-secret header sent on every PropScore webhook call above, matched
     // against a Header Auth credential on each n8n trigger node. This is a
     // first layer against automated/opportunistic abuse of the public
-    // endpoints, not a real secret — it ships in this public page's JS, so
-    // anyone can read it via view-source. A GHL custom value, same pattern as
-    // PROPOSAL_PAGE_URL below, so the key lives in ONE place (GHL → Settings →
-    // Custom Values) and can be rotated without a code/paste change. Leave
-    // the custom value unset (or this file un-interpolated) to send no auth
-    // header at all — matches today's unauthenticated webhooks, fails open.
-    WEBHOOK_AUTH_HEADER_VALUE: '{{custom_values.propscore_webhook_key}}'
+    // endpoints, not a real secret — it ships in this page's JS one way or
+    // another, so anyone can read it via view-source. This page's inline
+    // custom-code block does NOT get GHL's merge-tag interpolation applied
+    // (confirmed live — {{custom_values...}} ships here as literal text, same
+    // as PROPOSAL_PAGE_URL always has on this page), so unlike proposal.html
+    // this can't read a custom value directly. Instead it reads a global set
+    // by a small snippet in this page's GHL Tracking Code (header), which DOES
+    // get interpolated — see docs/PROPSCORE-WEBHOOK-KEY-TRACKING-SNIPPET.md for
+    // the exact snippet to paste there. Leave that tracking snippet absent (or
+    // the custom value unset) to send no auth header at all — matches today's
+    // unauthenticated webhooks, fails open.
+    WEBHOOK_AUTH_HEADER_VALUE: (typeof window !== 'undefined' && window.__PROPSCORE_WEBHOOK_KEY__) || ''
   };
 
-  // Resolve WEBHOOK_AUTH_HEADER_VALUE the same way as PROPOSAL_PAGE_URL below:
-  // if GHL didn't interpolate it (raw file, or the custom value is unset —
-  // placeholder still contains "{{"), send no auth header rather than the
-  // literal placeholder text.
+  // Guard against the tracking snippet itself shipping an un-interpolated
+  // placeholder (custom value unset in GHL) — send no auth header rather
+  // than the literal placeholder text.
   if (!CONFIG.WEBHOOK_AUTH_HEADER_VALUE || CONFIG.WEBHOOK_AUTH_HEADER_VALUE.indexOf('{{') !== -1) {
     CONFIG.WEBHOOK_AUTH_HEADER_VALUE = '';
   }
