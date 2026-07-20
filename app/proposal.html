@@ -886,16 +886,6 @@
   // kept for prefilling the embedded booking calendar (never trusted for
   // anything gate-related; the gate is server-verified).
   var confirmedEmail = '';
-  var recognitionEmailValue = '';
-  var recognitionPhoneValue = '';
-  ['bui-input', 'bui-change'].forEach(function (eventName) {
-    recognitionEmailInput.addEventListener(eventName, function (evt) {
-      recognitionEmailValue = (evt.detail.value || '').trim();
-    });
-    recognitionPhoneInput.addEventListener(eventName, function (evt) {
-      recognitionPhoneValue = (evt.detail.value || '').trim();
-    });
-  });
 
   function showRecognitionState(name) {
     recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
@@ -904,7 +894,12 @@
   }
 
   recognitionConfirmBtn.addEventListener('bui-click', function () {
-    var emailAttempt = recognitionEmailValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click, which silently
+    // sent an empty string here in production (confirmed via live logs:
+    // an autofilled, visibly-correct email produced emailAttempt: "").
+    var emailAttempt = (recognitionEmailInput.value || '').trim();
     recognitionEmailError.classList.add('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
@@ -940,7 +935,10 @@
   });
 
   recognitionPhoneBtn.addEventListener('bui-click', function () {
-    var phone = recognitionPhoneValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click.
+    var phone = (recognitionPhoneInput.value || '').trim();
     if (!phone) return;
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',

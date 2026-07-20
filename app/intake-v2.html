@@ -2339,15 +2339,12 @@
     serviceAreaGate.classList.remove('hidden');
   }
 
-  var expansionEmailValue = '';
-  ['bui-input', 'bui-change'].forEach(function (eventName) {
-    expansionEmailInput.addEventListener(eventName, function (evt) {
-      expansionEmailValue = (evt.detail.value || '').trim();
-    });
-  });
-
   expansionNotifyBtn.addEventListener('bui-click', function () {
-    var email = expansionEmailValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click, which silently
+    // sent an empty string here in production.
+    var email = (expansionEmailInput.value || '').trim();
     if (!email || email.indexOf('@') === -1) {
       expansionEmailInput.setAttribute('error', 'Please enter a valid email.');
       return;
@@ -2689,9 +2686,9 @@
     recognitionClaim.classList.add('hidden');
     recognitionClaimError.classList.add('hidden');
     recognitionEmailError.classList.add('hidden');
-    recognitionEmailValue = '';
-    recognitionPhoneValue = '';
-    recognitionClaimEmailValue = '';
+    recognitionEmailInput.value = '';
+    recognitionPhoneInput.value = '';
+    recognitionClaimEmailInput.value = '';
     if (recognitionClaimCertifyInput) recognitionClaimCertifyInput.checked = false;
     state.claimable = false;
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
@@ -2704,21 +2701,6 @@
   recognitionViewProposal.addEventListener('bui-click', function () {
     if (!CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId) return;
     window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
-  });
-
-  var recognitionEmailValue = '';
-  var recognitionPhoneValue = '';
-  var recognitionClaimEmailValue = '';
-  ['bui-input', 'bui-change'].forEach(function (eventName) {
-    recognitionEmailInput.addEventListener(eventName, function (evt) {
-      recognitionEmailValue = (evt.detail.value || '').trim();
-    });
-    recognitionPhoneInput.addEventListener(eventName, function (evt) {
-      recognitionPhoneValue = (evt.detail.value || '').trim();
-    });
-    recognitionClaimEmailInput.addEventListener(eventName, function (evt) {
-      recognitionClaimEmailValue = (evt.detail.value || '').trim();
-    });
   });
 
   function showRecognitionState(name) {
@@ -2819,7 +2801,11 @@
 
   recognitionConfirmBtn.addEventListener('bui-click', function () {
     var placeId = state.address.placeId;
-    var emailAttempt = recognitionEmailValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click, which silently
+    // sent an empty string here in production.
+    var emailAttempt = (recognitionEmailInput.value || '').trim();
     recognitionEmailError.classList.add('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
@@ -2879,7 +2865,10 @@
   // obvious junk; the server §C gate (Phase 3) is the real mailbox check.
   recognitionClaimBtn.addEventListener('bui-click', function () {
     var placeId = state.claimPlaceId || state.address.placeId;
-    var emailAttempt = recognitionClaimEmailValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click.
+    var emailAttempt = (recognitionClaimEmailInput.value || '').trim();
     recognitionClaimError.classList.add('hidden');
     if (!recognitionClaimCertifyInput || !recognitionClaimCertifyInput.checked) {
       recognitionClaimError.textContent = 'Please certify your relationship to this property before claiming it.';
@@ -2935,7 +2924,10 @@
   });
 
   recognitionPhoneBtn.addEventListener('bui-click', function () {
-    var phone = recognitionPhoneValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click.
+    var phone = (recognitionPhoneInput.value || '').trim();
     if (!phone) return;
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
