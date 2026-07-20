@@ -820,9 +820,7 @@
     color: var(--bui-color-text-muted);
     border: 1px solid var(--bui-color-border);
   }
-  /* Tone keys off the real OIA label vocabulary (Low/Normal/High/Severe) —
-     the previous streamlined/active/intensive tones never matched what the
-     pipeline actually returns, so these chips never picked up a color. */
+  /* Tone keys off the real OIA label vocabulary (Minimal/Normal/High/Intense). */
   #brichaus-assessment .op-cat-label[data-tone="low"] { color: var(--bui-color-success); border-color: var(--bui-color-success); background: var(--bui-color-success-bg); }
   #brichaus-assessment .op-cat-label[data-tone="normal"] { color: var(--bui-color-info); border-color: var(--bui-color-info); background: var(--bui-color-info-bg); }
   #brichaus-assessment .op-cat-label[data-tone="high"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
@@ -1356,11 +1354,11 @@
     </bui-card>
   </section>
 
-  <!-- ============ STEP: operational assessment (4 sequential drivers) ============ -->
+  <!-- ============ STEP: operational demand assessment (4 sequential drivers) ============ -->
   <section data-step="driver" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="5–8. Operational Assessment" id="driver-header-progress" value="45"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="5–8. Operational Demand" id="driver-header-progress" value="45"></bui-progress-bar>
       </div>
       <div class="step-intro">
         <!-- Each driver gets its own icon + name, distinct at a glance, so
@@ -1375,13 +1373,13 @@
         <bui-progress-bar variant="segmented" id="driver-sub-progress" label="Driver" value="1" max="4"></bui-progress-bar>
         <div style="margin-top: var(--bui-space-4);">
           <bui-choice-group id="driver-choice-group" name="driver">
-            <bui-choice-card value="streamlined" label="Minimal"
+            <bui-choice-card value="minimal" label="Minimal"
               description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
-            <bui-choice-card value="standard" label="Standard"
+            <bui-choice-card value="normal" label="Normal"
               description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
-            <bui-choice-card value="active" label="Active"
+            <bui-choice-card value="high" label="High"
               description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-            <bui-choice-card value="intensive" label="Intense"
+            <bui-choice-card value="intense" label="Intense"
               description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
           </bui-choice-group>
         </div>
@@ -1440,7 +1438,7 @@
         </div>
 
         <div class="review-drivers">
-          <p class="review-drivers-heading">Operational Assessment</p>
+          <p class="review-drivers-heading">Operational Demand</p>
 
           <div class="review-driver" id="review-driver-tenant" data-key="tenant">
             <button type="button" class="review-driver__summary">
@@ -1451,10 +1449,10 @@
             </button>
             <div class="review-driver__body hidden">
               <bui-choice-group name="review-tenant">
-                <bui-choice-card value="streamlined" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
-                <bui-choice-card value="standard" label="Standard" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
-                <bui-choice-card value="active" label="Active" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-                <bui-choice-card value="intensive" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
+                <bui-choice-card value="minimal" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+                <bui-choice-card value="normal" label="Normal" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
+                <bui-choice-card value="high" label="High" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
+                <bui-choice-card value="intense" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
               </bui-choice-group>
             </div>
           </div>
@@ -1468,10 +1466,10 @@
             </button>
             <div class="review-driver__body hidden">
               <bui-choice-group name="review-turnover">
-                <bui-choice-card value="streamlined" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
-                <bui-choice-card value="standard" label="Standard" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
-                <bui-choice-card value="active" label="Active" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-                <bui-choice-card value="intensive" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
+                <bui-choice-card value="minimal" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+                <bui-choice-card value="normal" label="Normal" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
+                <bui-choice-card value="high" label="High" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
+                <bui-choice-card value="intense" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
               </bui-choice-group>
             </div>
           </div>
@@ -1485,10 +1483,10 @@
             </button>
             <div class="review-driver__body hidden">
               <bui-choice-group name="review-maintenance">
-                <bui-choice-card value="streamlined" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
-                <bui-choice-card value="standard" label="Standard" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
-                <bui-choice-card value="active" label="Active" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-                <bui-choice-card value="intensive" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
+                <bui-choice-card value="minimal" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+                <bui-choice-card value="normal" label="Normal" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
+                <bui-choice-card value="high" label="High" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
+                <bui-choice-card value="intense" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
               </bui-choice-group>
             </div>
           </div>
@@ -1502,10 +1500,10 @@
             </button>
             <div class="review-driver__body hidden">
               <bui-choice-group name="review-compliance">
-                <bui-choice-card value="streamlined" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
-                <bui-choice-card value="standard" label="Standard" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
-                <bui-choice-card value="active" label="Active" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-                <bui-choice-card value="intensive" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
+                <bui-choice-card value="minimal" label="Minimal" description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+                <bui-choice-card value="normal" label="Normal" description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
+                <bui-choice-card value="high" label="High" description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
+                <bui-choice-card value="intense" label="Intense" description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
               </bui-choice-group>
             </div>
           </div>
@@ -1774,7 +1772,7 @@
    * exactly the 0.0625–16.0 range documented in the funnel design ref.
    * =================================================================== */
   var DemandEngine = (function () {
-    var MULTIPLIER = { streamlined: 0.5, standard: 1.0, active: 1.5, intensive: 2.0 };
+    var MULTIPLIER = { minimal: 0.5, normal: 1.0, high: 1.5, intense: 2.0 };
 
     function score(drivers) {
       return ['tenant', 'turnover', 'maintenance', 'compliance'].reduce(function (acc, key) {
@@ -1789,12 +1787,12 @@
     // readout-tone only has 4 values on bui-dial-gauge, so adjacent bands
     // share a tone (Very Low/Low -> slate, Elevated/High -> warning).
     var BANDS = [
-      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Minimal Operational Complexity', tone: 'slate' },
-      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-Average Operational Complexity', tone: 'slate' },
-      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical Operational Complexity', tone: 'accent' },
-      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-Average Operational Complexity', tone: 'warning' },
-      { min: 3.00, max: 7.99, label: 'HIGH', caption: 'High Operational Complexity', tone: 'warning' },
-      { min: 8.00, max: 16.00, label: 'SEVERE', caption: 'Severe Operational Complexity', tone: 'danger' }
+      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Well below typical operational demand', tone: 'slate' },
+      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-average operational demand', tone: 'slate' },
+      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical operational demand for this property', tone: 'accent' },
+      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-average operational demand', tone: 'warning' },
+      { min: 3.00, max: 7.99, label: 'SUBSTANTIAL', caption: 'Well above typical operational demand', tone: 'warning' },
+      { min: 8.00, max: 16.00, label: 'INTENSIVE', caption: 'Operational demand at the top of the range', tone: 'danger' }
     ];
 
     function band(s) {
@@ -1867,35 +1865,35 @@
   var driverStepIndex = 0;
 
   // Verbatim from the OIA pipeline's own reference text (n8n "PropScore: OIA
-  // Scoring" -> "Populate Canned Evidence Notes") so the option a visitor
-  // picks here reads with the exact same nuance their final report will use
-  // — streamlined/standard/active/intensive map 1:1 to the OIA workflow's
-  // own Low/Normal/High/Severe labels (same mapping DemandEngine.MULTIPLIER
-  // already uses).
+  // Scoring" -> "Populate Canned Evidence Notes", sourced from Dataverse
+  // cr55d_oiaevidencenotes) so the option a visitor picks here reads with
+  // the exact same nuance their final report will use — minimal/normal/
+  // high/intense map 1:1 to the OIA workflow's own driver-tier labels
+  // (cr55d_oiascorelabels; same mapping DemandEngine.MULTIPLIER already uses).
   var DRIVER_REFERENCE = {
     tenant: {
-      streamlined: 'Tenant activity is unusually quiet, with rent paid on time and minimal management intervention needed.',
-      standard: 'Tenant communication and day-to-day issues are typical for a property like yours, with occasional routine matters handled through standard practices.',
-      active: 'Tenant-related issues are occurring more than expected — repeated complaints, payment follow-up, conflicts, or lease-enforcement needs beyond the ordinary.',
-      intensive: 'Tenant activity is materially disruptive relative to a typical property — active evictions, legal disputes, serious violations, or persistent conflict.'
+      minimal: 'Tenant activity is unusually quiet, with rent paid on time and minimal management intervention needed.',
+      normal: 'Tenant communication and day-to-day issues are typical for a property like yours, with occasional routine matters handled through standard practices.',
+      high: 'Tenant-related issues are occurring more than expected — repeated complaints, payment follow-up, conflicts, or lease-enforcement needs beyond the ordinary.',
+      intense: 'Tenant activity is materially disruptive relative to a typical property — active evictions, legal disputes, serious violations, or persistent conflict.'
     },
     turnover: {
-      streamlined: 'Turnover is unusually low — tenants are staying long-term, vacancies are rare, and leasing effort is minimal.',
-      standard: 'Unit turnover is occurring at a typical pace for this property type and market, handled through ordinary leasing activity.',
-      active: 'Turnover on this property is running higher than typical, requiring more frequent leasing, marketing, and rent-ready turnaround than a standard property in this market.',
-      intensive: 'Turnover is a major operating problem here — multiple vacancies, chronic churn, or prolonged difficulty re-leasing units.'
+      minimal: 'Turnover is unusually low — tenants are staying long-term, vacancies are rare, and leasing effort is minimal.',
+      normal: 'Unit turnover is occurring at a typical pace for this property type and market, handled through ordinary leasing activity.',
+      high: 'Turnover on this property is running higher than typical, requiring more frequent leasing, marketing, and rent-ready turnaround than a standard property in this market.',
+      intense: 'Turnover is a major operating problem here — multiple vacancies, chronic churn, or prolonged difficulty re-leasing units.'
     },
     maintenance: {
-      streamlined: 'Maintenance needs are unusually light — the property is in strong condition and service calls are rare.',
-      standard: 'Maintenance needs are routine for a property of this age, size, and condition — ordinary service calls and upkeep.',
-      active: 'Maintenance demand is running above normal — recurring repairs, aging systems, and more frequent vendor coordination than a typical property.',
-      intensive: 'Maintenance represents a major operating burden — serious deferred maintenance, safety issues, major system failures, or a large repair backlog.'
+      minimal: 'Maintenance needs are unusually light — the property is in strong condition and service calls are rare.',
+      normal: 'Maintenance needs are routine for a property of this age, size, and condition — ordinary service calls and upkeep.',
+      high: 'Maintenance demand is running above normal — recurring repairs, aging systems, and more frequent vendor coordination than a typical property.',
+      intense: 'Maintenance represents a major operating burden — serious deferred maintenance, safety issues, major system failures, or a large repair backlog.'
     },
     compliance: {
-      streamlined: 'Compliance and administrative requirements are unusually simple — no special rules, added filings, or elevated compliance tasks.',
-      standard: 'Compliance and administrative requirements are typical for this jurisdiction and property type — standard notices and recordkeeping, with no unusual filings or oversight expected.',
-      active: 'Compliance work is running above normal — rent-control tracking, recurring inspections, registration requirements, or HOA coordination beyond the ordinary.',
-      intensive: 'Compliance and regulatory exposure here is significant — active code enforcement, lawsuits, complex local restrictions, or unresolved notices.'
+      minimal: 'Compliance and administrative requirements are unusually simple — no special rules, added filings, or elevated compliance tasks.',
+      normal: 'Compliance and administrative requirements are typical for this jurisdiction and property type — standard notices and recordkeeping, with no unusual filings or oversight expected.',
+      high: 'Compliance work is running above normal — rent-control tracking, recurring inspections, registration requirements, or HOA coordination beyond the ordinary.',
+      intense: 'Compliance and regulatory exposure here is significant — active code enforcement, lawsuits, complex local restrictions, or unresolved notices.'
     }
   };
 
@@ -3173,7 +3171,7 @@
   });
 
   /* =====================================================================
-   * Steps 5-8: Operational Assessment (4 sequential driver questions)
+   * Steps 5-8: Operational Demand (4 sequential driver questions)
    * =================================================================== */
   function renderDriverStep() {
     scrollToTop();
@@ -3322,8 +3320,8 @@
   // Same badge language as the driver-question cards themselves (label +
   // meta-tone), so a driver's summary row reads as the same kind of thing
   // the visitor just answered — not a re-encoding into a different UI.
-  var REVIEW_DRIVER_LABELS = { streamlined: 'Minimal', standard: 'Standard', active: 'Active', intensive: 'Intense' };
-  var REVIEW_DRIVER_TONES = { streamlined: 'slate', standard: 'accent', active: 'warning', intensive: 'danger' };
+  var REVIEW_DRIVER_LABELS = { minimal: 'Minimal', normal: 'Normal', high: 'High', intense: 'Intense' };
+  var REVIEW_DRIVER_TONES = { minimal: 'slate', normal: 'accent', high: 'warning', intense: 'danger' };
 
   function setReviewDriverBadge(key, value) {
     var badge = reviewDriverBadges[key];
@@ -3390,7 +3388,7 @@
     reviewRentInput.value = state.rentPerUnit || '';
 
     DRIVER_STEPS.forEach(function (step) {
-      var value = state.drivers[step.key] || 'standard';
+      var value = state.drivers[step.key] || 'normal';
       state.drivers[step.key] = value;
       var row = reviewDriverRows[step.key];
       row.classList.remove('is-open');

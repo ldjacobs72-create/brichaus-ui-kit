@@ -18,8 +18,14 @@
  *                 — banded the same way value's position bands the needle)
  *
  * Usage:
- *   <bui-dial-gauge value="82" eyebrow="Operational Demand" readout="HIGH"
- *     caption="High Operational Complexity"></bui-dial-gauge>
+ *   <bui-dial-gauge value="60" eyebrow="Operational Demand" readout="ELEVATED"
+ *     caption="Above-average operational demand"
+ *     readout-tone="warning"></bui-dial-gauge>
+ *
+ * NOTE: this project's canonical composite scale is six tiers (Very Low /
+ * Low / Normal / Elevated / Substantial / Intensive) — see
+ * operational-demand-spec.md §5. "ELEVATED" above is one tier shown for
+ * illustration, not the only valid readout.
  *
  * Presentational only — the host page computes the category/value.
  */

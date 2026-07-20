@@ -241,7 +241,7 @@
   #brichaus-proposal .review-lock-link:hover { text-decoration: underline; }
 
   /* ---- Report layout (ported verbatim from app/index.html's Results step:
-     Operational Workload + Proposal service cards + CTA. Evidence/comps/
+     Operational Demand + Proposal service cards + CTA. Evidence/comps/
      RentCast blocks are intentionally NOT ported — that raw data isn't part
      of the stored proposal JSON.) ---- */
   /* The property's street line IS the report's title — big and dark so it's
@@ -275,7 +275,7 @@
   #brichaus-proposal .service-card__leasing-pct {
     font-size: 15.5px; font-weight: 800; color: var(--bui-color-text);
   }
-  /* Section heading — sets Operational Workload apart as its own report block. */
+  /* Section heading — sets Operational Demand apart as its own report block. */
   #brichaus-proposal .proposal-section-heading {
     font-size: 15px; font-weight: 800; letter-spacing: 0.01em;
     color: var(--bui-color-text); margin-bottom: var(--bui-space-3);
@@ -398,7 +398,7 @@
   #brichaus-proposal .revenue-hero__sub { position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4; }
   #brichaus-proposal .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
   /* Fee basis line — ties the fee back to the OIA band shown later in
-     Operational Workload (same data-tone vocabulary), so the two read as
+     Operational Demand (same data-tone vocabulary), so the two read as
      the same fact stated twice, not two different claims. */
   #brichaus-proposal .revenue-hero__basis {
     position: relative; margin-top: 6px; padding-top: 6px; font-size: 11.5px; color: #c3cad4; line-height: 1.4;
@@ -413,7 +413,7 @@
   #brichaus-proposal .revenue-hero__basis strong[data-tone="danger"] { color: var(--bui-color-danger); }
 
   /* Management Services header — same top-rule-plus-heading rhythm as
-     Operational Workload below it, marking the shift from the money block
+     Operational Demand below it, marking the shift from the money block
      into the service-card catalog. */
   #brichaus-proposal .services-heading {
     margin-top: var(--bui-space-5); padding-top: var(--bui-space-4);
@@ -682,7 +682,7 @@
   </div>
 
   <!-- The rendered proposal — ported from app/index.html's Results step
-       (Operational Workload + Proposal service cards + CTA). No progress
+       (Operational Demand + Proposal service cards + CTA). No progress
        bar/header here; this isn't a funnel step. -->
   <div data-state="report" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
@@ -702,7 +702,7 @@
         <!-- Report order (per owner review): the management fee first (with the
              one-time setup-fee note beneath it), then the service cards — the
              leasing fee rides as the Market-to-Move-In subheading — then the
-             Operational Workload block as its own section. The AI narrative is
+             Operational Demand block as its own section. The AI narrative is
              NOT rendered here — it lives in a GHL field for internal call
              scripts / follow-up. -->
         <div class="proposal-section">
@@ -740,7 +740,7 @@
         </div>
 
         <div id="op-profile" class="op-profile hidden">
-          <div class="proposal-section-heading">Operational Workload</div>
+          <div class="proposal-section-heading">Operational Demand</div>
           <div class="workload-head">
             <div class="report-band-pill" id="hero-band">—</div>
             <div class="demand-meter">
@@ -1141,7 +1141,7 @@
     if (categories.length) {
       var heading = document.createElement('p');
       heading.className = 'review-drivers-heading';
-      heading.textContent = 'Operational Assessment';
+      heading.textContent = 'Operational Demand';
       driversWrap.appendChild(heading);
       categories.forEach(function (cat) {
         driversWrap.appendChild(buildDriverRoRow(cat));
@@ -1198,12 +1198,12 @@
    * =================================================================== */
   var DemandEngine = (function () {
     var BANDS = [
-      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Minimal Operational Complexity', tone: 'slate' },
-      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-Average Operational Complexity', tone: 'slate' },
-      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical Operational Complexity', tone: 'accent' },
-      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-Average Operational Complexity', tone: 'warning' },
-      { min: 3.00, max: 7.99, label: 'HIGH', caption: 'High Operational Complexity', tone: 'warning' },
-      { min: 8.00, max: 16.00, label: 'SEVERE', caption: 'Severe Operational Complexity', tone: 'danger' }
+      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Well below typical operational demand', tone: 'slate' },
+      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-average operational demand', tone: 'slate' },
+      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical operational demand for this property', tone: 'accent' },
+      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-average operational demand', tone: 'warning' },
+      { min: 3.00, max: 7.99, label: 'SUBSTANTIAL', caption: 'Well above typical operational demand', tone: 'warning' },
+      { min: 8.00, max: 16.00, label: 'INTENSIVE', caption: 'Operational demand at the top of the range', tone: 'danger' }
     ];
 
     function bandByLabel(label) {
@@ -1668,7 +1668,7 @@
     var heroFeeBasis = document.getElementById('hero-fee-basis');
     if (band && heroFeeBasis) {
       heroFeeBasis.innerHTML = 'Based on the <strong data-tone="' + band.tone + '">' + titleCaseBandLabel(band.label) +
-        '</strong> operational intensity derived from your assessment.';
+        '</strong> operational demand derived from your assessment.';
       heroFeeBasis.classList.remove('hidden');
     } else if (heroFeeBasis) {
       heroFeeBasis.classList.add('hidden');

@@ -29,18 +29,18 @@
  *     slot="icon"  optional icon/SVG shown above the label
  *
  * Usage:
- *   <bui-choice-group name="maintenance" value="active">
- *     <bui-choice-card value="streamlined" label="Streamlined"
- *       description="Minimal issues and low maintenance needs."
+ *   <bui-choice-group name="maintenance-burden" value="normal">
+ *     <bui-choice-card value="minimal" label="Minimal"
+ *       description="Fewer routine maintenance touchpoints than typical — full response capacity and vendor network stay active regardless of tier."
  *       meta="0.5x" meta-tone="slate"></bui-choice-card>
- *     <bui-choice-card value="standard" label="Standard"
- *       description="Typical maintenance for a property like yours."
+ *     <bui-choice-card value="normal" label="Normal"
+ *       description="Typical maintenance volume for a property like yours."
  *       meta="1.0x" meta-tone="accent"></bui-choice-card>
- *     <bui-choice-card value="active" label="Active"
- *       description="Above-average maintenance activity and coordination."
+ *     <bui-choice-card value="high" label="High"
+ *       description="Above-average maintenance activity, calling for more frequent coordination."
  *       meta="1.5x" meta-tone="warning"></bui-choice-card>
- *     <bui-choice-card value="intensive" label="Intensive"
- *       description="High maintenance volume or complex requirements."
+ *     <bui-choice-card value="intense" label="Intense"
+ *       description="Consistently high maintenance volume or complexity requiring dedicated, ongoing coordination."
  *       meta="2.0x" meta-tone="danger"></bui-choice-card>
  *   </bui-choice-group>
  */
