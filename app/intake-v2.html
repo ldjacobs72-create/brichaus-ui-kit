@@ -48,6 +48,8 @@
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/card.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/progress-bar.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/choice-card.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/toggle.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/counter.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/dial-gauge.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/loading.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/integrations/ghl-bridge.js"></script>
@@ -245,7 +247,7 @@
 
   /* ===== Premium visual pass: Property Type choice cards ===== */
   #brichaus-assessment #property-type-choice-group .bui-choice-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
   }
   @media (max-width: 720px) {
@@ -259,43 +261,6 @@
     height: 100%;
     box-sizing: border-box;
     transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-  }
-  /* Commercial (disabled) card: same footprint as its siblings, marked with
-     an overlay badge instead of the meta slot. The component's own disabled
-     style fades the whole card to 0.5 opacity, which would wash out the
-     badge too — so opacity is reset and the muting is done here instead. */
-  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] {
-    position: relative;
-    overflow: hidden;
-    opacity: 1;
-    background: #FAFBFC;
-  }
-  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__label,
-  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__description {
-    color: #A6ACB6;
-  }
-  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.45);
-  }
-  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::after {
-    content: 'COMING SOON';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-6deg);
-    padding: 6px 14px;
-    border: 1.5px solid #C6CAD2;
-    border-radius: 999px;
-    background: #FFFFFF;
-    color: #6B7280;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    box-shadow: 0 2px 8px rgba(20, 24, 32, 0.08);
-    white-space: nowrap;
   }
   #brichaus-assessment #property-type-choice-group .bui-choice-card[aria-checked="true"] {
     border: 2px solid #4C5768;
@@ -1226,14 +1191,6 @@
             description="Single family home, Condo, Townhome."></bui-choice-card>
           <bui-choice-card value="multi" label="Multifamily"
             description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
-          <!-- Visible but not yet selectable — the funnel's scoring/fee logic
-               doesn't support commercial yet. The disabled attribute is the
-               component's own (blocks selection); the "Coming Soon" marker is
-               a CSS overlay badge (see the commercial-card rules) rather than
-               the meta slot, so this card stays the same height as the other
-               two. -->
-          <bui-choice-card value="commercial" label="Commercial" disabled
-            description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
         </bui-choice-group>
         <!-- Rendered here but RELOCATED into the Multifamily card's own
              body the first time Multifamily is selected (see
@@ -1250,13 +1207,16 @@
         <div id="unit-number-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-number-input" label="Unit Number" placeholder="e.g. 4B"></bui-input>
         </div>
-        <!-- Vacant Units — shown once a property type is picked (both Single
-             Family and Multifamily). Single: a 0/1 currently-vacant flag.
-             Multifamily: a real count, paired visually with Number of Units
-             (see updateUnitFields). A plain sibling like Unit Number above,
-             not relocated into a card. -->
+        <!-- Vacancy — shown once a property type is picked. Multifamily asks
+             a real count via bui-input, paired visually with Number of Units.
+             Single Family asks a plain yes/no via bui-toggle — a switch reads
+             as a state, not a number to type (see updateUnitFields). Plain
+             siblings like Unit Number above, not relocated into a card. -->
         <div id="vacant-units-field" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-input id="vacant-units-input" type="number" inputmode="numeric" min="0" placeholder="0"></bui-input>
+          <bui-counter id="vacant-units-input" min="0"></bui-counter>
+        </div>
+        <div id="vacant-toggle-field" class="hidden" style="margin-top: var(--bui-space-4);">
+          <bui-toggle id="vacant-toggle" label="Is this property currently vacant?"></bui-toggle>
         </div>
       </div>
       <div slot="footer" class="step-footer">
@@ -1388,9 +1348,9 @@
              server-side; the tier picked above still drives pricing on its
              own (see DemandEngine) — these are additive, not a rescoring. -->
         <div id="turnover-extra-fields" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-input id="days-to-churn-input" label="Avg. Days Move-Out to Move-In" type="number" inputmode="numeric" min="0" placeholder="e.g. 21"></bui-input>
+          <bui-counter id="days-to-churn-input" label="Avg. Days Move-Out to Move-In" min="0" hint="Typical turnaround time between a move-out and the next move-in."></bui-counter>
           <div style="margin-top: var(--bui-space-3);">
-            <bui-input id="annual-vacancies-input" label="Vacancies in the Last 12 Months" type="number" inputmode="numeric" min="0" placeholder="e.g. 3"></bui-input>
+            <bui-counter id="annual-vacancies-input" label="Vacancies in the Last 12 Months" min="0"></bui-counter>
           </div>
         </div>
       </div>
@@ -1922,6 +1882,8 @@
   var unitNumberInput = document.getElementById('unit-number-input');
   var vacantUnitsField = document.getElementById('vacant-units-field');
   var vacantUnitsInput = document.getElementById('vacant-units-input');
+  var vacantToggleField = document.getElementById('vacant-toggle-field');
+  var vacantToggle = document.getElementById('vacant-toggle');
   var rcFacts = document.getElementById('rc-facts');
   var rcFactsGrid = document.getElementById('rc-facts-grid');
   var rcAssistNote = document.getElementById('rc-assist-note');
@@ -2134,17 +2096,15 @@
     var showNumber = !hasSub && isCondoTown && !isMulti;
     unitNumberField.classList.toggle('hidden', !showNumber);
 
-    // Vacant Units — visible once any property type is chosen. Multifamily
-    // asks a real count (paired under Number of Units); Single Family asks a
-    // simple 0/1 (there's no unit-count field on that card to pair with).
+    // Vacancy — visible once any property type is chosen. Multifamily asks a
+    // real count (paired under Number of Units); Single Family asks a plain
+    // yes/no switch (there's no count to pair with — it's either vacant or not).
     var hasType = !!propertyTypeChoiceGroup.value;
-    vacantUnitsField.classList.toggle('hidden', !hasType);
-    if (hasType) {
-      vacantUnitsInput.setAttribute('label', isMulti ? 'Vacant Units' : 'Is this property currently vacant?');
-      vacantUnitsInput.setAttribute('hint', isMulti
-        ? 'How many of those units are vacant right now? Enter 0 if fully occupied.'
-        : 'Enter 1 if vacant right now, 0 if occupied.');
-      if (isMulti) vacantUnitsInput.removeAttribute('max'); else vacantUnitsInput.setAttribute('max', '1');
+    vacantUnitsField.classList.toggle('hidden', !hasType || !isMulti);
+    vacantToggleField.classList.toggle('hidden', !hasType || isMulti);
+    if (hasType && isMulti) {
+      vacantUnitsInput.setAttribute('label', 'Vacant Units');
+      vacantUnitsInput.setAttribute('hint', 'How many of those units are vacant right now? Enter 0 if fully occupied.');
     }
   }
 
@@ -2269,7 +2229,9 @@
     if (propertyTypeContinue.hasAttribute('disabled')) return;
     state.propertyType = propertyTypeChoiceGroup.value;
     state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
-    state.vacantUnits = Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0);
+    state.vacantUnits = state.propertyType === 'multi'
+      ? Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0)
+      : (vacantToggle.checked ? 1 : 0);
     // Unit number: keep the silently-captured subpremise; otherwise read the
     // Condo/Townhouse Unit Number field when it's the one being shown.
     if (!state.address.unitFromSubpremise) {
@@ -2728,6 +2690,7 @@
     unitCountInput.value = '';
     unitNumberInput.value = '';
     vacantUnitsInput.value = '';
+    vacantToggle.checked = false;
     if (!state.address.placeId) return;
     if (!CONFIG.SITE_ROUTING_URL) {
       // No routing configured → behave as fetch-rentcast (manual choice).
