@@ -1732,26 +1732,18 @@
     // Shared-secret header sent on every PropScore webhook call above, matched
     // against a Header Auth credential on each n8n trigger node. This is a
     // first layer against automated/opportunistic abuse of the public
-    // endpoints, not a real secret — it ships in this page's JS one way or
-    // another, so anyone can read it via view-source. This page's inline
-    // custom-code block does NOT get GHL's merge-tag interpolation applied
-    // (confirmed live — {{custom_values...}} ships here as literal text, same
-    // as PROPOSAL_PAGE_URL always has on this page), so unlike proposal.html
-    // this can't read a custom value directly. Instead it reads a global set
-    // by a small snippet in this page's GHL Tracking Code (header), which DOES
-    // get interpolated — see docs/PROPSCORE-WEBHOOK-KEY-TRACKING-SNIPPET.md for
-    // the exact snippet to paste there. Leave that tracking snippet absent (or
-    // the custom value unset) to send no auth header at all — matches today's
-    // unauthenticated webhooks, fails open.
-    WEBHOOK_AUTH_HEADER_VALUE: (typeof window !== 'undefined' && window.__PROPSCORE_WEBHOOK_KEY__) || ''
+    // endpoints, not a real secret — it ships in this page's JS regardless of
+    // delivery method, readable via view-source either way. Hardcoded rather
+    // than sourced from a GHL custom value: this page's inline custom-code
+    // block does not get GHL's merge-tag interpolation applied (confirmed
+    // live — {{custom_values...}} ships here as literal text, unlike
+    // proposal.html, where the same pattern works), and a GHL Tracking Code
+    // global proved unreliable to coordinate here too. Rotating this value
+    // means updating this line and re-pasting the page. Leave blank to send
+    // no auth header at all — matches today's unauthenticated webhooks, fails
+    // open.
+    WEBHOOK_AUTH_HEADER_VALUE: 'e33a1c8e9a02223c4d299785ec5801041f6157dcc687b7279aa06cacc0ead94b'
   };
-
-  // Guard against the tracking snippet itself shipping an un-interpolated
-  // placeholder (custom value unset in GHL) — send no auth header rather
-  // than the literal placeholder text.
-  if (!CONFIG.WEBHOOK_AUTH_HEADER_VALUE || CONFIG.WEBHOOK_AUTH_HEADER_VALUE.indexOf('{{') !== -1) {
-    CONFIG.WEBHOOK_AUTH_HEADER_VALUE = '';
-  }
 
   var WEBHOOK_AUTH_HEADER_NAME = 'X-PropScore-Key';
 
