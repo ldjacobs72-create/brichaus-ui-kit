@@ -1665,20 +1665,23 @@
     CLAIM_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-claim-proposal',
 
     // Service-area gating, checked the moment an address is selected
-    // (before any RentCast/recognition calls are spent on it).
+    // (before any RentCast/recognition calls are spent on it). Backed live
+    // by the Dataverse Service Area table (cr55d_serviceareas) via
+    // "PropScore: Service Area Lookup" — editing a state's status there
+    // takes effect immediately, no code change needed.
     // - active: full assessment runs normally.
     // - expansion: no assessment; the gate offers a stay-in-touch email
     //   capture that lands as a tagged GHL contact (expansionLead action
     //   on the recognition webhook) to build the launch pipeline.
-    // - anything else: a polite not-served message, nothing captured.
+    // - anything else (unserved / no matching row): a polite not-served
+    //   message, nothing captured.
     // States are USPS codes from Google's administrative_area_level_1.
-    // If Google returns no state at all (rare), the funnel FAILS OPEN and
-    // proceeds normally — better to occasionally assess an out-of-area
-    // property than to block a real prospect on missing data.
-    SERVICE_AREA: {
-      active: ['AR', 'CA'],
-      expansion: ['TX', 'OK', 'FL', 'GA', 'LA']
-    },
+    // FAILS OPEN to 'active' whenever the tier can't be resolved — no state
+    // from Google, this URL left blank, the lookup call failing, or the
+    // backend itself erroring (see the workflow's own fail-open mapping) —
+    // better to occasionally assess an out-of-area property than to block a
+    // real prospect on missing data or an infra hiccup.
+    SERVICE_AREA_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-service-area',
 
     // Standalone saved-proposal viewer (app/proposal.html), same domain as
     // this funnel page. A recognized visitor who confirms their email gets
@@ -2229,11 +2232,21 @@
   var expansionEmailInput = document.getElementById('expansion-email-input');
   var expansionNotifyBtn = document.getElementById('expansion-notify-btn');
 
+  // Live Dataverse-backed lookup — see SERVICE_AREA_URL doc comment for the
+  // fail-open rules. Always resolves (never rejects) with a tier string.
   function serviceAreaTier(stateCode) {
-    if (!stateCode) return 'active'; // fail open — see SERVICE_AREA doc comment
-    if (CONFIG.SERVICE_AREA.active.indexOf(stateCode) !== -1) return 'active';
-    if (CONFIG.SERVICE_AREA.expansion.indexOf(stateCode) !== -1) return 'expansion';
-    return 'unserved';
+    if (!stateCode || !CONFIG.SERVICE_AREA_URL) return Promise.resolve('active');
+    return fetch(CONFIG.SERVICE_AREA_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stateCode: stateCode })
+    })
+      .then(function (res) { return res.ok ? res.json() : { tier: 'active' }; })
+      .then(function (data) { return (data && data.tier) || 'active'; })
+      .catch(function (err) {
+        console.warn('[brichaus-assessment] Service area lookup failed (fail open):', err);
+        return 'active';
+      });
   }
 
   function hideServiceAreaGate() {
@@ -2381,21 +2394,32 @@
     showAddressMap(place.location);
 
     // Out-of-area properties stop here: no Continue, and no RentCast/
-    // routing spend on an assessment that will never run.
-    var tier = serviceAreaTier(state.address.stateCode);
-    if (tier !== 'active') {
-      // Order matters: resetRecognitionPanel() re-derives Continue's
-      // disabled state from placeId (which IS set here) — so the
-      // gate's disable must come after it, not before.
-      resetRecognitionPanel();
-      locationContinue.setAttribute('disabled', '');
-      showServiceAreaGate(tier, state.address.stateName);
-      return;
-    }
+    // routing spend on an assessment that will never run. The tier lookup
+    // is a live network call now (Dataverse-backed) — Continue is held
+    // disabled and addressVerifying shown while it's in flight, exactly
+    // like the routing check below, and the placeId is re-checked on
+    // resolve so a superseded selection's answer is discarded.
     hideServiceAreaGate();
-    locationContinue.toggleAttribute('disabled', !state.address.placeId);
-    fetchRentCastQuicklook(state.address.formattedAddress);
-    checkSiteRouting();
+    locationContinue.setAttribute('disabled', '');
+    var gatePlaceId = state.address.placeId;
+    addressVerifying.classList.remove('hidden');
+    serviceAreaTier(state.address.stateCode).then(function (tier) {
+      if (gatePlaceId !== state.address.placeId) return; // superseded by a newer selection
+      if (tier !== 'active') {
+        // Order matters: resetRecognitionPanel() re-derives Continue's
+        // disabled state from placeId (which IS set here) — so the
+        // gate's disable must come after it, not before.
+        addressVerifying.classList.add('hidden');
+        resetRecognitionPanel();
+        locationContinue.setAttribute('disabled', '');
+        showServiceAreaGate(tier, state.address.stateName);
+        return;
+      }
+      addressVerifying.classList.add('hidden');
+      locationContinue.toggleAttribute('disabled', !state.address.placeId);
+      fetchRentCastQuicklook(state.address.formattedAddress);
+      checkSiteRouting();
+    });
   });
 
   // Only a real Google Place selection may proceed past this step — a
