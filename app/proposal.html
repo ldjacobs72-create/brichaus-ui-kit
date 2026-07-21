@@ -30,6 +30,7 @@
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/card.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/modal.js"></script>
 
 <style>
   /* ===== Premium visual pass: page canvas, intro title, card chrome -----
@@ -188,7 +189,6 @@
     color: var(--bui-color-danger);
   }
   #brichaus-proposal .recognition-state bui-button { margin-top: var(--bui-space-3); }
-  #brichaus-proposal .review-panel bui-button { margin-top: var(--bui-space-4); }
   #brichaus-proposal .evidence-specs { display: flex; flex-direction: column; }
   #brichaus-proposal .evidence-spec {
     display: flex; justify-content: space-between; gap: var(--bui-space-2);
@@ -197,11 +197,11 @@
   #brichaus-proposal .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
   #brichaus-proposal .evidence-spec span:last-child { font-weight: 650; }
 
-  /* ---- Confirm-your-profile step — same facts-card + badge-row language
-     as intake-v2's review step, so a returning owner recognizes it as "the
-     same kind of screen." No chevrons/click targets here: nothing is
-     editable once a Contact is on file (see the markup comment above
-     data-state="review"). ---- */
+  /* ---- Profile-behind-your-proposal popup — same facts-card + badge-row
+     language as intake-v2's review step, so a returning owner recognizes
+     it as "the same kind of screen." No chevrons/click targets here:
+     nothing is editable once a Contact is on file (see the markup comment
+     above #review-modal). ---- */
   #brichaus-proposal .review-facts-card {
     display: flex; align-items: flex-start; gap: var(--bui-space-3);
     padding: var(--bui-space-3) var(--bui-space-4);
@@ -240,10 +240,10 @@
   #brichaus-proposal .review-lock-link { color: var(--bui-color-accent); font-weight: 700; text-decoration: none; }
   #brichaus-proposal .review-lock-link:hover { text-decoration: underline; }
 
-  /* ---- Report layout (ported verbatim from app/index.html's Results step:
-     Operational Demand + Proposal service cards + CTA. Evidence/comps/
-     RentCast blocks are intentionally NOT ported — that raw data isn't part
-     of the stored proposal JSON.) ---- */
+  /* ---- Report layout (ported from app/index.html's Results step: fee +
+     Proposal service cards + CTA. Evidence/comps/RentCast blocks are
+     intentionally NOT ported — that raw data isn't part of the stored
+     proposal JSON.) ---- */
   /* The property's street line IS the report's title — big and dark so it's
      obvious which property this is. A small uppercase "Prepared for: <name>"
      tag sits above it, and a quieter "City, ST Zip" locality line sits
@@ -275,7 +275,7 @@
   #brichaus-proposal .service-card__leasing-pct {
     font-size: 15.5px; font-weight: 800; color: var(--bui-color-text);
   }
-  /* Section heading — sets Operational Demand apart as its own report block. */
+  /* Section heading — sets a report block (e.g. Management Services) apart. */
   #brichaus-proposal .proposal-section-heading {
     font-size: 15px; font-weight: 800; letter-spacing: 0.01em;
     color: var(--bui-color-text); margin-bottom: var(--bui-space-3);
@@ -302,80 +302,6 @@
     font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
     color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
   }
-  #brichaus-proposal .report-band-pill {
-    font-size: 0.95rem; font-weight: 750; letter-spacing: 0.02em; margin-bottom: var(--bui-space-3);
-    color: var(--bui-color-accent);
-  }
-  #brichaus-proposal .report-band-pill[data-tone="slate"] { color: var(--bui-color-slate); }
-  #brichaus-proposal .report-band-pill[data-tone="accent"] { color: var(--bui-color-accent); }
-  #brichaus-proposal .report-band-pill[data-tone="warning"] { color: var(--bui-color-warning); }
-  #brichaus-proposal .report-band-pill[data-tone="danger"] { color: var(--bui-color-danger); }
-  #brichaus-proposal .op-profile {
-    text-align: left; margin-top: var(--bui-space-6);
-    padding-top: var(--bui-space-5); border-top: 1px solid var(--bui-color-border);
-  }
-  #brichaus-proposal .workload-head {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: var(--bui-space-3); margin-bottom: var(--bui-space-2);
-  }
-  #brichaus-proposal .demand-meter { flex: 1; max-width: 190px; }
-  #brichaus-proposal .demand-meter__track {
-    position: relative; height: 7px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--bui-color-slate) 0%, var(--bui-color-accent) 45%, var(--bui-color-warning) 72%, var(--bui-color-danger) 100%);
-  }
-  #brichaus-proposal .demand-meter__mark {
-    position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; border-radius: 50%;
-    background: var(--bui-color-surface); border: 3px solid var(--bui-color-accent);
-    transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  }
-  #brichaus-proposal .demand-meter__mark[data-tone="slate"] { border-color: var(--bui-color-slate); }
-  #brichaus-proposal .demand-meter__mark[data-tone="accent"] { border-color: var(--bui-color-accent); }
-  #brichaus-proposal .demand-meter__mark[data-tone="warning"] { border-color: var(--bui-color-warning); }
-  #brichaus-proposal .demand-meter__mark[data-tone="danger"] { border-color: var(--bui-color-danger); }
-  #brichaus-proposal .demand-meter__scale { display: flex; justify-content: space-between; margin-top: 6px; }
-  #brichaus-proposal .demand-meter__scale span {
-    font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bui-color-text-faint);
-  }
-  #brichaus-proposal .workload-summary {
-    margin: 0 0 var(--bui-space-3); font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55;
-  }
-  /* Intensity drivers laid out as a grid — 2x2 on desktop, 4x1 (stacked) on
-     narrow screens. Each driver is a self-contained bordered card (replacing
-     the old top-border row separators) so it reads as a discrete lever. */
-  #brichaus-proposal #op-profile-list {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--bui-space-3);
-  }
-  @media (max-width: 560px) {
-    #brichaus-proposal #op-profile-list { grid-template-columns: 1fr; }
-  }
-  #brichaus-proposal .op-profile-row {
-    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
-    padding: 0 var(--bui-space-3); align-self: start;
-  }
-  #brichaus-proposal .op-profile-row .op-cat-summary { padding-bottom: var(--bui-space-3); }
-  #brichaus-proposal .op-profile-head {
-    display: flex; align-items: center; gap: var(--bui-space-2);
-    padding: var(--bui-space-3) 0; cursor: pointer; list-style: none;
-  }
-  #brichaus-proposal .op-profile-head::-webkit-details-marker { display: none; }
-  #brichaus-proposal .op-profile-head::after {
-    content: '›'; margin-left: auto; font-size: 14px; font-weight: 700;
-    color: var(--bui-color-text-faint); transition: transform var(--bui-transition-base, 150ms ease);
-  }
-  #brichaus-proposal .op-profile-row[open] > .op-profile-head::after { transform: rotate(90deg); }
-  #brichaus-proposal .op-profile-head:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
-  #brichaus-proposal .op-cat-name { font-weight: 700; font-size: 13px; }
-  #brichaus-proposal .op-cat-label {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 1px 7px; border-radius: 999px; background: transparent;
-    color: var(--bui-color-text-muted); border: 1px solid var(--bui-color-border);
-  }
-  #brichaus-proposal .op-cat-label[data-tone="low"] { color: var(--bui-color-success); border-color: var(--bui-color-success); background: var(--bui-color-success-bg); }
-  #brichaus-proposal .op-cat-label[data-tone="normal"] { color: var(--bui-color-info); border-color: var(--bui-color-info); background: var(--bui-color-info-bg); }
-  #brichaus-proposal .op-cat-label[data-tone="high"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
-  #brichaus-proposal .op-cat-label[data-tone="severe"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
-  #brichaus-proposal .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
-
   #brichaus-proposal .revenue-hero {
     position: relative; overflow: hidden;
     margin-top: var(--bui-space-4);
@@ -397,9 +323,8 @@
   }
   #brichaus-proposal .revenue-hero__sub { position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4; }
   #brichaus-proposal .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
-  /* Fee basis line — ties the fee back to the OIA band shown later in
-     Operational Demand (same data-tone vocabulary), so the two read as
-     the same fact stated twice, not two different claims. */
+  /* Fee basis line — names the OIA band the fee is based on (same
+     data-tone vocabulary as the driver badges in the See Details popup). */
   #brichaus-proposal .revenue-hero__basis {
     position: relative; margin-top: 6px; padding-top: 6px; font-size: 11.5px; color: #c3cad4; line-height: 1.4;
   }
@@ -411,10 +336,21 @@
   #brichaus-proposal .revenue-hero__basis strong[data-tone="accent"] { color: var(--bui-color-accent); }
   #brichaus-proposal .revenue-hero__basis strong[data-tone="warning"] { color: var(--bui-color-warning); }
   #brichaus-proposal .revenue-hero__basis strong[data-tone="danger"] { color: var(--bui-color-danger); }
+  /* "See Details" — opens #review-modal with the profile behind this fee
+     (property facts + driver breakdown). A quiet text link, not a second
+     competing CTA button — Schedule your consultation lower on the page
+     stays the one prominent action. */
+  #brichaus-proposal .revenue-hero__details-btn {
+    position: relative; margin-top: 10px;
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: 11.5px; font-weight: 700;
+    letter-spacing: 0.03em; text-decoration: underline; color: #c3cad4;
+  }
+  #brichaus-proposal .revenue-hero__details-btn:hover { color: var(--bui-color-accent-light); }
+  #brichaus-proposal .revenue-hero__details-btn:focus-visible { outline: none; box-shadow: var(--bui-focus-ring); border-radius: 2px; }
 
-  /* Management Services header — same top-rule-plus-heading rhythm as
-     Operational Demand below it, marking the shift from the money block
-     into the service-card catalog. */
+  /* Management Services header — top-rule-plus-heading marking the shift
+     from the money block into the service-card catalog. */
   #brichaus-proposal .services-heading {
     margin-top: var(--bui-space-5); padding-top: var(--bui-space-4);
     border-top: 1px solid var(--bui-color-border);
@@ -650,40 +586,38 @@
     </div>
   </div>
 
-  <!-- Confirm-your-profile step, shown after the gate and before the report
-       renders — every path here (recognize/confirmEmail, silent handoff,
-       internalPreview) already has a Contact associated with this property,
-       so per the fee-integrity rule these fields are read-only: confirm-
-       and-continue, no inputs. Once a Contact exists for a property, only
-       internal staff can change this data, via Proposal Engine. (Pre-
-       contact visitors get the editable version of this same idea —
-       intake-v2.html's own review step, before a Contact ever gets
-       created.) -->
-  <div data-state="review" class="proposal-panel hidden">
-    <div class="recognition-panel review-panel">
-      <p class="recognition-message" id="review-intro-message">Here's the profile behind your proposal.</p>
+  <!-- Profile-behind-your-proposal popup — every path here (recognize/
+       confirmEmail, silent handoff, internalPreview) already has a Contact
+       associated with this property, so per the fee-integrity rule these
+       fields are read-only, same as before. It no longer gates the report
+       (see presentProposal()): the visitor lands straight on the report,
+       and opens this from the "See Details" link on the fee block instead.
+       Once a Contact exists for a property, only internal staff can change
+       this data, via Proposal Engine. (Pre-contact visitors get the
+       editable version of this same idea — intake-v2.html's own review
+       step, before a Contact ever gets created.) -->
+  <bui-modal id="review-modal" label="Profile behind your proposal">
+    <div slot="title">Your Profile</div>
+    <p class="recognition-message" id="review-intro-message">Here's the profile behind your proposal.</p>
 
-      <div class="review-facts-card">
-        <span class="review-facts-icon">🏠</span>
-        <div>
-          <div class="review-facts-title" id="review-facts-title"></div>
-          <div class="review-facts-sub" id="review-facts-sub"></div>
-        </div>
+    <div class="review-facts-card">
+      <span class="review-facts-icon">🏠</span>
+      <div>
+        <div class="review-facts-title" id="review-facts-title"></div>
+        <div class="review-facts-sub" id="review-facts-sub"></div>
       </div>
-
-      <div class="evidence-specs" id="review-readonly-specs"></div>
-
-      <div class="review-drivers" id="review-drivers"></div>
-
-      <p class="review-lock-note" id="review-lock-note">Something changed since this was put together? <a href="#" id="review-lock-link" class="review-lock-link">Schedule a quick call</a> and we'll update your profile and proposal.</p>
-
-      <bui-button id="review-continue-btn" variant="slate">View My Proposal</bui-button>
     </div>
-  </div>
+
+    <div class="evidence-specs" id="review-readonly-specs"></div>
+
+    <div class="review-drivers" id="review-drivers"></div>
+
+    <p class="review-lock-note" id="review-lock-note">Something changed since this was put together? <a href="#" id="review-lock-link" class="review-lock-link">Schedule a quick call</a> and we'll update your profile and proposal.</p>
+  </bui-modal>
 
   <!-- The rendered proposal — ported from app/index.html's Results step
-       (Operational Demand + Proposal service cards + CTA). No progress
-       bar/header here; this isn't a funnel step. -->
+       (fee + Proposal service cards + CTA). No progress bar/header here;
+       this isn't a funnel step. -->
   <div data-state="report" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div class="step-body-pad">
@@ -701,9 +635,9 @@
 
         <!-- Report order (per owner review): the management fee first (with the
              one-time setup-fee note beneath it), then the service cards — the
-             leasing fee rides as the Market-to-Move-In subheading — then the
-             Operational Demand block as its own section. The AI narrative is
-             NOT rendered here — it lives in a GHL field for internal call
+             leasing fee rides as the Market-to-Move-In subheading — then
+             straight to the consultation CTA. The AI narrative is NOT
+             rendered here — it lives in a GHL field for internal call
              scripts / follow-up. -->
         <div class="proposal-section">
           <div class="revenue-hero">
@@ -712,6 +646,7 @@
             <div class="revenue-hero__amount num" id="hero-fee">—</div>
             <div class="revenue-hero__sub" id="hero-fee-sub"></div>
             <div class="revenue-hero__basis hidden" id="hero-fee-basis"></div>
+            <button type="button" class="revenue-hero__details-btn" id="see-details-btn">See Details</button>
           </div>
           <!-- One-time setup fee wording (SETUP_FEE ceiling from CONFIG). Set in
                renderFeeSetupNote(); a placeholder until a real amount is wired. -->
@@ -739,19 +674,9 @@
           <div class="service-list" id="service-cards"></div>
         </div>
 
-        <div id="op-profile" class="op-profile hidden">
-          <div class="proposal-section-heading">Operational Demand</div>
-          <div class="workload-head">
-            <div class="report-band-pill" id="hero-band">—</div>
-            <div class="demand-meter">
-              <div class="demand-meter__track"><span class="demand-meter__mark" id="demand-mark"></span></div>
-              <div class="demand-meter__scale"><span>Low</span><span>Severe</span></div>
-            </div>
-          </div>
-          <p id="workload-summary" class="workload-summary hidden"></p>
-          <div id="op-profile-list"></div>
-        </div>
-
+        <!-- No Operational Demand section here (removed per owner review —
+             move the visitor to the consultation instead). The demand
+             profile lives in the "See Details" popup off the fee block. -->
         <div class="report-cta">
           <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
           <p class="cta-followup-note">Questions about this proposal? We're happy to walk through it with you.</p>
@@ -846,10 +771,12 @@
     Object.keys(panels).forEach(function (key) {
       panels[key].classList.toggle('hidden', key !== name);
     });
-    // The "confirm your email below" subtitle only makes sense while the
-    // gate (or the initial link check) is on screen.
+    // The "confirm your email below" subtitle only makes sense before the
+    // gate is resolved — once loadProposal() has been called (pastGate),
+    // the 'loading' panel it also uses means "fetching your proposal," not
+    // "confirm your email," so the subtitle must stay hidden from then on.
     var introSub = document.getElementById('proposal-intro-sub');
-    if (introSub) introSub.classList.toggle('hidden', name !== 'loading' && name !== 'gate');
+    if (introSub) introSub.classList.toggle('hidden', pastGate || (name !== 'loading' && name !== 'gate'));
   }
 
   var placeId = new URLSearchParams(window.location.search).get('placeId');
@@ -886,6 +813,12 @@
   // kept for prefilling the embedded booking calendar (never trusted for
   // anything gate-related; the gate is server-verified).
   var confirmedEmail = '';
+  // Set once loadProposal() is called (email confirmed, silently handed
+  // off, or bypassed via internalPreview) — from that point on we're
+  // fetching/showing the proposal itself, so the "Confirm your email
+  // below…" subtitle must never reappear even though loadProposal() also
+  // uses the 'loading' panel while it fetches (see showPanel()).
+  var pastGate = false;
 
   function showRecognitionState(name) {
     recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
@@ -1013,7 +946,7 @@
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (!data || !data.recognized) {
-          if (internalPreview) { loadProposal(true); return; }
+          if (internalPreview) { loadProposal(); return; }
           showPanel('notfound');
           return;
         }
@@ -1063,11 +996,8 @@
       });
   }
 
-  // skipReview is set only by the internalPreview bypass: that path has no
-  // real Contact behind it (recognize() found nothing), so there's no saved
-  // profile to confirm — go straight to the report, same as before this
-  // step existed.
-  function loadProposal(skipReview) {
+  function loadProposal() {
+    pastGate = true;
     showPanel('loading');
     document.getElementById('loading-status-text').textContent = 'Loading your proposal…';
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
@@ -1081,11 +1011,6 @@
           showPanel('unavailable');
           return;
         }
-        if (skipReview) {
-          renderProposal(data);
-          showPanel('report');
-          return;
-        }
         presentProposal(data);
       })
       .catch(function (err) {
@@ -1095,17 +1020,19 @@
   }
 
   /* =====================================================================
-   * Confirm-your-profile step — shown after the gate, before the report.
-   * Read-only (see the markup comment above data-state="review"): a
-   * contact is already associated with this property by the time we get
-   * here (the gate/internalPreview bypass are the only ways in), so per the
-   * fee-integrity rule these fields aren't visitor-editable — that's
-   * intake-v2's review step's job, pre-contact. This just presents what
-   * the proposal is based on; the copy deliberately does NOT ask the
-   * visitor to "confirm" anything, since they have no way to act on that —
-   * it offers a real corrective path (schedule a call) instead. Same
-   * facts-card + badge-row visual language as intake-v2's review step,
-   * minus the click targets.
+   * Profile-behind-your-proposal popup — populated here, opened later via
+   * the "See Details" link on the fee block (see the see-details-btn
+   * handler below). No longer gates the report: presentProposal() renders
+   * straight into 'report' now. Read-only (see the markup comment above
+   * #review-modal): a contact is already associated with this property by
+   * the time we get here (the gate/internalPreview bypass are the only
+   * ways in), so per the fee-integrity rule these fields aren't
+   * visitor-editable — that's intake-v2's review step's job, pre-contact.
+   * This just presents what the proposal is based on; the copy
+   * deliberately does NOT ask the visitor to "confirm" anything, since
+   * they have no way to act on that — it offers a real corrective path
+   * (schedule a call) instead. Same facts-card + badge-row visual language
+   * as intake-v2's review step, minus the click targets.
    * =================================================================== */
   var CATEGORY_ICONS = {
     'Tenant Friction': '👥', 'Turnover Pressure': '🔄',
@@ -1119,7 +1046,6 @@
     var readonlySpecs = document.getElementById('review-readonly-specs');
     var driversWrap = document.getElementById('review-drivers');
     var lockLink = document.getElementById('review-lock-link');
-    var reviewContinueBtn = document.getElementById('review-continue-btn');
 
     reviewIntroMessage.textContent = recognition.firstName
       ? 'Welcome back, ' + recognition.firstName + ' — here’s the profile behind your proposal.'
@@ -1150,12 +1076,8 @@
 
     if (lockLink && CONFIG.BOOKING_URL) lockLink.href = CONFIG.BOOKING_URL;
 
-    reviewContinueBtn.onclick = function () {
-      renderProposal(data);
-      showPanel('report');
-    };
-
-    showPanel('review');
+    renderProposal(data);
+    showPanel('report');
   }
 
   // Uses the property's real, already-assessed OIA label (cat.label) and
@@ -1523,53 +1445,6 @@
     });
   }
 
-  function renderOperationalProfile(report) {
-    var opProfileList = document.getElementById('op-profile-list');
-    var workloadSummary = document.getElementById('workload-summary');
-    var profile = report && report.operationalProfile;
-
-    var definition = profile && profile.operationalIntensityDefinition;
-    workloadSummary.textContent = definition || '';
-    workloadSummary.classList.toggle('hidden', !definition);
-
-    var cats = (profile && profile.categories) || [];
-    var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
-
-    opProfileList.innerHTML = '';
-    withText.forEach(function (c) {
-      var row = document.createElement('details');
-      row.className = 'op-profile-row';
-
-      var head = document.createElement('summary');
-      head.className = 'op-profile-head';
-      var name = document.createElement('span');
-      name.className = 'op-cat-name';
-      name.textContent = c.category || '';
-      head.appendChild(name);
-      if (c.label) {
-        var label = document.createElement('span');
-        label.className = 'op-cat-label';
-        // Color by score band (low/normal/high/severe), not the label word, so a
-        // renamed label (e.g. "Intense", "Minimal") still gets the right tone.
-        var cs = categoryScore(c);
-        var tone = cs == null ? String(c.label).trim().toLowerCase()
-          : (cs >= 2 ? 'severe' : cs >= 1.5 ? 'high' : cs >= 1 ? 'normal' : 'low');
-        label.setAttribute('data-tone', tone);
-        label.textContent = c.label;
-        head.appendChild(label);
-      }
-      row.appendChild(head);
-
-      if (c.summary) {
-        var sum = document.createElement('div');
-        sum.className = 'op-cat-summary';
-        sum.textContent = c.summary;
-        row.appendChild(sum);
-      }
-      opProfileList.appendChild(row);
-    });
-  }
-
   // Property Metrics (Estimated) — reads report.performanceMetrics, computed
   // server-side (Main Pipeline's "Compute Performance Metrics" node). That
   // node already applies the Turnover-Pressure-Minimal gate and returns null
@@ -1619,9 +1494,6 @@
     var reportAddress = document.getElementById('report-address');
     var heroFee = document.getElementById('hero-fee');
     var heroFeeSub = document.getElementById('hero-fee-sub');
-    var opProfile = document.getElementById('op-profile');
-    var heroBand = document.getElementById('hero-band');
-    var demandMark = document.getElementById('demand-mark');
 
     // The address string is often the FULL formatted address
     // ("Street, City, ST Zip[, Country]"). Title = the street line (first
@@ -1673,26 +1545,12 @@
     } else if (heroFeeBasis) {
       heroFeeBasis.classList.add('hidden');
     }
-    if (band) {
-      opProfile.classList.remove('hidden');
-      heroBand.textContent = band.label;
-      heroBand.setAttribute('data-tone', band.tone);
-      // No raw numeric demand score is stored (only the band label) — the
-      // geometric mean of the band's own min/max stands in as the gauge
-      // position, since DemandEngine's scale is log-based (this places the
-      // marker at that band's visual midpoint, not the visitor's exact score).
-      var approxScore = Math.sqrt(band.min * band.max);
-      var pct = DemandEngine.gaugePercent(approxScore);
-      demandMark.style.left = Math.max(3, Math.min(97, pct)) + '%';
-      demandMark.setAttribute('data-tone', band.tone);
-    } else {
-      opProfile.classList.add('hidden');
-    }
-
-    // The AI narrative (clientSummary/confidenceNote) is intentionally NOT
-    // rendered on the customer proposal — it's internal, kept in a GHL field
-    // for call scripts / follow-up. See renderOperationalProfile.
-    renderOperationalProfile(report);
+    // No Operational Demand section on the report itself (removed per owner
+    // review — move the visitor to the consultation instead); the demand
+    // profile lives in the See Details popup, and the fee-basis line above
+    // still names the band. The AI narrative (clientSummary/confidenceNote)
+    // is likewise NOT rendered — internal, kept in a GHL field for call
+    // scripts / follow-up.
     renderPerformanceMetrics(report);
     renderProposalServiceCards(report, resolveLeasingPct(data));
     renderFeeSetupNote();
@@ -1825,6 +1683,11 @@
       return;
     }
     window.location.href = CONFIG.BOOKING_URL;
+  });
+
+  // Plain <button>, not bui-button — a native click, not bui-click.
+  document.getElementById('see-details-btn').addEventListener('click', function () {
+    document.getElementById('review-modal').show();
   });
 
   init();
