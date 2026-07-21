@@ -151,32 +151,47 @@
     color: var(--bui-color-text);
     margin: 0 0 var(--bui-space-3);
   }
-  /* Driver-to-driver transition (see swapDriverStep()): the whole question
-     block slides out one way and the next slides in from the other, so
-     Confirm & Continue produces an unmistakable "new question" motion. The
-     4 questions reuse the same 4 choice cards — without this, the only
-     visible change was the header/question text, which read as "nothing
-     happened" to anyone not re-reading it. */
+  /* Driver-to-driver transition (see swapDriverStep()) — Typeform-style
+     vertical advance, the established best practice for one-question-at-a-
+     time flows: the answered question slides UP and out, the next rises in
+     from BELOW (Back reverses the direction), so moving forward literally
+     reads as moving down a list. The 4 questions reuse the same 4 choice
+     cards — without a prominent motion, the only visible change was the
+     header/question text, which read as "nothing happened" to anyone not
+     re-reading it. Preceded by a short confirmation flash on the chosen
+     card (see .is-confirm-flash) so the click visibly "takes" first. */
   #brichaus-assessment [data-step="driver"] .step-intro {
-    transition: opacity 190ms ease, transform 190ms ease;
+    transition: opacity 300ms cubic-bezier(0.22, 0.61, 0.36, 1), transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
   }
-  /* pointer-events: none while exiting — a fast tap during the 200ms swap
-     would otherwise land on the OLD question's cards (the index advances
-     with the render, after the exit) and silently overwrite the answer
-     that was just confirmed. */
-  #brichaus-assessment [data-step="driver"] .step-intro.is-exit-left { opacity: 0; transform: translateX(-28px); pointer-events: none; }
-  #brichaus-assessment [data-step="driver"] .step-intro.is-exit-right { opacity: 0; transform: translateX(28px); pointer-events: none; }
+  /* pointer-events: none for the WHOLE swap — including the confirmation
+     beat before the exit starts (is-locked is applied the instant the swap
+     begins). A fast tap during any of it would otherwise land on the OLD
+     question's cards (the index advances with the render, after the exit)
+     and silently overwrite the answer that was just confirmed. */
+  #brichaus-assessment [data-step="driver"] .step-intro.is-locked { pointer-events: none; }
+  #brichaus-assessment [data-step="driver"] .step-intro.is-exit-up { opacity: 0; transform: translateY(-56px); }
+  #brichaus-assessment [data-step="driver"] .step-intro.is-exit-down { opacity: 0; transform: translateY(56px); }
   /* Applied for one forced reflow while the incoming question is positioned
      off to the side — no transition, so it jumps there invisibly before
      animating back to rest. */
   #brichaus-assessment [data-step="driver"] .step-intro.is-enter { transition: none; }
+  /* Confirmation beat: the instant Confirm & Continue is tapped, the chosen
+     card flashes success for ~180ms BEFORE the question slides away — the
+     answer visibly locks in, then the page moves on. */
+  #brichaus-assessment bui-choice-card.is-confirm-flash .bui-choice-card {
+    border-color: var(--bui-color-success) !important;
+    box-shadow: 0 0 0 3px rgba(51, 98, 58, 0.22);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment [data-step="driver"] .step-intro { transition: none; }
+    #brichaus-assessment bui-choice-card.is-confirm-flash .bui-choice-card { transition: none; box-shadow: none; }
   }
   /* Appended only into the one flipped/selected card (see
      addDriverConfirmButton()) so the visitor can move on without looking
      away to the Continue button below. */
-  #brichaus-assessment .driver-confirm-btn {
+  #brichaus-assessment .driver-confirm-btn,
+  #brichaus-assessment .ptype-confirm-btn {
     display: block;
     width: 100%;
     margin-top: 10px;
@@ -191,7 +206,9 @@
     cursor: pointer;
     transition: background-color 150ms ease;
   }
-  #brichaus-assessment .driver-confirm-btn:hover { background: #AC5333; }
+  #brichaus-assessment .driver-confirm-btn:hover,
+  #brichaus-assessment .ptype-confirm-btn:hover:not(:disabled) { background: #AC5333; }
+  #brichaus-assessment .ptype-confirm-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   /* Selecting a driver option flips that one card to reveal the same
      nuanced reference text the final report uses (see DRIVER_REFERENCE).
      0deg->90deg->0deg (not a full 180) so the text is never mirrored/
@@ -296,46 +313,6 @@
     height: 24px;
     background: #4C5768;
     font-size: 13px;
-  }
-
-  /* ===== Premium visual pass: trust panel below the card ===== */
-  #brichaus-assessment .trust-panel {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 20px 32px;
-    margin: var(--bui-space-6) auto 0;
-    max-width: 800px;
-  }
-  #brichaus-assessment .trust-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #4B5563;
-    white-space: nowrap;
-  }
-  #brichaus-assessment .trust-item__icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #EEF1F5;
-    color: #4C5768;
-    font-size: 11px;
-    line-height: 1;
-    flex-shrink: 0;
-  }
-  /* Footnote for the "Initial Proposal in Minutes*" guarantee above. */
-  #brichaus-assessment .trust-disclaimer {
-    margin: var(--bui-space-3) auto 0;
-    max-width: 640px;
-    text-align: center;
-    font-size: 11.5px;
-    color: #9AA1AB;
   }
 
   #brichaus-assessment .loading-card, #brichaus-assessment .results-card {
@@ -521,10 +498,22 @@
     font-size: var(--bui-font-size-md);
     color: var(--bui-color-text);
   }
-  /* Number of Units field, relocated inside the Multifamily choice card
-     (see ensureUnitCountInCard). The card centers its text; the field
-     reads better left-aligned. */
-  #brichaus-assessment .bui-choice-card #unit-count-field { text-align: left; }
+  /* Follow-up fields relocated inside their property-type card (see
+     ensureDetailsFieldsInCards). The card centers its text; form fields
+     read better left-aligned. */
+  #brichaus-assessment .bui-choice-card #unit-count-field,
+  #brichaus-assessment .bui-choice-card #unit-number-field,
+  #brichaus-assessment .bui-choice-card #vacant-units-field,
+  #brichaus-assessment .bui-choice-card #vacant-toggle-field { text-align: left; }
+  /* Auto-calculated Vacancy Rate readout inside the Multifamily card —
+     display only, updated as Number of Units / Vacant Units change. */
+  #brichaus-assessment .vacancy-rate {
+    margin-top: var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    text-align: left;
+  }
+  #brichaus-assessment .vacancy-rate strong { color: var(--bui-color-text); font-weight: 750; }
   /* Satellite view of the selected address (see showAddressMap). */
   #brichaus-assessment .address-media {
     display: flex;
@@ -1073,7 +1062,6 @@
     #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
     /* Name/Email side-by-side pair on the contact step stacks. */
     #brichaus-assessment .field-row { grid-template-columns: 1fr; }
-    #brichaus-assessment .trust-panel { gap: 12px 20px; }
   }
 </style>
 </head>
@@ -1214,36 +1202,46 @@
           <bui-choice-card value="multi" label="Multifamily"
             description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
         </bui-choice-group>
-        <!-- Rendered here but RELOCATED into the Multifamily card's own
-             body the first time Multifamily is selected (see
-             ensureUnitCountInCard) — the question belongs visually to the
-             card that raised it. Kept in markup at this level so the page
-             still works if the relocation target ever goes away. -->
+        <!-- The follow-up fields below are RELOCATED into their card's own
+             body the first time that card is selected (see
+             ensureDetailsFieldsInCards) — each question belongs visually to
+             the card that raised it, same treatment as the Drivers'
+             in-card Confirm & Continue. Kept in markup at this level so the
+             page still works if the relocation target ever goes away.
+             Single Family card: Unit Number (condo/townhouse only) +
+             vacancy toggle + Confirm & Continue. Multifamily card:
+             Number of Units + Vacant Units + auto-calculated Vacancy Rate
+             + Confirm & Continue. -->
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
         </div>
-        <!-- Unit Number — shown ONLY for a Condo/Townhouse RentCast type when
-             Google didn't already carry a subpremise (which is captured
-             silently). A plain sibling OUTSIDE the choice group, so its value
-             events never bubble into the group's selection handler. -->
         <div id="unit-number-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-number-input" label="Unit Number" placeholder="e.g. 4B"></bui-input>
         </div>
-        <!-- Vacancy — shown once a property type is picked. Multifamily asks
-             a real count via bui-input, paired visually with Number of Units.
-             Single Family asks a plain yes/no via bui-toggle — a switch reads
-             as a state, not a number to type (see updateUnitFields). Plain
-             siblings like Unit Number above, not relocated into a card. -->
         <div id="vacant-units-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-counter id="vacant-units-input" min="0"></bui-counter>
+        </div>
+        <!-- Auto-calculated from Number of Units + Vacant Units; display
+             only, never typed (see refreshVacancyRate). -->
+        <div id="vacancy-rate-field" class="vacancy-rate hidden">
+          Vacancy Rate: <strong id="vacancy-rate-value">—</strong>
+        </div>
+        <div id="ptype-confirm-multi-field" class="hidden">
+          <button type="button" class="ptype-confirm-btn" id="ptype-confirm-multi-btn" disabled>Confirm &amp; Continue</button>
         </div>
         <div id="vacant-toggle-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-toggle id="vacant-toggle" label="Is this property currently vacant?"></bui-toggle>
         </div>
+        <div id="ptype-confirm-single-field" class="hidden">
+          <button type="button" class="ptype-confirm-btn" id="ptype-confirm-single-btn">Confirm &amp; Continue</button>
+        </div>
       </div>
+      <!-- No Continue here on purpose (same rationale as the Drivers step):
+           picking a property type reveals that card's own follow-up fields
+           and Confirm & Continue — a second footer Continue was redundant. -->
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="location">Back</bui-button>
-        <bui-button id="rentcast-render-continue" variant="slate" disabled>Continue</bui-button>
+        <span class="spacer"></span>
       </div>
     </bui-card>
   </section>
@@ -1574,18 +1572,6 @@
   </section>
 
 
-  <!-- Persistent trust row below the stepped card -- same "always visible,
-       never toggled by showStep()" pattern -- a plain sibling of the
-       [data-step] sections. -->
-  <div class="trust-panel">
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Initial Proposal in Minutes*</span>
-  </div>
-  <!-- The asterisk's disclaimer — the fallback promise lives down here so
-       the guarantee row itself stays short. -->
-  <p class="trust-disclaimer">*Most proposals are ready in under 2 minutes. If a data source is temporarily unavailable, we'll follow up with your proposal within 24 hours.</p>
 
 </div>
 
@@ -1878,18 +1864,24 @@
     loading: root.querySelector('[data-step="loading"]'),
   };
 
-  // The property-type choice-group (+ Number of Units) now lives in the
-  // rentcast-render step; propertyTypeContinue points at that step's Continue.
+  // The property-type choice-group (+ its per-card follow-up fields) lives
+  // in the rentcast-render step. There is no step-level Continue — each
+  // card carries its own Confirm & Continue (see ensureDetailsFieldsInCards).
   var propertyTypeChoiceGroup = document.getElementById('property-type-choice-group');
   var unitCountField = document.getElementById('unit-count-field');
   var unitCountInput = document.getElementById('unit-count-input');
-  var propertyTypeContinue = document.getElementById('rentcast-render-continue');
   var unitNumberField = document.getElementById('unit-number-field');
   var unitNumberInput = document.getElementById('unit-number-input');
   var vacantUnitsField = document.getElementById('vacant-units-field');
   var vacantUnitsInput = document.getElementById('vacant-units-input');
   var vacantToggleField = document.getElementById('vacant-toggle-field');
   var vacantToggle = document.getElementById('vacant-toggle');
+  var vacancyRateField = document.getElementById('vacancy-rate-field');
+  var vacancyRateValue = document.getElementById('vacancy-rate-value');
+  var ptypeConfirmSingleField = document.getElementById('ptype-confirm-single-field');
+  var ptypeConfirmSingleBtn = document.getElementById('ptype-confirm-single-btn');
+  var ptypeConfirmMultiField = document.getElementById('ptype-confirm-multi-field');
+  var ptypeConfirmMultiBtn = document.getElementById('ptype-confirm-multi-btn');
   var rcFacts = document.getElementById('rc-facts');
   var rcFactsGrid = document.getElementById('rc-facts-grid');
   var rcAssistNote = document.getElementById('rc-assist-note');
@@ -2065,10 +2057,26 @@
    * MF-vs-SF rent placeholder + comp view), so that dependency is preserved
    * even though property type is no longer the funnel's opener.
    * =================================================================== */
-  function refreshPropertyTypeContinue() {
-    var type = propertyTypeChoiceGroup.value;
-    var unitsOk = type === 'multi' ? (parseInt(unitCountInput.value, 10) || 0) >= 2 : true;
-    propertyTypeContinue.toggleAttribute('disabled', !type || !unitsOk);
+  // Multifamily's Confirm & Continue stays disabled until a real unit count
+  // is entered (>= 2 — a 0/1-unit "multifamily" is a data-entry mistake).
+  // Single Family's button has no prerequisite: the toggle defaults to a
+  // valid answer (not vacant). Also keeps the auto-calculated Vacancy Rate
+  // readout current — display only, never typed.
+  function refreshPropertyTypeControls() {
+    var units = parseInt(unitCountInput.value, 10) || 0;
+    var unitsOk = units >= 2;
+    ptypeConfirmMultiBtn.disabled = !unitsOk;
+
+    // Vacant Units can never exceed the building's unit count.
+    if (unitsOk) {
+      vacantUnitsInput.setAttribute('max', String(units));
+      if ((parseInt(vacantUnitsInput.value, 10) || 0) > units) vacantUnitsInput.value = units;
+    } else {
+      vacantUnitsInput.removeAttribute('max');
+    }
+
+    var vacant = Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0);
+    vacancyRateValue.textContent = unitsOk ? (Math.round((vacant / units) * 1000) / 10) + '%' : '—';
   }
 
   // Maps a granular RentCast property type to one of this funnel's coarse
@@ -2082,30 +2090,33 @@
     return '';
   }
 
-  // Decides which (if any) unit field the rentcast-render step shows, given
-  // the current type selection + facts. A Google subpremise suppresses both
-  // (already captured silently). Otherwise MF gets Number of Units and a
-  // Condo/Townhouse gets Unit Number.
+  // Decides which follow-up fields the rentcast-render step shows, given
+  // the current type selection + facts — each set lives INSIDE its own
+  // card (see ensureDetailsFieldsInCards). A Google subpremise suppresses
+  // the unit-count/unit-number questions (already captured silently).
+  // Single Family card: Unit Number (condo/townhouse only) + vacancy
+  // toggle + Confirm & Continue. Multifamily card: Number of Units +
+  // Vacant Units + Vacancy Rate + Confirm & Continue.
   function updateUnitFields() {
     var hasSub = state.address.unitFromSubpremise;
     var isMulti = propertyTypeChoiceGroup.value === 'multi';
+    var isSingle = propertyTypeChoiceGroup.value === 'single';
     var granular = String((state.propertyFacts && state.propertyFacts.propertyType) || '').toLowerCase();
     var isCondoTown = granular === 'condo' || granular === 'townhouse';
 
-    var showCount = !hasSub && isMulti;
-    if (showCount) ensureUnitCountInCard();
-    unitCountField.classList.toggle('hidden', !showCount);
+    if (isMulti || isSingle) ensureDetailsFieldsInCards();
 
-    var showNumber = !hasSub && isCondoTown && !isMulti;
-    unitNumberField.classList.toggle('hidden', !showNumber);
+    unitCountField.classList.toggle('hidden', hasSub || !isMulti);
+    unitNumberField.classList.toggle('hidden', hasSub || !isCondoTown || !isSingle);
 
-    // Vacancy — visible once any property type is chosen. Multifamily asks a
-    // real count (paired under Number of Units); Single Family asks a plain
-    // yes/no switch (there's no count to pair with — it's either vacant or not).
-    var hasType = !!propertyTypeChoiceGroup.value;
-    vacantUnitsField.classList.toggle('hidden', !hasType || !isMulti);
-    vacantToggleField.classList.toggle('hidden', !hasType || isMulti);
-    if (hasType && isMulti) {
+    vacantUnitsField.classList.toggle('hidden', !isMulti);
+    vacancyRateField.classList.toggle('hidden', !isMulti);
+    ptypeConfirmMultiField.classList.toggle('hidden', !isMulti);
+
+    vacantToggleField.classList.toggle('hidden', !isSingle);
+    ptypeConfirmSingleField.classList.toggle('hidden', !isSingle);
+
+    if (isMulti) {
       vacantUnitsInput.setAttribute('label', 'Vacant Units');
       vacantUnitsInput.setAttribute('hint', 'How many of those units are vacant right now? Enter 0 if fully occupied.');
     }
@@ -2179,7 +2190,7 @@
 
     // Pre-select the property type when RentCast gives a confident mapping;
     // setting .value dispatches bui-change (see BuiChoiceGroup), which routes
-    // through the group handler below (ensureUnitCountInCard etc.). Only
+    // through the group handler below (ensureDetailsFieldsInCards etc.). Only
     // apply once per render so a Back-and-forth doesn't stomp a manual change.
     var mapped = mapRentCastType(facts.propertyType);
     if (mapped && !propertyTypeChoiceGroup.value) {
@@ -2188,29 +2199,42 @@
     rcAssistNote.classList.toggle('hidden', !mapped);
 
     updateUnitFields();
-    refreshPropertyTypeContinue();
+    refreshPropertyTypeControls();
   }
 
-  // Moves the Number of Units field INSIDE the Multifamily card's body the
-  // first time it's needed (the card's inner div doesn't exist until the
+  // Moves each card's follow-up fields INSIDE that card's body the first
+  // time they're needed (the cards' inner divs don't exist until the
   // component initializes, so this can't run at parse time). The stop-
-  // propagation guards keep interactions with the field from re-triggering
+  // propagation guards keep interactions with the fields from re-triggering
   // the card's own click-to-select handler or the group's arrow-key
-  // navigation (a space/arrow typed in the input would otherwise be
+  // navigation (a space/arrow typed in an input would otherwise be
   // swallowed as a card-selection keystroke).
-  // bui-input/bui-change are in this list because the units field now sits
-  // INSIDE the choice group: its own value events would otherwise bubble up
-  // and be misread by the group's bui-change handler below as a card change
-  // (hiding this very field mid-interaction). The app's direct listeners on
-  // #unit-count-input still fire — they're on the dispatch target itself,
-  // before propagation is what gets stopped.
-  ['click', 'mousedown', 'keydown', 'bui-input', 'bui-change'].forEach(function (name) {
-    unitCountField.addEventListener(name, function (evt) { evt.stopPropagation(); });
+  // bui-input/bui-change are in this list because the fields now sit
+  // INSIDE the choice group: their own value events would otherwise bubble
+  // up and be misread by the group's bui-change handler below as a card
+  // change (hiding these very fields mid-interaction). The app's direct
+  // listeners on the inputs still fire — they're on the dispatch target
+  // itself; propagation is what gets stopped.
+  [unitCountField, unitNumberField, vacantUnitsField, vacancyRateField,
+   ptypeConfirmMultiField, vacantToggleField, ptypeConfirmSingleField].forEach(function (wrapper) {
+    ['click', 'mousedown', 'keydown', 'bui-input', 'bui-change'].forEach(function (name) {
+      wrapper.addEventListener(name, function (evt) { evt.stopPropagation(); });
+    });
   });
-  function ensureUnitCountInCard() {
-    var inner = propertyTypeChoiceGroup.querySelector('bui-choice-card[value="multi"] .bui-choice-card');
-    if (!inner || unitCountField.parentElement === inner) return;
-    inner.appendChild(unitCountField);
+  function ensureDetailsFieldsInCards() {
+    var multiInner = propertyTypeChoiceGroup.querySelector('bui-choice-card[value="multi"] .bui-choice-card');
+    if (multiInner && unitCountField.parentElement !== multiInner) {
+      multiInner.appendChild(unitCountField);
+      multiInner.appendChild(vacantUnitsField);
+      multiInner.appendChild(vacancyRateField);
+      multiInner.appendChild(ptypeConfirmMultiField);
+    }
+    var singleInner = propertyTypeChoiceGroup.querySelector('bui-choice-card[value="single"] .bui-choice-card');
+    if (singleInner && vacantToggleField.parentElement !== singleInner) {
+      singleInner.appendChild(unitNumberField);
+      singleInner.appendChild(vacantToggleField);
+      singleInner.appendChild(ptypeConfirmSingleField);
+    }
   }
 
   propertyTypeChoiceGroup.addEventListener('bui-change', function (evt) {
@@ -2218,22 +2242,26 @@
     // selection change matters here, never a bubbled child event.
     if (evt.target !== propertyTypeChoiceGroup) return;
     updateUnitFields();
-    refreshPropertyTypeContinue();
+    refreshPropertyTypeControls();
   });
 
-  unitCountInput.addEventListener('bui-input', refreshPropertyTypeContinue);
-  unitCountInput.addEventListener('bui-change', refreshPropertyTypeContinue);
+  unitCountInput.addEventListener('bui-input', refreshPropertyTypeControls);
+  unitCountInput.addEventListener('bui-change', refreshPropertyTypeControls);
+  vacantUnitsInput.addEventListener('bui-input', refreshPropertyTypeControls);
+  vacantUnitsInput.addEventListener('bui-change', refreshPropertyTypeControls);
 
-  // Commit the property type (+ unit count / unit number) and hand into the
-  // existing Snapshot step. state.propertyType MUST be set here — the Snapshot
-  // step's rent placeholder + comp view read it (MF vs SF). Render comes
-  // BEFORE Snapshot, so the ordering dependency is preserved.
-  propertyTypeContinue.addEventListener('bui-click', function () {
-    if (propertyTypeContinue.hasAttribute('disabled')) return;
+  // Commit the property type (+ unit count / vacancy / unit number) and hand
+  // into the existing Snapshot step — fired from the in-card Confirm &
+  // Continue buttons (plain <button>s, native click; their wrappers stop
+  // propagation so the tap never re-triggers card selection).
+  // state.propertyType MUST be set here — the Snapshot step's rent
+  // placeholder + comp view read it (MF vs SF). Render comes BEFORE
+  // Snapshot, so the ordering dependency is preserved.
+  function commitPropertyDetails() {
     state.propertyType = propertyTypeChoiceGroup.value;
     state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
     state.vacantUnits = state.propertyType === 'multi'
-      ? Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0)
+      ? Math.min(state.unitCount, Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0))
       : (vacantToggle.checked ? 1 : 0);
     // Unit number: keep the silently-captured subpremise; otherwise read the
     // Condo/Townhouse Unit Number field when it's the one being shown.
@@ -2248,6 +2276,11 @@
     // state.propertyType is now committed, so this first paint shows the
     // correct SFR/MF view immediately (see renderSnapshotPreview's own note).
     renderSnapshotPreview();
+  }
+  ptypeConfirmSingleBtn.addEventListener('click', commitPropertyDetails);
+  ptypeConfirmMultiBtn.addEventListener('click', function () {
+    if (ptypeConfirmMultiBtn.disabled) return;
+    commitPropertyDetails();
   });
 
   /* =====================================================================
@@ -3237,33 +3270,44 @@
     if (evt.detail.value) showDriverCardReference(step.key, evt.detail.value, isNewChoice);
   });
 
-  // Driver-to-driver transition: slide the question block (icon, title,
-  // question, sub-progress, cards) out one way and bring the next question
-  // in from the other — Confirm & Continue otherwise changed only the
-  // header/question TEXT on an identical set of cards, which visitors read
-  // as "nothing happened / is it broken?". Direction mirrors navigation:
-  // forward exits left + enters from the right; Back does the reverse.
+  // Driver-to-driver transition — Typeform-style vertical advance (the
+  // established pattern for one-question-at-a-time flows): the answered
+  // question slides UP and out, the next rises in from BELOW, so moving
+  // forward literally reads as progress down a list. Back reverses the
+  // direction. Confirm & Continue otherwise changed only the header/
+  // question TEXT on an identical set of cards, which visitors read as
+  // "nothing happened / is it broken?".
+  // Forward moves are preceded by a ~180ms confirmation beat: the chosen
+  // card flashes success (see .is-confirm-flash) so the tap visibly
+  // "takes" before the page moves on — answer locks in, THEN we advance.
   // Only used for driver<->driver moves — entering from Revenue and leaving
   // to Review are whole-step changes (showStep) that are already obvious.
   // The busy flag swallows rapid double-clicks mid-animation so the render
   // (and the index change inside it) can never run twice for one tap.
   var driverSwapEl = document.querySelector('[data-step="driver"] .step-intro');
   var driverSwapBusy = false;
-  function swapDriverStep(direction, renderFn) {
+  function swapDriverStep(direction, renderFn, beatCard) {
     if (window.BUI.prefersReducedMotion() || !driverSwapEl) { renderFn(); return; }
     if (driverSwapBusy) return;
     driverSwapBusy = true;
-    var exitClass = direction === 'back' ? 'is-exit-right' : 'is-exit-left';
-    var enterFromClass = direction === 'back' ? 'is-exit-left' : 'is-exit-right';
-    driverSwapEl.classList.add(exitClass);
+    // Locked for the WHOLE swap, beat included — see the is-locked CSS note.
+    driverSwapEl.classList.add('is-locked');
+    var exitClass = direction === 'back' ? 'is-exit-down' : 'is-exit-up';
+    var enterFromClass = direction === 'back' ? 'is-exit-up' : 'is-exit-down';
+    var beatMs = beatCard ? 180 : 0;
+    if (beatCard) beatCard.classList.add('is-confirm-flash');
     setTimeout(function () {
-      renderFn();
-      driverSwapEl.classList.remove(exitClass);
-      driverSwapEl.classList.add('is-enter', enterFromClass);
-      void driverSwapEl.offsetWidth; // commit the off-side start position without transition
-      driverSwapEl.classList.remove('is-enter', enterFromClass);
-      driverSwapBusy = false;
-    }, 200);
+      driverSwapEl.classList.add(exitClass);
+      setTimeout(function () {
+        renderFn();
+        if (beatCard) beatCard.classList.remove('is-confirm-flash');
+        driverSwapEl.classList.remove(exitClass);
+        driverSwapEl.classList.add('is-enter', enterFromClass);
+        void driverSwapEl.offsetWidth; // commit the off-side start position without transition
+        driverSwapEl.classList.remove('is-enter', enterFromClass, 'is-locked');
+        driverSwapBusy = false;
+      }, 310);
+    }, beatMs);
   }
 
   driverBack.addEventListener('bui-click', function () {
@@ -3285,10 +3329,11 @@
     // Property record directly after search+update.
 
     if (driverStepIndex < DRIVER_STEPS.length - 1) {
+      var chosenCard = driverChoiceGroup.querySelector('bui-choice-card[value="' + state.drivers[step.key] + '"]');
       swapDriverStep('forward', function () {
         driverStepIndex++;
         renderDriverStep();
-      });
+      }, chosenCard);
     } else {
       renderReviewStep();
       showStep('review');
