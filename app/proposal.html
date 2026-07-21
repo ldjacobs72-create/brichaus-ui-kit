@@ -1542,17 +1542,31 @@
   // Overhead satellite pin — same google.maps.importLibrary('maps') /
   // hybrid map-type treatment as intake-v2's Location step (showAddressMap),
   // ported here so the report header carries the same visual confirmation.
+  // (Per owner decision: the static Street View capture was dropped as
+  // unreliable; THIS map-with-pinpoint is the agreed replacement.)
   // This page never receives a stored lat/lng, so the address string is
-  // geocoded client-side first; every failure (script not loaded on this
-  // GHL page, geocode miss, etc.) just leaves the map hidden — the "View
-  // property on Google Maps" link below it still works regardless.
+  // geocoded client-side first; a geocode miss just leaves the map hidden —
+  // the "View property on Google Maps" link below it still works regardless.
+  //
+  // The Maps JS script comes from the host GHL page and loads async — and
+  // since the report now renders IMMEDIATELY after the email gate (no
+  // review step in between), it can easily paint before that script has
+  // arrived. So a missing window.google.maps is NOT a give-up: poll for up
+  // to ~10s and render as soon as the script lands. Only after the window
+  // closes (script genuinely absent on this page) does the map stay hidden.
   var reportMap = null;
   var reportMarker = null;
-  function renderReportMap(address) {
+  function renderReportMap(address, attempt) {
     var mapDiv = document.getElementById('report-map');
     if (!mapDiv) return;
-    if (!address || !(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
-      mapDiv.classList.add('hidden');
+    if (!address) { mapDiv.classList.add('hidden'); return; }
+    if (!(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
+      attempt = attempt || 0;
+      if (attempt < 40) {
+        setTimeout(function () { renderReportMap(address, attempt + 1); }, 250);
+      } else {
+        mapDiv.classList.add('hidden');
+      }
       return;
     }
     google.maps.importLibrary('geocoding').then(function (lib) {
