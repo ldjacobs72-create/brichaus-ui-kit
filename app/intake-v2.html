@@ -3488,6 +3488,32 @@
     return String(value || '').replace(/\D/g, '').length >= 10;
   }
 
+  // US phone mask: formats progressively to (###) ###-#### as the visitor
+  // types. Tolerates a pasted leading "1" country code (dropped) and caps
+  // at 10 digits. Deleting works naturally: the format is recomputed from
+  // the remaining digits, so separators dissolve as their digits go.
+  function formatUsPhone(value) {
+    var d = String(value || '').replace(/\D/g, '');
+    if (d.length > 10 && d.charAt(0) === '1') d = d.slice(1);
+    d = d.slice(0, 10);
+    if (!d.length) return '';
+    if (d.length < 4) return '(' + d;
+    if (d.length < 7) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+    return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+  }
+
+  // Applies the mask live on a bui-input. Rewrites the field only when the
+  // formatted text actually differs (setting .value moves the caret to the
+  // end — harmless when typing at the end, so avoid doing it needlessly).
+  function attachUsPhoneMask(buiInput) {
+    ['bui-input', 'bui-change'].forEach(function (eventName) {
+      buiInput.addEventListener(eventName, function () {
+        var formatted = formatUsPhone(buiInput.value);
+        if (buiInput.value !== formatted) buiInput.value = formatted;
+      });
+    });
+  }
+
   function updateContactPhoneError() {
     var phone = state.contact.phone;
     if (!phone) { contactPhoneInput.setAttribute('error', ''); return; }
@@ -3524,6 +3550,14 @@
     contactContinue.toggleAttribute('disabled', !ready);
   }
 
+  // Masks registered BEFORE the state listeners below, so by the time
+  // state reads the field the rewrite has already happened. The contact
+  // listener reads the input's live (masked) value, not evt.detail.value —
+  // that detail carries the pre-mask text. The recognition fallback phone
+  // field gets the same mask; its submit handler already reads .value live.
+  attachUsPhoneMask(contactPhoneInput);
+  attachUsPhoneMask(recognitionPhoneInput);
+
   ['bui-input', 'bui-change'].forEach(function (eventName) {
     contactNameInput.addEventListener(eventName, function (evt) {
       var name = splitFullName(evt.detail.value || '');
@@ -3538,8 +3572,8 @@
       refreshContactContinue();
     });
 
-    contactPhoneInput.addEventListener(eventName, function (evt) {
-      state.contact.phone = (evt.detail.value || '').trim();
+    contactPhoneInput.addEventListener(eventName, function () {
+      state.contact.phone = (contactPhoneInput.value || '').trim();
       updateContactPhoneError();
       refreshContactContinue();
     });
