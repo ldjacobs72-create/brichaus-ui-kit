@@ -151,6 +151,28 @@
     color: var(--bui-color-text);
     margin: 0 0 var(--bui-space-3);
   }
+  /* Driver-to-driver transition (see swapDriverStep()): the whole question
+     block slides out one way and the next slides in from the other, so
+     Confirm & Continue produces an unmistakable "new question" motion. The
+     4 questions reuse the same 4 choice cards — without this, the only
+     visible change was the header/question text, which read as "nothing
+     happened" to anyone not re-reading it. */
+  #brichaus-assessment [data-step="driver"] .step-intro {
+    transition: opacity 190ms ease, transform 190ms ease;
+  }
+  /* pointer-events: none while exiting — a fast tap during the 200ms swap
+     would otherwise land on the OLD question's cards (the index advances
+     with the render, after the exit) and silently overwrite the answer
+     that was just confirmed. */
+  #brichaus-assessment [data-step="driver"] .step-intro.is-exit-left { opacity: 0; transform: translateX(-28px); pointer-events: none; }
+  #brichaus-assessment [data-step="driver"] .step-intro.is-exit-right { opacity: 0; transform: translateX(28px); pointer-events: none; }
+  /* Applied for one forced reflow while the incoming question is positioned
+     off to the side — no transition, so it jumps there invisibly before
+     animating back to rest. */
+  #brichaus-assessment [data-step="driver"] .step-intro.is-enter { transition: none; }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment [data-step="driver"] .step-intro { transition: none; }
+  }
   /* Appended only into the one flipped/selected card (see
      addDriverConfirmButton()) so the visitor can move on without looking
      away to the Continue button below. */
@@ -3215,13 +3237,44 @@
     if (evt.detail.value) showDriverCardReference(step.key, evt.detail.value, isNewChoice);
   });
 
+  // Driver-to-driver transition: slide the question block (icon, title,
+  // question, sub-progress, cards) out one way and bring the next question
+  // in from the other — Confirm & Continue otherwise changed only the
+  // header/question TEXT on an identical set of cards, which visitors read
+  // as "nothing happened / is it broken?". Direction mirrors navigation:
+  // forward exits left + enters from the right; Back does the reverse.
+  // Only used for driver<->driver moves — entering from Revenue and leaving
+  // to Review are whole-step changes (showStep) that are already obvious.
+  // The busy flag swallows rapid double-clicks mid-animation so the render
+  // (and the index change inside it) can never run twice for one tap.
+  var driverSwapEl = document.querySelector('[data-step="driver"] .step-intro');
+  var driverSwapBusy = false;
+  function swapDriverStep(direction, renderFn) {
+    if (window.BUI.prefersReducedMotion() || !driverSwapEl) { renderFn(); return; }
+    if (driverSwapBusy) return;
+    driverSwapBusy = true;
+    var exitClass = direction === 'back' ? 'is-exit-right' : 'is-exit-left';
+    var enterFromClass = direction === 'back' ? 'is-exit-left' : 'is-exit-right';
+    driverSwapEl.classList.add(exitClass);
+    setTimeout(function () {
+      renderFn();
+      driverSwapEl.classList.remove(exitClass);
+      driverSwapEl.classList.add('is-enter', enterFromClass);
+      void driverSwapEl.offsetWidth; // commit the off-side start position without transition
+      driverSwapEl.classList.remove('is-enter', enterFromClass);
+      driverSwapBusy = false;
+    }, 200);
+  }
+
   driverBack.addEventListener('bui-click', function () {
     if (driverStepIndex === 0) {
       showStep('revenue');
       return;
     }
-    driverStepIndex--;
-    renderDriverStep();
+    swapDriverStep('back', function () {
+      driverStepIndex--;
+      renderDriverStep();
+    });
   });
 
   function advanceDriverStep() {
@@ -3232,8 +3285,10 @@
     // Property record directly after search+update.
 
     if (driverStepIndex < DRIVER_STEPS.length - 1) {
-      driverStepIndex++;
-      renderDriverStep();
+      swapDriverStep('forward', function () {
+        driverStepIndex++;
+        renderDriverStep();
+      });
     } else {
       renderReviewStep();
       showStep('review');
