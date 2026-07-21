@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>
+  // Reads the Maps key from the Power Pages Site Setting named
+  // "google_maps_key" (Portal Management -> Site Settings -> New). This tag
+  // sits here, immediately after <head>, so the DOCTYPE above stays the
+  // literal first byte of the response (a <script> before the DOCTYPE would
+  // force the whole page into quirks mode -- comments are exempt, elements
+  // aren't). It's ALSO outside the raw-literal block below on purpose --
+  // it's the one part of the file Power Pages' Liquid engine IS meant to
+  // evaluate, so the key lives in exactly one place (the site setting) and
+  // survives every future full-file Source replace, instead of being
+  // retyped into the Source text each time. Local dev
+  // (`powerpages/dev/serve-widget.js`) has no Liquid engine, so it
+  // substitutes this exact line's tag with a real key itself at serve time --
+  // keep the line intact/unmoved if you edit nearby. IMPORTANT: never write
+  // the literal Liquid raw-block tag syntax anywhere above this point in the
+  // file -- Liquid matches that tag as plain text regardless of comment
+  // context, so writing it here would start the raw region early and swallow
+  // this very settings lookup into inert literal text.
+  window.__BUI_MAPS_KEY = "{{ settings["google_maps_key"] }}";
+</script>
+{% raw %}
+<!--
+  This entire file (from here down) is wrapped in a Liquid raw block (the tag
+  pair opening this comment and closing it at the very end) so Power Pages'
+  Liquid engine treats it as literal text instead of trying to parse the
+  JS/JSON curly braces below as its own template syntax — without this, any
+  stray double-curly-brace sequence in the JS (e.g. a string literal or
+  comparison) breaks the page with a Liquid parse error before it ever
+  reaches the browser. IMPORTANT: do not write out the literal raw/endraw tag
+  syntax anywhere in this comment block — doing so would prematurely close
+  the wrapper right here.
+
+  Internal "Create New Proposal" — Power Pages web template (Surface 1).
+
+  Staff-facing, EntraID-gated (the Power Pages page's Staff web role controls
+  access; this markup assumes an authenticated staff session).
+
+  REUSE = PARITY. This page does NOT fork the public funnel (app/intake-v2.html,
+  3,356 lines of consent/recognition/4-driver UX that staff don't need). It
+  reuses the only two things that MUST match for a proposal to be claimable
+  later:
+    1. <bui-address-input>  — the same Google Autocomplete control prospects use.
+    2. SITE_ROUTING_URL (ghl-site-selected) — the same canonicalization +
+       RentCast enrichment endpoint. Because staff and prospects both send the
+       autocomplete placeId through the SAME canonicalizer, the keys converge,
+       so a record created here is found when a prospect types the address.
+
+  Everything else is a lean staff form: pick the four OIA scores directly (no
+  driver quiz), confirm/override the RentCast facts, toggle coverage, set
+  leasing %, submit. Submission goes to the INTERNAL wrapper (no consent, no
+  GHL contact) which creates a NO-CONTACT (claimable) record and generates the
+  proposal via the shared Generate core.
+
+  Endpoints:
+    - SITE_ROUTING_URL   reused as-is (parity).
+    - INTERNAL_CREATE_URL new — the internal wrapper, still to be built. Until
+      it exists the Generate button shows the assembled payload instead of
+      posting (DRY_RUN), so this page is usable/verifiable now.
+-->
+<meta charset="utf-8">
+<!-- Without this, mobile browsers assume a ~980px desktop layout and scale
+     the whole page down to fit — the page LOOKS like it "shrinks to fit"
+     instead of actually reflowing to a narrow viewport. This tag is what
+     makes the .grid4 media query below (and everything else) respond to the
+     device's real width instead. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposal Engine — Internal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/address-input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/select.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
+
+<style>
+  #bui-internal-create { font-family: var(--bui-font-family); max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; color: var(--bui-color-text); }
+  #bui-internal-create h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  #bui-internal-create .sub { color: var(--bui-color-text-muted); font-size: var(--bui-font-size-sm); margin: 0 0 24px; }
+  #bui-internal-create .card { background: var(--bui-color-surface); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-lg); padding: 20px; margin-bottom: 16px; box-shadow: var(--bui-shadow-sm); }
+  #bui-internal-create .card h2 { font-size: 1rem; margin: 0 0 14px; }
+  #bui-internal-create .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  #bui-internal-create .grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (min-width: 640px) { #bui-internal-create .grid4 { grid-template-columns: repeat(4, 1fr); } }
+  #bui-internal-create .toggles { display: flex; flex-wrap: wrap; gap: 16px; }
+  #bui-internal-create .toggle { display: flex; align-items: center; gap: 8px; font-size: var(--bui-font-size-sm); font-weight: 600; }
+  #bui-internal-create .toggle input { width: 18px; height: 18px; accent-color: var(--bui-color-accent); }
+  #bui-internal-create .hidden { display: none !important; }
+  #bui-internal-create .facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+  #bui-internal-create .fact { font-size: var(--bui-font-size-sm); background: var(--bui-color-bg); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-pill); padding: 4px 12px; }
+  #bui-internal-create .note { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); margin-top: 6px; }
+  #bui-internal-create .street-view-link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-accent); text-decoration: none; margin-top: 4px; }
+  #bui-internal-create .street-view-link:hover { text-decoration: underline; }
+  #bui-internal-create pre { background: var(--bui-color-surface-dark); color: var(--bui-color-text-on-dark); padding: 14px; border-radius: var(--bui-radius-md); overflow-x: auto; font-size: 0.75rem; }
+  #bui-internal-create .bar { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  #bui-internal-create .fee-result { margin-bottom: 16px; }
+  #bui-internal-create .fee-result__pct { font-size: 1.75rem; font-weight: 700; color: var(--bui-color-text); line-height: 1.2; }
+  #bui-internal-create .fee-result__dollar { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }
+  #bui-internal-create .existing-banner { margin-top: 10px; padding: 8px 12px; border-radius: var(--bui-radius-sm); font-weight: 600; }
+  #bui-internal-create .existing-banner[data-tone="unclaimed"] { background: var(--bui-color-bg); color: var(--bui-color-text); border: 1px solid var(--bui-color-border); }
+  #bui-internal-create .existing-banner[data-tone="claimed"] { background: #fff4e5; color: #7a4a00; border: 1px solid #f0c987; }
+  /* The focus-ring box-shadow (a soft halo just outside the field's own
+     border) doubles up visually with that border and reads as "two
+     borders" / a nested box — most visible on the address search field.
+     The border already switches to accent color on focus — that alone is
+     a clear, sufficient indicator here. */
+  #bui-internal-create .bui-field__control-wrap:focus-within { box-shadow: none; }
+
+  /* Reclaim screen width on mobile. */
+  @media (max-width: 560px) {
+    #bui-internal-create { padding: 16px 10px 40px; }
+    #bui-internal-create .card { padding: 14px; }
+  }
+
+  /* Shared internal-tool nav — these are standalone Web Template pages with
+     no site header/footer, so there's no built-in way to move between them
+     except typing the URL. Kept intentionally minimal/duplicated per file
+     rather than a Liquid include, matching how the rest of this file is a
+     fully self-contained document. */
+  .bui-internal-nav { font-family: var(--bui-font-family); display: flex; gap: 4px; padding: 12px 16px; background: var(--bui-color-surface); border-bottom: 1px solid var(--bui-color-border); }
+  .bui-internal-nav a { font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-text-muted); text-decoration: none; padding: 6px 12px; border-radius: var(--bui-radius-pill); }
+  .bui-internal-nav a:hover { background: var(--bui-color-bg); }
+  .bui-internal-nav a.active { color: var(--bui-color-text); background: var(--bui-color-bg); }
+</style>
+</head>
+<body>
+
+<nav class="bui-internal-nav">
+  <a href="/">Home</a>
+  <a href="/proposal-engine/" class="active">Proposal Engine</a>
+  <a href="/property-lookup/">Property Lookup</a>
+</nav>
+
+<div id="bui-internal-create">
+  <h1>Proposal Engine</h1>
+  <p class="sub">Internal · staff only. Type any address: if it already has a proposal, its current scores, coverage, and fee load below for review or recalculation. If not, fill in the details to generate a new one — claimable online by an owner entering this address.</p>
+
+  <!-- Step 1: address gate (reuses the public autocomplete + canonicalizer) -->
+  <div class="card">
+    <h2>1 · Property address</h2>
+    <bui-address-input id="address-input" label="Address" placeholder="Start typing the property address…"></bui-address-input>
+    <p class="note" id="address-status">Select an address to verify and pull property data.</p>
+    <!-- Link to Google Maps for the verified address — lets staff look around
+         (Street View, aerial/satellite) and visually confirm the property
+         before generating a proposal. Set in updateStreetViewLink(). -->
+    <a id="street-view-link" class="street-view-link hidden" href="#" target="_blank" rel="noopener">View on Google Maps ↗</a>
+    <div class="facts hidden" id="address-facts"></div>
+    <p class="note existing-banner hidden" id="existing-banner"></p>
+  </div>
+
+  <!-- Step 2: facts + overrides (revealed after routing returns) -->
+  <div class="card hidden" id="details-card">
+    <h2>2 · Property details <span class="note">(pre-filled from RentCast · override as needed)</span></h2>
+    <div class="grid2">
+      <!-- Options are populated in init() (fillPropertyTypeOptions), not
+           authored here — see the note above the score selects below for why
+           static <option> children don't survive on a network-parsed page. -->
+      <bui-select id="f-propertytype" label="Property type"></bui-select>
+      <bui-input id="f-units" label="Unit count" type="number" inputmode="numeric" value="1"></bui-input>
+      <bui-input id="f-rent" label="Rent (per unit, monthly)" type="number" inputmode="numeric" prefix="$"></bui-input>
+      <bui-input id="f-name" label="Property name (internal)" placeholder="e.g. 123 Main St"></bui-input>
+    </div>
+  </div>
+
+  <!-- Step 3: OIA scores (staff pick directly — no driver quiz) -->
+  <div class="card hidden" id="scores-card">
+    <h2>3 · Operational scores</h2>
+    <div class="grid4">
+      <!-- Score vocabulary — value drives logic; label is display only (mirrors
+           the current cr55d_oiascorelabel rows). Options populated in init()
+           (fillScoreOptions), not authored here: bui-select's connectedCallback
+           fires the instant the HTML parser inserts its OPENING tag — before
+           it has parsed any nested <option> children — so on a normal
+           network-parsed page (as opposed to innerHTML injection) statically
+           authored options never make it into the internal <select>; they end
+           up as inert siblings next to it instead. Confirmed by direct DOM
+           inspection during Power Pages testing. -->
+      <bui-select id="s-tenant" label="Tenant Friction"></bui-select>
+      <bui-select id="s-turnover" label="Turnover Pressure"></bui-select>
+      <bui-select id="s-maintenance" label="Maintenance Burden"></bui-select>
+      <bui-select id="s-compliance" label="Compliance Burden"></bui-select>
+    </div>
+    <p class="note">Labels mirror <code>cr55d_oiascorelabel</code>; the score value is what drives the fee. Coverage defaults derive from these (eviction/inspection ≥ 1.5, lease-placement ≥ 2) and can be overridden below.</p>
+  </div>
+
+  <!-- Step 4: fee inputs / coverage overrides -->
+  <div class="card hidden" id="fee-card">
+    <h2>4 · Fee inputs</h2>
+    <div class="grid2">
+      <!-- Options populated in init() (fillLeasingOptions) — same
+           static-<option>-doesn't-survive-parsing issue as the score/
+           property-type selects above. -->
+      <bui-select id="f-leasing" label="Leasing fee (% of one month's rent)"></bui-select>
+    </div>
+    <p class="note" style="margin-top:14px;">Coverage (auto-derived from scores; override to force on/off):</p>
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="c-eviction"> Eviction Protection</label>
+      <label class="toggle"><input type="checkbox" id="c-leaseplacement"> Lease Placement</label>
+      <label class="toggle"><input type="checkbox" id="c-inspection"> Annual Inspection</label>
+      <label class="toggle"><input type="checkbox" id="c-pet"> Pet Protection</label>
+    </div>
+  </div>
+
+  <div class="card hidden" id="submit-card">
+    <!-- Calculated fee, shown immediately on success — staff shouldn't have
+         to leave the widget (or open the public proposal page) just to see
+         what fee was actually calculated. -->
+    <div id="fee-result" class="fee-result hidden">
+      <div class="fee-result__pct" id="fee-pct"></div>
+      <div class="fee-result__dollar" id="fee-dollar"></div>
+    </div>
+    <div class="bar">
+      <bui-button id="generate-btn" variant="primary">Generate Proposal</bui-button>
+      <span class="note" id="submit-status"></span>
+    </div>
+    <pre id="payload-preview" class="hidden"></pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CONFIG = {
+    // REUSED from the public funnel — same canonicalizer = same placeId = claimable.
+    SITE_ROUTING_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-site-selected',
+    // NEW — internal wrapper (Generate core + no-contact create). Not built yet;
+    // until it responds, the Generate button runs DRY_RUN (shows the payload).
+    INTERNAL_CREATE_URL: 'https://brichaus.app.n8n.cloud/webhook/internal-proposal-create',
+    // Recalculates an EXISTING proposal's saved values (accepts the same
+    // field names as create — any field the widget sends overrides the saved
+    // one; anything omitted falls back to what's already in Dataverse).
+    RECALCULATE_URL: 'https://brichaus.app.n8n.cloud/webhook/internal-proposal-recalculate',
+    // Reused from the public funnel's recognition webhook — getCachedProposal
+    // reads a property's saved proposal by placeId with no contact
+    // dependency, which is what lets this widget load an existing proposal
+    // (claimed or not) for review/recalculation.
+    CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
+    // Where staff preview the generated proposal.
+    PROPOSAL_PAGE_URL: 'https://brichausgroup.com/mgmt_proposal',
+    // Wrapper is live + verified end-to-end (real fee call + no-contact write).
+    DRY_RUN: false,
+    // Google Maps JS key for the address autocomplete. On the public funnel the
+    // HOST page injects the Maps <script> (GHL merge tag); this standalone/Power
+    // Pages widget loads Maps itself, reading the key from window.__BUI_MAPS_KEY
+    // — set just above, outside the raw block, from the "google_maps_key" site
+    // setting. Update the key in ONE place (that site setting), not here.
+    // NOTE: the key's "Allowed referrers" must include wherever you open this —
+    // a file:// page has no referrer Google will accept, so serve over
+    // http://localhost (local dev server) or your Power Pages domain, and add
+    // that origin to the key's allowed referrers.
+    GOOGLE_MAPS_KEY: (window.__BUI_MAPS_KEY || '')
+  };
+
+  // Load Google Maps (Places) if the host page hasn't already. No-ops when
+  // window.google is present (host-injected) or no key is configured (dev),
+  // in which case autocomplete stays inert instead of erroring.
+  (function loadGoogleMaps() {
+    if (window.google && window.google.maps) return;
+    var key = CONFIG.GOOGLE_MAPS_KEY;
+    if (!key || key.indexOf('{{') !== -1) return;
+    var s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&libraries=places&loading=async';
+    s.async = true;
+    document.head.appendChild(s);
+  })();
+
+  // Score vocabulary — value drives logic; label is display only (mirrors the
+  // current cr55d_oiascorelabel rows). Shown as "Label (value)" so a future
+  // label rename never confuses staff about which severity they picked.
+  var SCORES = [
+    { v: '0.5', label: 'Minimal' },
+    { v: '1',   label: 'Normal' },
+    { v: '1.5', label: 'High' },
+    { v: '2',   label: 'Intense' }
+  ];
+
+  var PROPERTY_TYPES = ['Single Family', 'Condo', 'Townhome', 'Multifamily', 'Apartment'];
+  var LEASING_PCTS = [50, 100, 20];
+
+  // mode: 'create' (no existing proposal — Generate makes a new no-contact
+  // record) or 'recalculate' (a proposal already exists — the primary button
+  // updates it in place via RECALCULATE_URL instead of creating anew).
+  var state = { placeId: '', formattedAddress: '', facts: {}, mode: 'create' };
+
+  function $(id) { return document.getElementById(id); }
+  function show(id) { $(id).classList.remove('hidden'); }
+  function hide(id) { $(id).classList.add('hidden'); }
+
+  function setMode(mode) {
+    state.mode = mode;
+    $('generate-btn').textContent = mode === 'recalculate' ? 'Recalculate & Update' : 'Generate Proposal';
+  }
+
+  function stripHtml(s) { return String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+  // POSTs JSON and parses the response, but — unlike a bare fetch().then(r =>
+  // r.json()) — gives every failure mode a DISTINCT, useful reason instead of
+  // funneling network errors, non-2xx statuses, and JS exceptions into one
+  // generic "could not reach" message. That generic message once masked a
+  // real n8n account execution-limit error as an indistinguishable
+  // connectivity problem during live testing. On a non-2xx response, surfaces
+  // the backend's own error text (HTML-stripped) when present, else the
+  // plain HTTP status.
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      if (r.ok) return r.json();
+      return r.text().then(function (text) {
+        var reason = 'HTTP ' + r.status;
+        try {
+          var parsed = JSON.parse(text);
+          var msg = (parsed && (parsed.message || parsed.error)) || '';
+          if (msg) reason = stripHtml(msg);
+        } catch (e) { /* not JSON — keep the plain HTTP-status reason */ }
+        throw new Error(reason);
+      });
+    });
+  }
+
+  // bui-select's connectedCallback fires the instant the HTML parser inserts
+  // its OPENING tag — before it has parsed any nested <option> children — so
+  // on a normal network-parsed page (unlike innerHTML injection) statically
+  // authored <option> children never make it into the internal <select>; they
+  // end up as inert siblings next to it instead (confirmed by direct DOM
+  // inspection during Power Pages testing). Populate options here instead,
+  // directly into that internal element — by the time init() runs
+  // (DOMContentLoaded), every bui-select already in the initial document has
+  // already connected, so its real <select> reliably exists to target.
+  function fillSelectOptions(id, options, defaultValue) {
+    var host = $(id);
+    var real = host.querySelector('select');
+    options.forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt.value; o.textContent = opt.label;
+      real.appendChild(o);
+    });
+    if (defaultValue !== undefined) host.value = defaultValue;
+  }
+
+  function fillScoreOptions() {
+    var opts = SCORES.map(function (s) { return { value: s.v, label: s.label + ' (' + s.v + ')' }; });
+    ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
+      fillSelectOptions(id, opts, '1'); // default Normal
+    });
+  }
+
+  function fillPropertyTypeOptions() {
+    fillSelectOptions('f-propertytype', PROPERTY_TYPES.map(function (t) { return { value: t, label: t }; }));
+  }
+
+  function fillLeasingOptions() {
+    fillSelectOptions('f-leasing', LEASING_PCTS.map(function (p) { return { value: String(p), label: p + '%' }; }), '50');
+  }
+
+  // Auto-derive coverage from the current scores (same thresholds as the
+  // backend fee rules). Staff can still override the checkboxes afterward.
+  function deriveCoverage() {
+    var tf = Number($('s-tenant').value), tp = Number($('s-turnover').value),
+        mb = Number($('s-maintenance').value);
+    $('c-eviction').checked = tf >= 1.5;
+    $('c-leaseplacement').checked = tp >= 2;
+    $('c-inspection').checked = mb >= 1.5;
+    // pet defaults off (baseline); staff toggle on demand.
+  }
+
+  // Clears anything a PREVIOUS address selection may have shown (fee,
+  // existing-proposal banner, Recalculate mode) so it never lingers on a
+  // freshly picked address that doesn't have those.
+  function resetExistingState() {
+    hide('fee-result');
+    hide('existing-banner');
+    hide('street-view-link');
+    setMode('create');
+  }
+
+  // Points the Google Maps link at the currently verified address so staff
+  // can look around (Street View, aerial/satellite) and confirm it's the
+  // right property before generating a proposal.
+  function updateStreetViewLink() {
+    var link = $('street-view-link');
+    if (!state.formattedAddress) { hide('street-view-link'); return; }
+    link.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(state.formattedAddress);
+    show('street-view-link');
+  }
+
+  function onAddressSelected(detail) {
+    var placeId = detail && (detail.placeId || detail.place_id);
+    if (!placeId) return;
+    resetExistingState();
+    $('address-status').textContent = 'Verifying address & pulling property data…';
+
+    postJson(CONFIG.SITE_ROUTING_URL, { googlePlaceId: placeId, formattedAddress: detail.formattedAddress || detail.description || '' })
+    .then(function (data) {
+      // Canonical placeId comes back from the SAME canonicalizer the funnel uses.
+      state.placeId = (data && (data.googlePlaceId || data.placeId)) || placeId;
+      state.formattedAddress = (data && data.formattedAddress) || detail.formattedAddress || '';
+      state.facts = (data && (data.propertyFacts || data.facts)) || {};
+      updateStreetViewLink();
+      renderFacts(state.facts);
+      show('details-card'); show('scores-card'); show('fee-card'); show('submit-card');
+
+      // route:'proposal' = recognized + a real contact is attached (a live,
+      // claimed client). route:'render-known' + claimable = a proposal
+      // exists but nobody's claimed it yet. Either way there's something to
+      // load; neither case should be treated as a blank create form (that
+      // would silently overwrite the existing proposal on Generate).
+      var hasContact = data && data.route === 'proposal';
+      var isClaimableExisting = data && data.route === 'render-known' && data.claimable;
+
+      if (hasContact || isClaimableExisting) {
+        var banner = $('existing-banner');
+        banner.textContent = hasContact
+          ? 'Existing proposal — an owner is already attached. Recalculating updates their live proposal.'
+          : 'Existing proposal on file — not yet claimed by an owner.';
+        banner.dataset.tone = hasContact ? 'claimed' : 'unclaimed';
+        show('existing-banner');
+        $('address-status').textContent = 'Verified · ' + state.formattedAddress;
+        loadExistingProposal(state.placeId);
+      } else {
+        prefill(state.facts);
+        deriveCoverage();
+        $('address-status').textContent = 'Verified · ' + state.formattedAddress;
+      }
+    }).catch(function (err) {
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('address-status').textContent = 'Could not reach the address service' + reason + '. Try again in a moment.';
+    });
+  }
+
+  // Loads an existing property's saved proposal (scores, coverage, rent,
+  // leasing %, current fee) so staff review/edit real values instead of a
+  // blank form. getCachedProposal has no contact dependency — it just reads
+  // cr55d_onlineproposaljson by placeId — so this works whether or not the
+  // property has been claimed.
+  function loadExistingProposal(placeId) {
+    $('address-status').textContent = 'Loading existing proposal…';
+    postJson(CONFIG.CONTACT_RECOGNITION_URL, { action: 'getCachedProposal', googlePlaceId: placeId })
+    .then(function (data) {
+      if (placeId !== state.placeId) return; // superseded by a newer selection
+      if (!data || !data.found) {
+        // Routing said a proposal exists but the cache lookup came up empty —
+        // fail safe to create mode rather than silently losing data or
+        // getting stuck.
+        prefill(state.facts);
+        deriveCoverage();
+        $('address-status').textContent = 'Verified · ' + state.formattedAddress;
+        return;
+      }
+      prefillFromExisting(data);
+      setMode('recalculate');
+      $('address-status').textContent = 'Verified · ' + state.formattedAddress;
+    }).catch(function (err) {
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('address-status').textContent = 'Verified, but could not load the existing proposal' + reason + ' — check the connection and retry.';
+    });
+  }
+
+  function renderFacts(f) {
+    var box = $('address-facts'); box.innerHTML = '';
+    var pairs = [
+      ['Type', f.propertyType], ['Beds', f.bedrooms], ['Baths', f.bathrooms],
+      ['SqFt', f.squareFootage], ['Year', f.yearBuilt], ['County', f.county]
+    ];
+    pairs.forEach(function (p) {
+      if (p[1] == null || p[1] === '') return;
+      var el = document.createElement('span'); el.className = 'fact';
+      el.textContent = p[0] + ': ' + p[1]; box.appendChild(el);
+    });
+    box.classList.toggle('hidden', !box.children.length);
+  }
+
+  function prefill(f) {
+    if (f.propertyType) $('f-propertytype').value = f.propertyType;
+    $('f-name').value = state.formattedAddress.split(',')[0] || '';
+  }
+
+  // The leasing-fee dropdown only offers the 3 preset percentages
+  // (LEASING_PCTS) — a saved proposal's actual leasingFeePct could be some
+  // other value (set via a path other than this widget's picklist, or a
+  // historical default). Setting .value to a percentage with no matching
+  // <option> would silently clear the selection, and on submit that would
+  // send NaN, which the backend's `|| 50` fallback quietly replaces with
+  // 50% — losing the real historical value without any indication. Inject
+  // it as an extra option instead so it displays exactly, is submitted
+  // exactly, and is visibly flagged as non-standard.
+  function ensureLeasingOption(pct) {
+    var sel = $('f-leasing').querySelector('select');
+    var exists = Array.prototype.some.call(sel.options, function (o) { return o.value === String(pct); });
+    if (!exists) {
+      var o = document.createElement('option');
+      o.value = String(pct);
+      o.textContent = pct + '% (saved)';
+      sel.appendChild(o);
+    }
+  }
+
+  // Prefills the form from a getCachedProposal response — the REAL saved
+  // state of an existing proposal, not RentCast facts. Scores come from the
+  // stored report (categories are keyed by name, not a fixed array order).
+  function prefillFromExisting(data) {
+    if (data.propertyType) $('f-propertytype').value = data.propertyType;
+    $('f-units').value = data.unitCount || 1;
+    $('f-rent').value = data.rentPerUnit != null ? data.rentPerUnit : '';
+    $('f-name').value = data.propertyName || state.formattedAddress.split(',')[0] || '';
+    if (data.leasingFeePct != null) {
+      ensureLeasingOption(data.leasingFeePct);
+      $('f-leasing').value = String(data.leasingFeePct);
+    } else {
+      $('f-leasing').value = '50';
+    }
+
+    var cats = (data.report && data.report.operationalProfile && data.report.operationalProfile.categories) || [];
+    function scoreFor(catName) {
+      var c = cats.filter(function (x) { return x.category === catName; })[0];
+      return c && c.score != null ? String(c.score) : '1';
+    }
+    $('s-tenant').value = scoreFor('Tenant Friction');
+    $('s-turnover').value = scoreFor('Turnover Pressure');
+    $('s-maintenance').value = scoreFor('Maintenance Burden');
+    $('s-compliance').value = scoreFor('Compliance & Administration');
+
+    $('c-eviction').checked = !!data.eviction;
+    $('c-leaseplacement').checked = !!data.leasePlacement;
+    $('c-inspection').checked = !!data.inspection;
+    $('c-pet').checked = !!data.pet;
+
+    if (data.monthlyFee != null && data.feeCalcResponse != null) {
+      $('fee-pct').textContent = (Number(data.feeCalcResponse) * 100).toFixed(2) + '% management fee (current)';
+      $('fee-dollar').textContent = '$' + Number(data.monthlyFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/mo';
+      show('fee-result');
+    }
+  }
+
+  // Shared by both the create and recalculate payloads — the Recalculate
+  // wrapper accepts the same field names, using whatever the widget sends to
+  // override the saved value and falling back to what's in Dataverse for
+  // anything omitted.
+  function buildCommonFields() {
+    return {
+      googlePlaceId: state.placeId,
+      formattedAddress: state.formattedAddress,
+      propertyName: $('f-name').value,
+      propertyType: $('f-propertytype').value,
+      unitCount: Number($('f-units').value) || 1,
+      rentValue: Number($('f-rent').value) || 0,
+      tenantFrictionScore: Number($('s-tenant').value),
+      turnoverPressureScore: Number($('s-turnover').value),
+      maintenanceBurdenScore: Number($('s-maintenance').value),
+      complianceBurdenScore: Number($('s-compliance').value),
+      leasingFeePct: Number($('f-leasing').value),
+      // Coverage OVERRIDES — the backend uses these directly (it does not
+      // re-derive; human choice is the saved value).
+      coverageOverride: {
+        eviction: $('c-eviction').checked,
+        leasePlacement: $('c-leaseplacement').checked,
+        inspection: $('c-inspection').checked,
+        pet: $('c-pet').checked
+      }
+    };
+  }
+
+  function buildPayload() {
+    var fields = buildCommonFields();
+    fields.internal = true;
+    fields.createWithoutContact = true;
+    return fields;
+  }
+
+  function onGenerate() {
+    if (!state.placeId) { $('submit-status').textContent = 'Select an address first.'; return; }
+    var isRecalc = state.mode === 'recalculate';
+    var payload = isRecalc ? buildCommonFields() : buildPayload();
+
+    if (CONFIG.DRY_RUN) {
+      var pre = $('payload-preview');
+      pre.textContent = JSON.stringify(payload, null, 2);
+      pre.classList.remove('hidden');
+      $('submit-status').textContent = 'DRY RUN — internal wrapper not wired yet. Payload above.';
+      return;
+    }
+
+    $('submit-status').textContent = isRecalc ? 'Recalculating…' : 'Generating…';
+    postJson(isRecalc ? CONFIG.RECALCULATE_URL : CONFIG.INTERNAL_CREATE_URL, payload).then(function (res) {
+      var pid = res && (res.googlePlaceId || res.placeId) || state.placeId;
+      // Show the calculated fee immediately — staff shouldn't have to leave
+      // the widget (or open the public proposal page) just to see the
+      // number the backend actually calculated.
+      if (res && res.feeRate != null) {
+        var monthly = res.monthlyFee != null ? res.monthlyFee : (res.feeRate * (res.rentValue || 0) * (res.unitCount || 1));
+        $('fee-pct').textContent = (res.feeRate * 100).toFixed(2) + '% management fee';
+        $('fee-dollar').textContent = '$' + Number(monthly).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/mo';
+        show('fee-result');
+      }
+      // &internal=1 lets proposal.html show this record even though it has
+      // no contact yet (unclaimed) — see the matching comment in
+      // app/proposal.html for why that's safe (only ever bypasses the gate
+      // for no-contact records; any record with a real contact still goes
+      // through the full recognize+confirmEmail check regardless).
+      var actionLabel = isRecalc ? 'Updated.' : 'Created.';
+      $('submit-status').innerHTML = actionLabel + ' <a href="' + CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(pid) + '&internal=1" target="_blank">Preview proposal →</a>';
+    }).catch(function (err) {
+      var reason = (err && err.message) ? ' (' + err.message + ')' : '';
+      $('submit-status').textContent = (isRecalc ? 'Recalculate' : 'Create') + ' failed' + reason + ' — check the internal wrapper.';
+    });
+  }
+
+  function init() {
+    fillScoreOptions();
+    fillPropertyTypeOptions();
+    fillLeasingOptions();
+    var addr = $('address-input');
+    // bui-address-input fires bui-change on every value change (no placeId in
+    // its detail) but bui-address-select specifically on a real suggestion
+    // pick, with { description, placeId, place } — that's the one this widget
+    // needs to trigger the routing lookup.
+    addr.addEventListener('bui-address-select', function (e) { onAddressSelected(e.detail || {}); });
+    ['s-tenant', 's-turnover', 's-maintenance', 's-compliance'].forEach(function (id) {
+      $(id).addEventListener('bui-change', deriveCoverage);
+    });
+    $('generate-btn').addEventListener('click', onGenerate);
+
+    // Deep link from the Property Lookup page: ?placeId=...&address=... skips
+    // re-typing the address through Google Autocomplete — the lookup page
+    // already confirmed the record exists, so go straight to the existing-
+    // proposal load instead of the full site-routing round trip.
+    var params = new URLSearchParams(window.location.search);
+    var linkedPlaceId = params.get('placeId');
+    if (linkedPlaceId) {
+      state.placeId = linkedPlaceId;
+      state.formattedAddress = params.get('address') || '';
+      addr.value = state.formattedAddress || linkedPlaceId;
+      updateStreetViewLink();
+      show('details-card'); show('scores-card'); show('fee-card'); show('submit-card');
+      $('address-status').textContent = 'Loading existing proposal…';
+      loadExistingProposal(linkedPlaceId);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
+{% endraw %}

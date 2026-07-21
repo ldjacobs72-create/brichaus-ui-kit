@@ -1,0 +1,7 @@
+"Band Name","Raw Min","Raw Max","Definition","Sort Order","Active"
+"Very Low","0.0625","0.49","The property appears materially less operationally demanding than a typical asset. Management effort is expected to be light across most or all categories.","1","Yes"
+"Low","0.50","0.99","The property carries below-normal operating intensity. Some management work is still expected, but the overall burden is lighter than a standard baseline property.","2","Yes"
+"Normal","1.00","1.49","The property falls within a typical operating range. The expected management workload is consistent with ordinary tenant, turnover, maintenance, and compliance demands.","3","Yes"
+"Elevated","1.50","2.99","The property is expected to require above-normal management attention. One or more categories are likely creating additional operating pressure.","4","Yes"
+"High","3.00","7.99","The property is expected to require sustained management involvement, with multiple categories contributing to higher workload, coordination, or risk.","5","Yes"
+"Severe","8.00","16.00","The property appears operationally intensive. Significant management attention is expected across several categories, and the result should be handled carefully by the downstream pricing workflow.","6","Yes"

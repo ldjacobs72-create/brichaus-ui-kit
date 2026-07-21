@@ -31,15 +31,24 @@
     return;
   }
 
+  // Every rule below is scoped under the "bui-select" host tag. input.js and
+  // address-input.js reuse these exact same .bui-field__* class names for
+  // their own (differently-structured) controls; an earlier unscoped
+  // version of this stylesheet let its higher-specificity
+  // ":focus-visible { box-shadow: ... }" rule leak onto their plain
+  // <input>, painting a second focus ring around it whenever both this file
+  // and input.js/address-input.js were loaded on the same page. Scoping
+  // under "bui-select" keeps every rule here confined to this component's
+  // own DOM.
   var STYLE_ID = 'bui-style-select';
   window.BUI.injectStyle(STYLE_ID, [
     'bui-select { display: block; }',
     'bui-select, bui-select * { box-sizing: border-box; }',
-    '.bui-field { font-family: var(--bui-font-family); display: flex; flex-direction: column; gap: var(--bui-space-1); }',
-    '.bui-field__label { font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-text); }',
-    '.bui-field__control {',
+    'bui-select .bui-field { font-family: var(--bui-font-family); display: flex; flex-direction: column; gap: var(--bui-space-1); }',
+    'bui-select .bui-field__label { font-size: var(--bui-font-size-sm); font-weight: 600; color: var(--bui-color-text); }',
+    'bui-select .bui-field__control {',
     '  font-family: var(--bui-font-family);',
-    '  font-size: var(--bui-font-size-md);',
+    '  font-size: var(--bui-font-size-control);', /* 16px min — prevents iOS focus-zoom */
     '  color: var(--bui-color-text);',
     '  background: var(--bui-color-surface);',
     '  border: 1px solid var(--bui-color-border-strong);',
@@ -48,11 +57,11 @@
     '  width: 100%;',
     '  transition: border-color var(--bui-transition-fast), box-shadow var(--bui-transition-fast);',
     '}',
-    '.bui-field__control:focus-visible { outline: none; border-color: var(--bui-color-accent); box-shadow: var(--bui-focus-ring); }',
-    '.bui-field__control[data-invalid="true"] { border-color: var(--bui-color-danger); }',
-    '.bui-field__control:disabled { background: var(--bui-color-bg); cursor: not-allowed; opacity: 0.7; }',
-    '.bui-field__hint { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }',
-    '.bui-field__error { font-size: var(--bui-font-size-sm); color: var(--bui-color-danger); }'
+    'bui-select .bui-field__control:focus-visible { outline: none; border-color: var(--bui-color-accent); box-shadow: var(--bui-focus-ring); }',
+    'bui-select .bui-field__control[data-invalid="true"] { border-color: var(--bui-color-danger); }',
+    'bui-select .bui-field__control:disabled { background: var(--bui-color-bg); cursor: not-allowed; opacity: 0.7; }',
+    'bui-select .bui-field__hint { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }',
+    'bui-select .bui-field__error { font-size: var(--bui-font-size-sm); color: var(--bui-color-danger); }'
   ].join('\n'));
 
   class BuiSelect extends HTMLElement {

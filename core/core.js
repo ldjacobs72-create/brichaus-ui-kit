@@ -77,6 +77,11 @@
     '--bui-font-size-sm': '0.8125rem',
     '--bui-font-size-md': '0.9375rem',
     '--bui-font-size-lg': '1.125rem',
+    // Focusable form controls (inputs/selects) must render at >= 16px, or iOS
+    // Safari auto-zooms the page on focus — which unlocks horizontal scroll and
+    // makes the layout wobble. Kept as a literal px (not rem) so the 16px floor
+    // holds regardless of the host page's root font-size.
+    '--bui-font-size-control': '16px',
 
     '--bui-shadow-sm': '0 1px 2px rgba(16, 42, 76, 0.05)',
     '--bui-shadow-md': '0 6px 22px rgba(16, 42, 76, 0.08)',

@@ -28,21 +28,19 @@
   pinned to @main. Component files are self-contained and additive — see
   the root README for the include-pattern rules.
 
-  REQUIRED GHL SURVEY SETTING: "Action After Submit" must be set to stay
-  on the page (a message/no-op), not a redirect. This app calls GHL's own
-  native submit control mid-assessment (see CONFIG.GHL_SUBMIT_SELECTOR
-  below) to create the Contact-linked Property record n8n's pipeline
-  searches for — a redirect at that point navigates away and kills this
-  app before it can call the scoring webhook or show results at all.
-
-  MUST BE A SURVEY, NOT A FORM — confirmed the hard way (twice): GHL's
-  Form builder does not support placing Custom Object fields on a Form
-  at all — only a Survey element can hold them, and only a Survey's own
-  native submission creates the Contact+Property association this whole
-  design depends on. There is no other automated way to create that
-  association; the only alternative is creating records manually inside
-  GHL. Don't attempt a Form-based rebuild again — this exact rabbit hole
-  has already cost real time twice.
+  GHL'S NATIVE SURVEY SUBMISSION IS NO LONGER USED. It was how the
+  Contact-linked Property record got created (submitNative() clicking the
+  hidden submit control), until live debugging on 2026-07-10 proved GHL
+  no longer honors synthetic (isTrusted: false) clicks — fields populated
+  and consent checked, yet no record was ever created. Rather than keep
+  fighting GHL's front-end security, record creation moved server-side:
+  the n8n pipeline (PropScore: Main Pipeline) creates the Property record,
+  upserts the Contact, links them via GHL's associations API ("Owner ↔
+  Owned property"), and logs a timestamped consent note — fed by the
+  FirstName/Email/Consent fields this widget sends in its scoring webhook
+  payload. The Survey element is still required on the page (it hosts the
+  consent checkbox with its real GHL-configured legal copy, relocated
+  into the widget's card) but its submission is never triggered.
 -->
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
@@ -78,26 +76,19 @@
     margin: 0 auto;
     padding: var(--bui-space-4) var(--bui-space-4) var(--bui-space-6);
   }
-  #brichaus-assessment .assessment-intro {
-    text-align: center;
-    max-width: 620px;
-    margin: 0 auto var(--bui-space-5);
-  }
-  #brichaus-assessment .assessment-intro h1 {
-    margin: 0 0 8px;
-    font-size: 30px;
-    font-weight: 700;
-    color: #2B2F36;
-  }
-  #brichaus-assessment .assessment-intro p {
-    margin: 0 auto;
-    max-width: 520px;
-    font-size: 16px;
-    color: #6B7280;
-  }
   /* The card clips its own corners so the header bar's flush square top
      corners (padding zeroed below) never poke past the card's own radius. */
   #brichaus-assessment .bui-card { overflow: hidden; }
+  /* EXCEPT the address step: the autocomplete listbox is position:absolute
+     inside the card, so overflow:hidden was clipping it at the card's
+     bottom edge (only ~1.5 suggestions visible on phones). Let this one
+     card overflow and instead round the header bar itself so its square
+     top corners still don't poke past the card radius. */
+  #brichaus-assessment [data-step="location"] .bui-card { overflow: visible; }
+  #brichaus-assessment [data-step="location"] .bui-card__header {
+    border-radius: var(--bui-radius-lg) var(--bui-radius-lg) 0 0;
+    overflow: hidden;
+  }
   #brichaus-assessment .bui-card[data-variant="elevated"] {
     box-shadow: 0 1px 2px rgba(20, 24, 32, 0.04), 0 24px 48px -16px rgba(20, 24, 32, 0.16);
   }
@@ -115,15 +106,10 @@
      See the mobile breakpoint below for why this needed its own class
      instead of staying an inline style. */
   #brichaus-assessment .step-body-pad { padding: 52px 56px 44px; }
-  /* On narrow phones the wide 56px/52px/44px premium padding reads as huge
-     dead space around comparatively little content — trim it back down,
-     same principle as the original tighter-on-mobile rule this replaces. */
-  @media (max-width: 420px) {
-    #brichaus-assessment { padding-left: 10px; padding-right: 10px; }
-    #brichaus-assessment .step-body-pad { padding: 28px 16px 24px; }
-    #brichaus-assessment .step-intro { padding: 28px 16px 0; }
-    #brichaus-assessment .step-footer { padding: 20px 16px 24px; }
-  }
+  /* The consolidated mobile block lives at the very END of this stylesheet
+     — see the comment there. (It used to sit here and silently lose to the
+     later-in-source desktop base rules for .step-intro/.step-footer at
+     equal specificity, which is why phones kept the huge 56px padding.) */
   #brichaus-assessment .field-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -146,13 +132,43 @@
      only the question text (easy to click through without registering
      you're now rating a different category). */
   #brichaus-assessment .driver-category {
-    display: flex; align-items: center; gap: var(--bui-space-2); margin-bottom: 6px;
+    display: flex; align-items: center; gap: var(--bui-space-3); margin-bottom: 10px;
   }
-  #brichaus-assessment .driver-category__icon { font-size: 22px; line-height: 1; }
+  #brichaus-assessment .driver-category__icon { font-size: 26px; line-height: 1; }
+  /* The driver name is the primary visual anchor of each of the 4
+     questions (see the comment above) — bold and full-size next to its
+     icon, not a small uppercase kicker, so it reads as a heading rather
+     than a label. driver-question below is deliberately regular-weight so
+     it doesn't compete with this for attention. */
   #brichaus-assessment .driver-category__name {
-    font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--bui-color-text-faint);
+    font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em;
+    color: var(--bui-color-text);
   }
+  #brichaus-assessment .driver-question {
+    font-weight: 400;
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+    margin: 0 0 var(--bui-space-3);
+  }
+  /* Appended only into the one flipped/selected card (see
+     addDriverConfirmButton()) so the visitor can move on without looking
+     away to the Continue button below. */
+  #brichaus-assessment .driver-confirm-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #C1633F;
+    color: #fff;
+    font-family: var(--bui-font-family);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  #brichaus-assessment .driver-confirm-btn:hover { background: #AC5333; }
   /* Selecting a driver option flips that one card to reveal the same
      nuanced reference text the final report uses (see DRIVER_REFERENCE).
      0deg->90deg->0deg (not a full 180) so the text is never mirrored/
@@ -198,9 +214,6 @@
   #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__fill {
     background: #C1633F;
   }
-  @media (max-width: 420px) {
-    #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
-  }
 
   /* "Continue" is always variant="slate" (see button.js's own variant
      guide) -- restyled here to the brand's rust action color across every
@@ -233,15 +246,57 @@
 
   /* ===== Premium visual pass: Property Type choice cards ===== */
   #brichaus-assessment #property-type-choice-group .bui-choice-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20px;
+  }
+  @media (max-width: 720px) {
+    #brichaus-assessment #property-type-choice-group .bui-choice-grid { grid-template-columns: 1fr; }
   }
   #brichaus-assessment #property-type-choice-group .bui-choice-card {
     border: 1.5px solid #E3E5E9;
     background: #FFFFFF;
     border-radius: 14px;
     padding: 28px;
+    height: 100%;
+    box-sizing: border-box;
     transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+  /* Commercial (disabled) card: same footprint as its siblings, marked with
+     an overlay badge instead of the meta slot. The component's own disabled
+     style fades the whole card to 0.5 opacity, which would wash out the
+     badge too — so opacity is reset and the muting is done here instead. */
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] {
+    position: relative;
+    overflow: hidden;
+    opacity: 1;
+    background: #FAFBFC;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__label,
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"] .bui-choice-card__description {
+    color: #A6ACB6;
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.45);
+  }
+  #brichaus-assessment #property-type-choice-group .bui-choice-card[data-disabled="true"]::after {
+    content: 'COMING SOON';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-6deg);
+    padding: 6px 14px;
+    border: 1.5px solid #C6CAD2;
+    border-radius: 999px;
+    background: #FFFFFF;
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    box-shadow: 0 2px 8px rgba(20, 24, 32, 0.08);
+    white-space: nowrap;
   }
   #brichaus-assessment #property-type-choice-group .bui-choice-card[aria-checked="true"] {
     border: 2px solid #4C5768;
@@ -255,9 +310,6 @@
     height: 24px;
     background: #4C5768;
     font-size: 13px;
-  }
-  @media (max-width: 420px) {
-    #brichaus-assessment #property-type-choice-group .bui-choice-grid { grid-template-columns: 1fr; }
   }
 
   /* ===== Premium visual pass: trust panel below the card ===== */
@@ -275,7 +327,7 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: #6B7280;
+    color: #4B5563;
     white-space: nowrap;
   }
   #brichaus-assessment .trust-item__icon {
@@ -291,9 +343,41 @@
     line-height: 1;
     flex-shrink: 0;
   }
+  /* Footnote for the "Initial Proposal in Minutes*" guarantee above. */
+  #brichaus-assessment .trust-disclaimer {
+    margin: var(--bui-space-3) auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #9AA1AB;
+  }
 
   #brichaus-assessment .loading-card, #brichaus-assessment .results-card {
     text-align: center;
+  }
+
+  /* ===== Schedule step: embedded GHL booking calendar ===== */
+  /* The iframe starts at a safe fixed height; GHL's own form_embed.js
+     helper (lazily injected by ensureBookingEmbed()) then drives the
+     real height via postMessage as the calendar renders/expands, so
+     scrolling stays on the page, not trapped inside the frame. */
+  #brichaus-assessment .booking-embed iframe {
+    display: block;
+    width: 100%;
+    min-height: 700px;
+    border: none;
+    overflow: hidden;
+  }
+  #brichaus-assessment .booking-fallback {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    text-align: center;
+  }
+  #brichaus-assessment .booking-fallback a {
+    color: var(--bui-color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   #brichaus-assessment .results-actions {
     display: flex;
@@ -326,8 +410,8 @@
     align-items: flex-start !important;
     gap: var(--bui-space-2) !important;
     font-family: var(--bui-font-family) !important;
-    font-size: var(--bui-font-size-sm) !important;
-    line-height: 1.5 !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
   }
   #brichaus-assessment .terms-slot .checkbox-container input[type="checkbox"] {
     margin-top: 3px !important;
@@ -338,8 +422,12 @@
   }
   #brichaus-assessment .terms-slot .checkbox-container label {
     font-family: var(--bui-font-family) !important;
-    font-size: var(--bui-font-size-sm) !important;
-    color: var(--bui-color-text-muted) !important;
+    /* Fine-print treatment (per owner review): well under the kit's sm
+       size and in the faint ink, but still comfortably legible — dense
+       legal copy shouldn't compete with the name/email fields above. */
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+    color: var(--bui-color-text-faint) !important;
   }
   #brichaus-assessment .demo-banner {
     background: var(--bui-color-warning-bg);
@@ -351,6 +439,76 @@
     padding: var(--bui-space-2) var(--bui-space-3);
     margin-bottom: var(--bui-space-4);
     text-align: center;
+  }
+  #brichaus-assessment .address-verifying {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--bui-space-3);
+    font-size: 12.5px;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .address-verifying__spinner {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bui-color-border);
+    border-top-color: #C1633F;
+    animation: bui-address-verifying-spin 700ms linear infinite;
+  }
+  @keyframes bui-address-verifying-spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .address-verifying__spinner { animation: none; }
+  }
+  /* Contact step's "your report is already coming together" panel — see
+     the doc comment on its markup for why each row is allowed to claim
+     "done". */
+  #brichaus-assessment .report-progress {
+    margin: var(--bui-space-4) 0;
+    padding: 14px 16px;
+    background: #F6F7F9;
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #brichaus-assessment .report-progress__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .report-progress__row.is-done { color: var(--bui-color-text); }
+  #brichaus-assessment .report-progress__row.is-active { font-weight: 600; color: var(--bui-color-text); }
+  #brichaus-assessment .report-progress__icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--bui-color-success-bg);
+    color: var(--bui-color-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  #brichaus-assessment .report-progress__spinner {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bui-color-border);
+    border-top-color: #C1633F;
+    animation: bui-address-verifying-spin 700ms linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .report-progress__spinner { animation: none; }
   }
   #brichaus-assessment .recognition-panel {
     margin-top: var(--bui-space-4);
@@ -370,6 +528,38 @@
     color: var(--bui-color-danger);
   }
   #brichaus-assessment .recognition-state bui-button {
+    margin-top: var(--bui-space-3);
+  }
+  /* Service-area gate (see SERVICE_AREA config + the address-select
+     handler): shown in place of the normal flow when the selected
+     property is outside the active markets. Same panel treatment as the
+     recognition panel above so out-of-area reads as information, not an
+     error. */
+  #brichaus-assessment .service-area-gate {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-info-bg);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .service-area-message {
+    margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  /* Number of Units field, relocated inside the Multifamily choice card
+     (see ensureUnitCountInCard). The card centers its text; the field
+     reads better left-aligned. */
+  #brichaus-assessment .bui-choice-card #unit-count-field { text-align: left; }
+  /* Map pin confirming the selected address (see showAddressMap). */
+  #brichaus-assessment .address-map {
+    height: 220px;
+    margin-top: var(--bui-space-3);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    overflow: hidden;
+  }
+  #brichaus-assessment #expansion-capture bui-button {
     margin-top: var(--bui-space-3);
   }
   #brichaus-assessment .income-grid {
@@ -543,6 +733,16 @@
 
   /* multifamily market-by-type card (Snapshot step) */
   #brichaus-assessment .market-card { margin-top: var(--bui-space-3); border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md); padding: var(--bui-space-3) var(--bui-space-4); }
+  /* Distinguishes the market-rent table (other properties' rates, for
+     comparison) from the rent figure the visitor just typed above it --
+     without this, the two rows of dollar amounts read as the same kind of
+     number. */
+  #brichaus-assessment .market-card-note {
+    margin: 2px 0 var(--bui-space-3);
+    font-size: 11.5px;
+    font-style: italic;
+    color: var(--bui-color-text-faint);
+  }
   #brichaus-assessment .snapshot-preview-intro {
     margin: var(--bui-space-3) 0 0;
     font-size: var(--bui-font-size-sm);
@@ -627,11 +827,18 @@
   #brichaus-assessment .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
 
   /* ===== Results — answer-first report layout ===== */
+  /* The property address IS the report's title (per owner review — a
+     generic "Your Management Proposal Report" heading was redundant with
+     the header bar): big and dark so it's obvious which property this is,
+     with a quieter "Management Proposal" line beneath it. */
   #brichaus-assessment .report-address {
-    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
-    color: var(--bui-color-text-faint); margin: 0 0 4px;
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
+    color: #2B2F36; margin: 0 0 2px;
   }
-  #brichaus-assessment .report-h2 { margin: 0 0 var(--bui-space-4); font-size: 1.3rem; letter-spacing: -0.01em; }
+  #brichaus-assessment .report-subtitle {
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-4);
+  }
   #brichaus-assessment .report-kicker {
     font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
     color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
@@ -782,25 +989,22 @@
   }
   #brichaus-assessment .hidden { display: none !important; }
 
-  /* GHL's own native Survey submit control (see CONFIG.GHL_SUBMIT_SELECTOR).
-     Kept in the DOM — BUI.ghl.submitNative() needs to .click() it — but
-     never shown to the visitor; this widget's own step flow is the only
-     visible continue/submit affordance on the page. A plain CSS rule
-     (not scoped to #brichaus-assessment, since GHL renders this control
-     outside this app's own container) so it's hidden the moment it's
-     ever inserted into the DOM, with no JS timing/polling race at all —
-     deliberately kept as CSS rather than a JS-applied class for exactly
-     that reason. Keep this selector in sync with CONFIG.GHL_SUBMIT_SELECTOR
-     above by hand (CSS can't reference a JS config value).
+  /* GHL's own native Survey submit control. No longer clicked by this
+     app (record creation is server-side in n8n now — see the top-of-file
+     doc comment) but still hidden so the visitor never sees a second,
+     nonfunctional submit button. A plain CSS rule (not scoped to
+     #brichaus-assessment, since GHL renders this control outside this
+     app's own container) so it's hidden the moment it's ever inserted
+     into the DOM, with no JS timing/polling race at all.
 
      position: fixed at the viewport's own corner (0,0) rather than
      position: absolute pushed to some huge document-relative offset —
      an earlier version used left: -99999px, which left the element at
      its natural (very-far-down) vertical position, still document-
-     scrollable-to. Clicking it apparently triggers GHL's own internal
-     focus/scroll handling, which jumped the whole page there. A fixed
-     element pinned inside the viewport bounds is already "in view" by
-     definition, so nothing can ever need to scroll to reach it. */
+     scrollable-to; anything calling focus()/scrollIntoView() on it would
+     jump the whole page there. A fixed element pinned inside the
+     viewport bounds is already "in view" by definition, so nothing can
+     ever need to scroll to reach it. */
   .ghl-submit-btn {
     position: fixed !important;
     top: 0 !important;
@@ -817,12 +1021,11 @@
      keeping visible (the consent checkbox + its label) has been
      physically relocated out of it into the widget's own card — nothing
      of value is left inside. Same viewport-fixed technique as
-     .ghl-submit-btn above (see its comment for why), not display:none,
-     so BUI.ghl.submitNative() clicking the submit button nested inside
-     it keeps working reliably. `ghl-form-wrap` reads as a generic GHL
-     platform class (not scoped to this specific Survey instance) — if
-     this same funnel page ever gains a second, unrelated native
-     form/survey, this rule would hide that one too. */
+     .ghl-submit-btn above (see its comment for why), not display:none.
+     `ghl-form-wrap` reads as a generic GHL platform class (not scoped
+     to this specific Survey instance) — if this same funnel page ever
+     gains a second, unrelated native form/survey, this rule would hide
+     that one too. */
   .ghl-form-wrap {
     position: fixed !important;
     top: 0 !important;
@@ -832,18 +1035,38 @@
     opacity: 0 !important;
     pointer-events: none !important;
   }
+
+  /* ===== Mobile (whole funnel) =====
+     Kept as the LAST rules in this stylesheet on purpose: several of the
+     selectors below tie at equal specificity with their desktop base rules
+     above, so source order is what makes these win on phones. Breakpoint
+     is 640px, not 420 — modern phones are 390-430 CSS px wide and a 420px
+     cutoff left most of them with the full desktop padding (confirmed
+     live: Step 2's address field was squeezed to a sliver). */
+  @media (max-width: 640px) {
+    #brichaus-assessment { padding-left: 8px; padding-right: 8px; }
+    #brichaus-assessment .step-body-pad { padding: 26px 16px 24px; }
+    #brichaus-assessment .step-intro { padding: 26px 16px 0; }
+    #brichaus-assessment .step-footer { padding: 18px 16px 24px; }
+    /* Back + Continue share the full row width; the huge desktop side
+       padding on the rust Continue would otherwise overflow small rows. */
+    #brichaus-assessment .step-footer .spacer { display: none; }
+    #brichaus-assessment .step-footer bui-button { flex: 1; }
+    #brichaus-assessment .step-footer .bui-btn { width: 100%; }
+    #brichaus-assessment .bui-btn[data-variant="slate"] { padding: 0 20px; }
+    #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
+    /* Name/Email side-by-side pair on the contact step stacks. */
+    #brichaus-assessment .field-row { grid-template-columns: 1fr; }
+    #brichaus-assessment .trust-panel { gap: 12px 20px; }
+  }
 </style>
 </head>
 <body>
 <div id="brichaus-assessment">
 
-  <!-- Persistent title/subtitle above the stepped card -- stays on screen
-       across every step (showStep() only ever toggles .hidden on
-       [data-step] sections, never touches siblings like this one). -->
-  <div class="assessment-intro">
-    <h1>Property Management Assessment</h1>
-    <p>Get a data-backed management proposal for your property in minutes — no cost, no obligation.</p>
-  </div>
+  <!-- No page title/subtitle above the card — dropped per owner review
+       (it ate too much screen space, especially on phones); the stepped
+       card's own header bar carries the context instead. -->
 
   <!-- ============ STEP: property type ============ -->
   <section data-step="property-type">
@@ -852,16 +1075,29 @@
         <bui-progress-bar tone="header" label="1. Property Type" value="9"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>What kind of property is this?</h2>
+        <h2>What kind of rental property are we looking at?</h2>
         <p>This determines how we read comparable rents for your address.</p>
         <bui-choice-group id="property-type-choice-group" name="property-type">
           <bui-choice-card value="single" label="Single Family"
-            description="One rentable unit."></bui-choice-card>
+            description="Single family home, Condo, Townhome."></bui-choice-card>
           <bui-choice-card value="multi" label="Multifamily"
-            description="Two or more rentable units."></bui-choice-card>
+            description="Duplex, Triplex, Quad, Apartments 5+ Units."></bui-choice-card>
+          <!-- Visible but not yet selectable — the funnel's scoring/fee logic
+               doesn't support commercial yet. The disabled attribute is the
+               component's own (blocks selection); the "Coming Soon" marker is
+               a CSS overlay badge (see the commercial-card rules) rather than
+               the meta slot, so this card stays the same height as the other
+               two. -->
+          <bui-choice-card value="commercial" label="Commercial" disabled
+            description="Mixed Use, Neighborhood Retail, Gas Stations."></bui-choice-card>
         </bui-choice-group>
+        <!-- Rendered here but RELOCATED into the Multifamily card's own
+             body the first time Multifamily is selected (see
+             ensureUnitCountInCard) — the question belongs visually to the
+             card that raised it. Kept in markup at this level so the page
+             still works if the relocation target ever goes away. -->
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-input id="unit-count-input" label="Number of Units" type="number" min="2" placeholder="e.g. 8"></bui-input>
+          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
         </div>
       </div>
       <div slot="footer" class="step-footer">
@@ -888,6 +1124,30 @@
           hint="Start typing to search.">
         </bui-address-input>
 
+        <div id="address-verifying" class="address-verifying hidden">
+          <span class="address-verifying__spinner" aria-hidden="true"></span>
+          Locating your property…
+        </div>
+
+        <!-- Service-area gate — appears instead of the normal flow when the
+             selected address is outside the active markets. Expansion-market
+             states additionally offer the stay-in-touch email capture (fed
+             to the recognition webhook's expansionLead action, which tags a
+             GHL contact for the expansion pipeline). -->
+        <div id="service-area-gate" class="service-area-gate hidden">
+          <p id="service-area-message" class="service-area-message"></p>
+          <div id="expansion-capture" class="hidden">
+            <bui-input id="expansion-email-input" label="Email" type="email"></bui-input>
+            <bui-button id="expansion-notify-btn" variant="slate">Keep Me Posted</bui-button>
+          </div>
+        </div>
+
+        <!-- Satellite pin of the selected address — a visual second check
+             that the suggestion Google matched is really their property
+             (see showAddressMap; hidden until a place with coordinates is
+             selected, and again the moment the visitor types a new one). -->
+        <div id="address-map" class="address-map hidden"></div>
+
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-welcome" class="recognition-state hidden">
             <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your existing management proposal.</p>
@@ -902,6 +1162,11 @@
           </div>
           <div id="recognition-done" class="recognition-state hidden">
             <p id="recognition-done-message" class="recognition-message"></p>
+            <!-- Shown only on a successful email confirmation (not on the
+                 conflict-handoff path, which reuses this same done state) —
+                 jumps straight to the saved proposal instead of forcing a
+                 full re-run of the assessment. -->
+            <bui-button id="recognition-view-proposal" variant="slate" class="hidden">View My Proposal</bui-button>
           </div>
         </div>
       </div>
@@ -919,9 +1184,9 @@
         <bui-progress-bar tone="header" label="3. Property Snapshot" value="27"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Tell us a little about your property</h2>
-        <p>This helps us calculate your potential revenue and recommended management fee.</p>
-        <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number"></bui-input>
+        <h2>Current Rent vs. Market</h2>
+        <p>This helps us understand what it may take to reach the gross potential rent for your property.</p>
+        <bui-input id="rent-input" label="Avg. Monthly Rent / Unit" prefix="$" type="number" inputmode="decimal"></bui-input>
 
         <div id="market-rent-hint" class="market-rent-hint hidden"></div>
 
@@ -962,6 +1227,7 @@
              single-unit gauge/chips/comps). -->
         <div id="snapshot-preview-market" class="market-card hidden">
           <div class="snapshot-title">Market rent by unit type<span id="snapshot-preview-market-zip" class="market-zip"></span></div>
+          <p class="market-card-note">For comparison only — nearby market rates by bedroom count, not what you entered above.</p>
           <div class="market-type-list" id="snapshot-preview-market-list"></div>
         </div>
       </div>
@@ -972,22 +1238,22 @@
     </bui-card>
   </section>
 
-  <!-- ============ STEP: projected annual revenue (transition into operations) ============ -->
+  <!-- ============ STEP: estimated annual revenue (transition into operations) ============ -->
   <section data-step="revenue" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="4. Projected Revenue" value="36"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="36"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Here's what this property could generate</h2>
-        <p>Next, let's look at how day-to-day operations affect how much of this revenue you actually keep.</p>
+        <h2>Here's the income your property should generate each year</h2>
+        <p>0% Vacancy, No Evictions, No Surprises.</p>
 
-        <!-- Revenue-first hero: projected annual rent, computed from the
+        <!-- Revenue-first hero: estimated annual rent, computed from the
              committed rent/unit-count (not live inputs — those live on the
              prior steps, already behind us by the time this renders). -->
         <div class="revenue-hero">
           <span class="revenue-hero__orb" aria-hidden="true"></span>
-          <div class="revenue-hero__kicker">Projected Annual Rent</div>
+          <div class="revenue-hero__kicker">Estimated Annual Rent</div>
           <div class="revenue-hero__amount num" id="revenue-annual">—</div>
           <div class="revenue-hero__sub" id="revenue-sub"></div>
         </div>
@@ -1014,24 +1280,27 @@
           <span class="driver-category__icon" id="driver-category-icon"></span>
           <span class="driver-category__name" id="driver-category-name"></span>
         </div>
-        <p style="font-weight:700; font-size: var(--bui-font-size-md); color: var(--bui-color-text); margin: 0 0 var(--bui-space-3);" id="driver-question"></p>
+        <p class="driver-question" id="driver-question"></p>
         <bui-progress-bar variant="segmented" id="driver-sub-progress" label="Driver" value="1" max="4"></bui-progress-bar>
         <div style="margin-top: var(--bui-space-4);">
           <bui-choice-group id="driver-choice-group" name="driver">
-            <bui-choice-card value="streamlined" label="Streamlined"
-              description="Minimal issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
+            <bui-choice-card value="streamlined" label="Minimal"
+              description="Few issues and low demand." meta="0.5x" meta-tone="slate"></bui-choice-card>
             <bui-choice-card value="standard" label="Standard"
               description="Typical demand for a property like yours." meta="1.0x" meta-tone="accent"></bui-choice-card>
             <bui-choice-card value="active" label="Active"
               description="Above-average activity and coordination." meta="1.5x" meta-tone="warning"></bui-choice-card>
-            <bui-choice-card value="intensive" label="Intensive"
+            <bui-choice-card value="intensive" label="Intense"
               description="High volume or complex requirements." meta="2.0x" meta-tone="danger"></bui-choice-card>
           </bui-choice-group>
         </div>
       </div>
+      <!-- No Continue here on purpose: picking an option flips the card and
+           reveals its own "Confirm & Continue" button (see
+           addDriverConfirmButton) — a second footer Continue was redundant. -->
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" id="driver-back">Back</bui-button>
-        <bui-button id="driver-continue" variant="slate" disabled>Continue</bui-button>
+        <span class="spacer"></span>
       </div>
     </bui-card>
   </section>
@@ -1043,8 +1312,32 @@
         <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Where should we send your report?</h2>
-        <p>We're finishing your operational demand score and recommended fee — just need to know where to send it.</p>
+        <h2>Your report is coming together</h2>
+        <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
+
+        <!-- Genuinely-true progress, not staged theater: property/market data
+             and a preliminary operational score are already known by this
+             point in the flow (RentCast quicklook + DemandEngine both ran
+             client-side back on earlier steps) — only the fee, which the
+             live pipeline computes once the Contact-linked Property record
+             exists, is still pending. Framing what's already done this way
+             is meant to make Get My Report read as an unlock, not the start
+             of a fresh wait. -->
+        <div class="report-progress">
+          <div class="report-progress__row is-done">
+            <span class="report-progress__icon">&#10003;</span>
+            <span>Property &amp; market data collected</span>
+          </div>
+          <div class="report-progress__row is-done">
+            <span class="report-progress__icon">&#10003;</span>
+            <span>Operational workload scored</span>
+          </div>
+          <div class="report-progress__row is-active">
+            <span class="report-progress__spinner" aria-hidden="true"></span>
+            <span>Waiting for your confirmation…</span>
+          </div>
+        </div>
+
         <div class="field-row">
           <bui-input id="contact-name-input" label="First Name"></bui-input>
           <bui-input id="contact-email-input" label="Email" type="email"></bui-input>
@@ -1062,7 +1355,11 @@
   <section data-step="loading" class="hidden">
     <bui-card variant="elevated" padding="sm" class="loading-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="10. Finalizing Your Report" value="91"></bui-progress-bar>
+        <!-- Post-question screens drop the step numbering on purpose (per
+             owner review): the numbered "1..9" count belongs to questions
+             the visitor answers; once they've answered the last one, the
+             remaining screens are delivery, not steps to complete. -->
+        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
         <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
@@ -1072,7 +1369,7 @@
         <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Located your property,Validating comps one last time,Scoring operational demand,Calculating your fee,Generating your report"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your report"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
@@ -1088,7 +1385,7 @@
   <section data-step="results" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div slot="header">
-        <bui-progress-bar tone="header" label="11. Your Management Proposal Report" value="100"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Your Management Proposal Report" value="100"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
         <div id="demo-banner" class="demo-banner hidden">
@@ -1096,7 +1393,7 @@
         </div>
 
         <p id="report-address" class="report-address hidden"></p>
-        <h2 class="report-h2">Your Management Proposal Report</h2>
+        <p class="report-subtitle">Management Proposal</p>
 
         <!-- 1. Operational Workload — leads the report. Band + meter are
              always computable client-side (even in demo mode), so this stays
@@ -1121,7 +1418,6 @@
              reusing the same navy .revenue-hero treatment as the Projected
              Revenue step, followed by the 5 branded service cards. -->
         <div class="proposal-section">
-          <div class="report-kicker">Our Proposal</div>
           <div class="revenue-hero">
             <span class="revenue-hero__orb" aria-hidden="true"></span>
             <div class="revenue-hero__kicker">Full Service Management</div>
@@ -1185,14 +1481,49 @@
     </bui-card>
   </section>
 
+  <!-- ============ STEP: schedule (embedded booking calendar) ============ -->
+  <!-- The final funnel screen. "Schedule your consultation" on the report
+       used to navigate the tab to BOOKING_URL (losing the report); now it
+       advances HERE and the same calendar renders inline in an iframe —
+       the visitor never leaves the funnel and can step Back to the report.
+       The iframe's src is set lazily by ensureBookingEmbed() on first
+       visit (with the visitor's name/email as prefill params), never in
+       markup, so nobody pays the calendar's load cost unless they ask
+       for it. -->
+  <section data-step="schedule" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Schedule Your Consultation" value="100"></bui-progress-bar>
+      </div>
+      <div class="step-intro">
+        <h2>Pick a time that works for you</h2>
+        <p>Choose a slot below and we'll walk through your proposal together.</p>
+      </div>
+      <div class="step-body-pad" style="padding-top: var(--bui-space-4);">
+        <div class="booking-embed">
+          <iframe id="booking-iframe" title="Schedule your consultation" scrolling="no"></iframe>
+        </div>
+        <p class="booking-fallback">Calendar not loading? <a id="booking-fallback-link" href="#" target="_blank" rel="noopener">Open the scheduling page directly</a>.</p>
+      </div>
+      <div class="step-footer">
+        <bui-button variant="secondary" data-back="results">Back to Report</bui-button>
+        <span class="spacer"></span>
+      </div>
+    </bui-card>
+  </section>
+
   <!-- Persistent trust row below the stepped card -- same "always visible,
-       never toggled by showStep()" pattern as .assessment-intro above. -->
+       never toggled by showStep()" pattern -- a plain sibling of the
+       [data-step] sections. -->
   <div class="trust-panel">
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
     <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Response Within 24 Hours</span>
+    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Initial Proposal in Minutes*</span>
   </div>
+  <!-- The asterisk's disclaimer — the fallback promise lives down here so
+       the guarantee row itself stays short. -->
+  <p class="trust-disclaimer">*Most proposals are ready in under 2 minutes. If a data source is temporarily unavailable, we'll follow up with your proposal within 24 hours.</p>
 
 </div>
 
@@ -1229,6 +1560,35 @@
     // as it did before this existed).
     CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
 
+    // Service-area gating, checked the moment an address is selected
+    // (before any RentCast/recognition calls are spent on it).
+    // - active: full assessment runs normally.
+    // - expansion: no assessment; the gate offers a stay-in-touch email
+    //   capture that lands as a tagged GHL contact (expansionLead action
+    //   on the recognition webhook) to build the launch pipeline.
+    // - anything else: a polite not-served message, nothing captured.
+    // States are USPS codes from Google's administrative_area_level_1.
+    // If Google returns no state at all (rare), the funnel FAILS OPEN and
+    // proceeds normally — better to occasionally assess an out-of-area
+    // property than to block a real prospect on missing data.
+    SERVICE_AREA: {
+      active: ['AR', 'CA'],
+      expansion: ['TX', 'OK', 'FL', 'GA', 'LA']
+    },
+
+    // Standalone saved-proposal viewer (app/proposal.html), same domain as
+    // this funnel page. A recognized visitor who confirms their email gets
+    // a "View My Proposal" shortcut to it instead of being forced through
+    // the whole assessment again. The confirmed email is handed off via
+    // sessionStorage (same-origin, tab-scoped) so proposal.html's own
+    // gate can confirm it silently instead of asking a second time.
+    // A GHL custom value, interpolated when GHL renders this page — the
+    // proposal URL lives in ONE place (GHL → Settings → Custom Values), so a
+    // future site reorg is a single edit there, not a code/paste change.
+    // Normalized just below the CONFIG block to a hardcoded fallback whenever
+    // it isn't interpolated (raw file / unset value), so the link never breaks.
+    PROPOSAL_PAGE_URL: '{{custom_values.management_proposal_url}}',
+
     // Poll endpoint for the two-phase report. When the assessment POST sets
     // AsyncReport:true, the pipeline returns the deterministic answer (fee,
     // band, market, comps, operational profile) in ~5-8s and generates the AI
@@ -1238,13 +1598,20 @@
     // synchronously with the full report, ~30s).
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
 
-    // Where "Schedule Consultation" sends the visitor — a same-funnel GHL
-    // page (this navigates the CURRENT tab, not a new one; see scheduleBtn's
-    // handler below). The live report is intentionally not preserved across
-    // that navigation — the visitor's copy comes from the emailed PDF
-    // instead (see power-automate-build-spec.md for the PDF-generation +
-    // email pipeline this depends on). Leave blank to no-op with a console
-    // warning instead of navigating to a dead link.
+    // Services catalog (the 5 branded service cards + AssetShield), read
+    // live from Dataverse (single source of truth, also used by contracts
+    // and elsewhere) instead of hardcoded here. If this fetch fails or is
+    // slow, FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD below keep the
+    // section working — a catalog outage should never blank the proposal.
+    SERVICES_CATALOG_URL: 'https://brichaus.app.n8n.cloud/webhook/services-catalog',
+
+    // The GHL booking calendar. No longer a navigation target — the
+    // "Schedule your consultation" CTA now advances to the funnel's own
+    // Schedule step, where this URL loads INSIDE an iframe (see
+    // ensureBookingEmbed()), so the visitor keeps their live report one
+    // Back-click away. The same URL doubles as the "open directly"
+    // fallback link under the embed. Leave blank to no-op with a console
+    // warning instead of showing a dead calendar.
     BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
 
     // Native GHL field `name` attributes this page mirrors values into via
@@ -1274,11 +1641,9 @@
       googlePlaceId: 'gBfCUbkbTAIPc0Lgp3O2',
       propertyName: 'gPrTpbXnXzkti10wJpUk',
       // Standard GHL Contact fields — collected on the "Get Your Report"
-      // step, right before the native submit fires. Required for the
-      // native submission to create a valid Contact at all; without a
-      // name/email captured somewhere first, that submission would either
-      // fail native validation or create an unusable, unidentifiable
-      // Contact record.
+      // step. These native-field mirrors are now best-effort only: the
+      // actual Contact is created server-side by the n8n pipeline from
+      // buildWebhookPayload()'s FirstName/Email, not by a GHL submission.
       firstName: 'first_name',
       email: 'email'
     },
@@ -1298,31 +1663,18 @@
     // more than once.
     GHL_TERMS_FIELD: 'terms_and_conditions',
 
-    // This page's native GHL Survey submit control — back to the same
-    // role="button" div with a ghl-btn/ghl-submit-btn class this Survey
-    // had originally (the plain-text-div-with-no-class and the real
-    // <button type="submit"> seen in between both belonged to the Form
-    // rebuild that turned out to be a dead end — see the top-of-file doc
-    // comment). n8n's pipeline only ever searches for a Property record
-    // by googlePlaceId and updates it — it never creates one, because a
-    // record created via direct API call has no linked Contact (see
-    // integrations/ghl-bridge.js submitNative doc). Only GHL's own native
-    // Survey submission creates that link, so this app has to trigger the
-    // real submission itself, once name/email/consent are captured on the
-    // "Get Your Report" step, before it calls WEBHOOK_URL — otherwise the
-    // record n8n searches for doesn't exist yet and the update silently
-    // no-ops.
-    GHL_SUBMIT_SELECTOR: '.ghl-submit-btn',
-
-    // Clicking GHL_SUBMIT_SELECTOR only fires GHL's own async submission —
-    // it doesn't confirm the record has actually been persisted server-side
-    // by the time control returns. This is a buffer before calling
-    // WEBHOOK_URL so n8n's search-by-googlePlaceId has a real record to
-    // find. Trimmed from 900ms — this is a guess, not a confirmation, so
-    // there's no real basis for 900 over a smaller number; if n8n's search
-    // starts coming up empty (record not found yet), raise this first
-    // before suspecting anything else.
-    GHL_SUBMIT_SETTLE_MS: 400,
+    // There is deliberately NO GHL_SUBMIT_SELECTOR / settle-delay config
+    // anymore. The native Survey submission used to be this widget's way
+    // of creating the Contact-linked Property record, and an entire family
+    // of timing/selector bugs lived here because of it. Confirmed dead
+    // live on 2026-07-10 (GHL ignores synthetic clicks — isTrusted:
+    // false), so record creation moved server-side: the n8n pipeline now
+    // creates the Property record, upserts the Contact, links the two via
+    // GHL's associations API, and logs a consent note, all from the
+    // FirstName/Email/Consent fields sent in buildWebhookPayload(). If
+    // records ever stop appearing in GHL again, debug the n8n pipeline
+    // (PropScore: Main Pipeline → Create GHL Property Record and the
+    // nodes after it) — there is nothing left to debug on this page.
 
     // The Fee Calculation flow's request schema also expects these add-on
     // toggles (see power-automate-build-spec.md). This funnel's 9 steps
@@ -1337,6 +1689,13 @@
       inspections: ''       // default false
     }
   };
+
+  // Resolve the PROPOSAL_PAGE_URL custom value. If GHL interpolated it, use it;
+  // if not (raw file, or the custom value is unset — the placeholder still
+  // contains "{{"), fall back to the canonical URL so the link always works.
+  if (!CONFIG.PROPOSAL_PAGE_URL || CONFIG.PROPOSAL_PAGE_URL.indexOf('{{') !== -1) {
+    CONFIG.PROPOSAL_PAGE_URL = 'https://brichausgroup.com/mgmt_proposal';
+  }
 
   /* =====================================================================
    * Operational Demand Engine
@@ -1397,14 +1756,15 @@
    * App state
    * =================================================================== */
   var state = {
-    address: { formattedAddress: '', placeId: '', propertyName: '' },
+    address: { formattedAddress: '', placeId: '', propertyName: '', stateCode: '', stateName: '' },
     propertyType: '', // 'single' | 'multi' — set on the Property Type step, before address/quicklook
     unitCount: 1,
     rentPerUnit: 0,
     // No pre-selected value for any driver — the visitor must actively pick
-    // one before Continue enables (see renderDriverStep/driverContinue).
+    // one, which reveals the in-card Confirm & Continue button (the only
+    // way forward; see addDriverConfirmButton).
     drivers: { tenant: '', turnover: '', maintenance: '', compliance: '' },
-    contact: { firstName: '', email: '' },
+    contact: { firstName: '', email: '', consentTs: '' },
     result: null, // populated once the webhook responds (or demo fallback)
     // 'idle' | 'loading' | 'ready' | 'error'. propertyType/unitConfiguration/
     // comparables come from the enriched RentCast quicklook and feed the
@@ -1413,14 +1773,14 @@
     // Populated by checkContactRecognition() when the selected property
     // already has a known point of contact on file. attempts counts failed
     // email-confirmation tries (2 allowed before the conflict/phone path).
-    recognition: { active: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
+    recognition: { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
   };
 
   var DRIVER_STEPS = [
-    { key: 'tenant', title: 'Tenant Management', icon: '👥', question: 'How would you describe the overall tenant management demands of your property?' },
-    { key: 'turnover', title: 'Turnover', icon: '🔄', question: 'How would you describe the unit turnover activity for your property?' },
-    { key: 'maintenance', title: 'Maintenance', icon: '🔧', question: 'How would you describe the overall maintenance demands of your property?' },
-    { key: 'compliance', title: 'Compliance', icon: '⚖️', question: 'How would you describe the compliance and regulatory demands of your property?' }
+    { key: 'tenant', title: 'Tenant Friction', icon: '👥', question: 'How would you describe the overall tenant management demands of your property?' },
+    { key: 'turnover', title: 'Turnover Pressure', icon: '🔄', question: 'How would you describe the unit turnover activity for your property?' },
+    { key: 'maintenance', title: 'Maintenance Burden', icon: '🔧', question: 'How would you describe the overall maintenance demands of your property?' },
+    { key: 'compliance', title: 'Compliance & Administration', icon: '⚖️', question: 'How would you describe the compliance and regulatory demands of your property?' }
   ];
   var driverStepIndex = 0;
 
@@ -1469,7 +1829,8 @@
     driver: root.querySelector('[data-step="driver"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
-    results: root.querySelector('[data-step="results"]')
+    results: root.querySelector('[data-step="results"]'),
+    schedule: root.querySelector('[data-step="schedule"]')
   };
 
   var propertyTypeChoiceGroup = document.getElementById('property-type-choice-group');
@@ -1479,6 +1840,7 @@
 
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
+  var addressVerifying = document.getElementById('address-verifying');
 
   var recognitionPanel = document.getElementById('recognition-panel');
   var recognitionWelcome = document.getElementById('recognition-welcome');
@@ -1491,6 +1853,7 @@
   var recognitionPhoneBtn = document.getElementById('recognition-phone-btn');
   var recognitionDone = document.getElementById('recognition-done');
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
+  var recognitionViewProposal = document.getElementById('recognition-view-proposal');
 
   var rentInput = document.getElementById('rent-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
@@ -1522,7 +1885,6 @@
   var driverHeaderProgress = document.getElementById('driver-header-progress');
   var driverSubProgress = document.getElementById('driver-sub-progress');
   var driverChoiceGroup = document.getElementById('driver-choice-group');
-  var driverContinue = document.getElementById('driver-continue');
   var driverBack = document.getElementById('driver-back');
 
   var contactNameInput = document.getElementById('contact-name-input');
@@ -1660,8 +2022,34 @@
     propertyTypeContinue.toggleAttribute('disabled', !type || !unitsOk);
   }
 
+  // Moves the Number of Units field INSIDE the Multifamily card's body the
+  // first time it's needed (the card's inner div doesn't exist until the
+  // component initializes, so this can't run at parse time). The stop-
+  // propagation guards keep interactions with the field from re-triggering
+  // the card's own click-to-select handler or the group's arrow-key
+  // navigation (a space/arrow typed in the input would otherwise be
+  // swallowed as a card-selection keystroke).
+  // bui-input/bui-change are in this list because the units field now sits
+  // INSIDE the choice group: its own value events would otherwise bubble up
+  // and be misread by the group's bui-change handler below as a card change
+  // (hiding this very field mid-interaction). The app's direct listeners on
+  // #unit-count-input still fire — they're on the dispatch target itself,
+  // before propagation is what gets stopped.
+  ['click', 'mousedown', 'keydown', 'bui-input', 'bui-change'].forEach(function (name) {
+    unitCountField.addEventListener(name, function (evt) { evt.stopPropagation(); });
+  });
+  function ensureUnitCountInCard() {
+    var inner = propertyTypeChoiceGroup.querySelector('bui-choice-card[value="multi"] .bui-choice-card');
+    if (!inner || unitCountField.parentElement === inner) return;
+    inner.appendChild(unitCountField);
+  }
+
   propertyTypeChoiceGroup.addEventListener('bui-change', function (evt) {
+    // Belt to the stopPropagation suspenders above: only the group's OWN
+    // selection change matters here, never a bubbled child event.
+    if (evt.target !== propertyTypeChoiceGroup) return;
     var isMulti = evt.detail.value === 'multi';
+    if (isMulti) ensureUnitCountInCard();
     unitCountField.classList.toggle('hidden', !isMulti);
     refreshPropertyTypeContinue();
   });
@@ -1683,15 +2071,160 @@
     showStep('property-type');
   });
 
+  // --- Service-area gate ------------------------------------------------
+  var serviceAreaGate = document.getElementById('service-area-gate');
+  var serviceAreaMessage = document.getElementById('service-area-message');
+  var expansionCapture = document.getElementById('expansion-capture');
+  var expansionEmailInput = document.getElementById('expansion-email-input');
+  var expansionNotifyBtn = document.getElementById('expansion-notify-btn');
+
+  function serviceAreaTier(stateCode) {
+    if (!stateCode) return 'active'; // fail open — see SERVICE_AREA doc comment
+    if (CONFIG.SERVICE_AREA.active.indexOf(stateCode) !== -1) return 'active';
+    if (CONFIG.SERVICE_AREA.expansion.indexOf(stateCode) !== -1) return 'expansion';
+    return 'unserved';
+  }
+
+  function hideServiceAreaGate() {
+    serviceAreaGate.classList.add('hidden');
+    expansionCapture.classList.add('hidden');
+  }
+
+  function showServiceAreaGate(tier, stateName) {
+    var label = stateName || 'your area';
+    if (tier === 'expansion') {
+      serviceAreaMessage.textContent = "We're not managing properties in " + label +
+        " quite yet — it's one of our next markets. Leave your email and you'll be the first to know when we launch.";
+      expansionCapture.classList.remove('hidden');
+    } else {
+      serviceAreaMessage.textContent = "We don't currently manage properties in " + label +
+        ". We focus on Arkansas and California today.";
+      expansionCapture.classList.add('hidden');
+    }
+    serviceAreaGate.classList.remove('hidden');
+  }
+
+  var expansionEmailValue = '';
+  ['bui-input', 'bui-change'].forEach(function (eventName) {
+    expansionEmailInput.addEventListener(eventName, function (evt) {
+      expansionEmailValue = (evt.detail.value || '').trim();
+    });
+  });
+
+  expansionNotifyBtn.addEventListener('bui-click', function () {
+    var email = expansionEmailValue;
+    if (!email || email.indexOf('@') === -1) {
+      expansionEmailInput.setAttribute('error', 'Please enter a valid email.');
+      return;
+    }
+    expansionEmailInput.setAttribute('error', '');
+    var stateName = state.address.stateName || state.address.stateCode || 'your area';
+    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'expansionLead',
+        email: email,
+        state: state.address.stateCode || '',
+        formattedAddress: state.address.formattedAddress || '',
+        googlePlaceId: state.address.placeId || ''
+      })
+    }).catch(function (err) {
+      // Deliberately fire-and-forget: the thank-you below is shown either
+      // way — a lost lead ping shouldn't turn into a visitor-facing error.
+      console.warn('[brichaus-assessment] expansionLead capture failed:', err);
+    });
+    expansionCapture.classList.add('hidden');
+    serviceAreaMessage.textContent = "Thanks — you're on the list! We'll reach out as soon as we open in " + stateName + ".";
+  });
+  // -----------------------------------------------------------------------
+
+  // --- Address confirmation map -----------------------------------------
+  // Drops a pin on a small satellite map under the address field as a
+  // second check that the matched place is really their property. Uses the
+  // Maps JS API already loaded for autocomplete (no extra key/API). Every
+  // failure path just keeps the map hidden — it's a nice-to-have, never a
+  // blocker.
+  var addressMapDiv = document.getElementById('address-map');
+  var addressMap = null;
+  var addressMarker = null;
+
+  function hideAddressMap() {
+    addressMapDiv.classList.add('hidden');
+  }
+
+  function showAddressMap(loc) {
+    // Place.location is a LatLng (lat()/lng() methods) in the live API but
+    // may be a plain {lat, lng} in other shapes — accept both.
+    var lat = loc && (typeof loc.lat === 'function' ? loc.lat() : loc.lat);
+    var lng = loc && (typeof loc.lng === 'function' ? loc.lng() : loc.lng);
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+      hideAddressMap();
+      return;
+    }
+    if (!(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
+      hideAddressMap();
+      return;
+    }
+    var center = { lat: lat, lng: lng };
+    google.maps.importLibrary('maps').then(function (lib) {
+      if (!lib || typeof lib.Map !== 'function') { hideAddressMap(); return; }
+      addressMapDiv.classList.remove('hidden');
+      if (!addressMap) {
+        addressMap = new lib.Map(addressMapDiv, {
+          center: center,
+          zoom: 18,
+          mapTypeId: 'hybrid', // satellite + labels: the roof itself is the confirmation
+          disableDefaultUI: true,
+          zoomControl: true,
+          clickableIcons: false,
+          gestureHandling: 'cooperative' // one-finger page scroll still works on mobile
+        });
+      } else {
+        addressMap.setCenter(center);
+      }
+      // Classic Marker (no mapId requirement, unlike AdvancedMarkerElement).
+      if (typeof google.maps.Marker === 'function') {
+        if (!addressMarker) addressMarker = new google.maps.Marker({ map: addressMap, position: center });
+        else addressMarker.setPosition(center);
+      }
+    }).catch(function () {
+      hideAddressMap();
+    });
+  }
+  // -----------------------------------------------------------------------
+
   addressInput.addEventListener('bui-address-select', function (evt) {
     var place = evt.detail.place || {};
     state.address.formattedAddress = place.formattedAddress || evt.detail.description || '';
     state.address.placeId = evt.detail.placeId || '';
     state.address.propertyName = computePropertyName(place, state.address.formattedAddress);
+    var stateComponent = (place.addressComponents || []).filter(function (c) {
+      return c && c.types && c.types.indexOf('administrative_area_level_1') !== -1;
+    })[0];
+    state.address.stateCode = stateComponent ? (stateComponent.shortText || '') : '';
+    state.address.stateName = stateComponent ? (stateComponent.longText || stateComponent.shortText || '') : '';
     addressInput.setAttribute('error', '');
-    locationContinue.toggleAttribute('disabled', !state.address.placeId);
     syncGhlField('googlePlaceId', state.address.placeId);
     syncGhlField('propertyName', state.address.propertyName);
+    // Shown for every selection — in-area or not, "is that pin my
+    // property?" is the same secondary check.
+    showAddressMap(place.location);
+
+    // Out-of-area properties stop here: no Continue, and no RentCast/
+    // recognition spend on an assessment that will never run.
+    var tier = serviceAreaTier(state.address.stateCode);
+    if (tier !== 'active') {
+      // Order matters: resetRecognitionPanel() re-derives Continue's
+      // disabled state from placeId (which IS set here) — so the
+      // gate's disable must come after it, not before.
+      resetRecognitionPanel();
+      locationContinue.setAttribute('disabled', '');
+      showServiceAreaGate(tier, state.address.stateName);
+      return;
+    }
+    hideServiceAreaGate();
+    locationContinue.toggleAttribute('disabled', !state.address.placeId);
     fetchRentCastQuicklook(state.address.formattedAddress);
     checkContactRecognition();
   });
@@ -1715,6 +2248,10 @@
     state.address.formattedAddress = typed;
     state.address.placeId = '';
     state.address.propertyName = '';
+    state.address.stateCode = '';
+    state.address.stateName = '';
+    hideServiceAreaGate();
+    hideAddressMap();
     locationContinue.setAttribute('disabled', '');
     addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
     syncGhlField('googlePlaceId', '');
@@ -1722,6 +2259,37 @@
     if (typed) fetchRentCastQuicklook(typed);
     resetRecognitionPanel();
   });
+
+  // The gate and pin map reflect a SELECTED address; the moment the visitor
+  // starts typing something new they're stale. bui-change (the handler
+  // above) only fires on commit (blur/Enter), so clear on the per-keystroke
+  // event too.
+  addressInput.addEventListener('bui-input', function () {
+    hideServiceAreaGate();
+    hideAddressMap();
+  });
+
+  // Enter, pressed a second time once an address is already selected (the
+  // suggestion dropdown closed, a real placeId on file, and Continue not
+  // still gated by the recognition check above), advances the step —
+  // mirrors the common "type, Enter, Enter" address-field pattern instead
+  // of forcing a mouse click. Registered on the capture phase so it reads
+  // the dropdown's open/closed state as it was BEFORE the component's own
+  // keydown handler (registered directly on its native <input>, target
+  // phase) runs and possibly closes it by selecting a suggestion — without
+  // that ordering, the very same Enter that just picked a suggestion would
+  // also fire this and try to advance before checkContactRecognition() has
+  // even disabled Continue, let alone resolved.
+  addressInput.addEventListener('keydown', function (evt) {
+    if (evt.key !== 'Enter') return;
+    var listbox = addressInput.querySelector('.bui-address-listbox');
+    var suggestionsOpen = listbox && listbox.dataset.open === 'true';
+    if (suggestionsOpen) return; // let the component's own handler pick a suggestion instead
+    if (state.address.placeId && !locationContinue.hasAttribute('disabled')) {
+      evt.preventDefault();
+      locationContinue.querySelector('.bui-btn').click();
+    }
+  }, true);
 
   // Fired the moment an address is committed (selection or manual typed
   // entry) rather than waiting for the full n8n pipeline at the end of
@@ -1846,16 +2414,26 @@
   // whenever the address changes so a stale welcome/phone prompt from a
   // previous selection never lingers on a new one.
   function resetRecognitionPanel() {
-    state.recognition = { active: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+    state.recognition = { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
     recognitionPanel.classList.add('hidden');
     recognitionWelcome.classList.add('hidden');
     recognitionPhone.classList.add('hidden');
     recognitionDone.classList.add('hidden');
+    recognitionViewProposal.classList.add('hidden');
     recognitionEmailError.classList.add('hidden');
     recognitionEmailValue = '';
     recognitionPhoneValue = '';
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
+    addressVerifying.classList.add('hidden');
   }
+
+  // Same-tab jump to the standalone saved-proposal page for this property.
+  // Only ever visible after a successful email confirmation (see the
+  // confirmEmail handler), never on the conflict-handoff done state.
+  recognitionViewProposal.addEventListener('bui-click', function () {
+    if (!CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId) return;
+    window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
+  });
 
   var recognitionEmailValue = '';
   var recognitionPhoneValue = '';
@@ -1891,6 +2469,11 @@
     // either be too short on a slow connection or needlessly annoying on a fast
     // one; disabling until the check actually settles is correct either way.
     locationContinue.setAttribute('disabled', '');
+    // Visible feedback for the disabled-button gap above — otherwise the
+    // visitor just sees Continue go dead with no explanation while this
+    // fetch is in flight. Cleared on every resolution path below (and by
+    // resetRecognitionPanel() if a newer selection supersedes this one).
+    addressVerifying.classList.remove('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1899,6 +2482,7 @@
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (placeId !== state.address.placeId) return; // superseded by a newer selection
+        addressVerifying.classList.add('hidden');
         if (!data || !data.recognized) {
           locationContinue.removeAttribute('disabled');
           return;
@@ -1918,7 +2502,10 @@
         // Fail open — a webhook outage should never trap a legitimate visitor
         // behind a check that can't complete, same principle as the RentCast
         // quicklook's own non-blocking failure handling.
-        if (placeId === state.address.placeId) locationContinue.removeAttribute('disabled');
+        if (placeId === state.address.placeId) {
+          addressVerifying.classList.add('hidden');
+          locationContinue.removeAttribute('disabled');
+        }
       });
   }
 
@@ -1936,8 +2523,25 @@
         if (placeId !== state.address.placeId) return; // superseded by a newer selection
         if (data && data.confirmed) {
           showRecognitionState('done');
-          recognitionDoneMessage.textContent = 'Thanks, ' + state.recognition.firstName + '! Continue below to get your updated proposal.';
+          recognitionDoneMessage.textContent = 'Thanks, ' + state.recognition.firstName + '! View your saved proposal, or continue below to run a fresh assessment on this property.';
+          if (CONFIG.PROPOSAL_PAGE_URL) recognitionViewProposal.classList.remove('hidden');
           locationContinue.removeAttribute('disabled');
+          // Hand the confirmed email to proposal.html (same origin) so its
+          // own gate can confirm silently instead of asking a second time.
+          // sessionStorage is tab-scoped and can throw in some private
+          // browsing modes — failing just means one extra email prompt.
+          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
+          // A confirmed existing contact shouldn't be re-onboarded at the
+          // "Get Your Report" step: prefill their known name and the email
+          // they just confirmed, and (see refreshContactContinue) skip the
+          // consent-checkbox gate — they already agreed when they first
+          // came through. The backend just associates the new property.
+          state.recognition.confirmed = true;
+          if (!state.contact.firstName) state.contact.firstName = state.recognition.firstName;
+          state.contact.email = emailAttempt;
+          contactNameInput.value = state.contact.firstName;
+          contactEmailInput.value = state.contact.email;
+          refreshContactContinue();
           return;
         }
         // Kept so the conflict handoff below can hand a human every email
@@ -2096,7 +2700,22 @@
   }
 
   function renderRentPlaceholder() {
+    var isMF = state.propertyType === 'multi';
     var value = computeRentPlaceholder(state.rentCast, state.propertyType);
+
+    // Multifamily has no single "market rent" to ballpark against (see
+    // computeRentPlaceholder above) — the per-unit-type table below is
+    // comparison data, not a value to copy into this field, so this needs
+    // its own label/hint spelling that out rather than the SFR copy, which
+    // reads as if it's asking for a market-rate guess.
+    rentInput.setAttribute('label', isMF ? 'Current Avg. Monthly Rent / Unit' : 'Avg. Monthly Rent / Unit');
+    if (isMF) {
+      rentInput.setAttribute('hint', 'Enter what you currently charge across the units in this building — the market rates below are for comparison only.');
+      if (value != null) rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
+      else rentInput.removeAttribute('placeholder');
+      return;
+    }
+
     if (value != null) {
       rentInput.setAttribute('placeholder', 'e.g. ' + currency(value));
       rentInput.setAttribute('hint', 'Ballpark only, not a prediction — enter your actual average rent per unit.');
@@ -2198,13 +2817,12 @@
     driverCategoryIcon.textContent = step.icon;
     driverCategoryName.textContent = step.title;
     driverQuestion.textContent = step.question;
-    driverSubProgress.setAttribute('label', step.title + ' Driver');
+    driverSubProgress.setAttribute('label', 'Select the option that best describes your reality');
     driverSubProgress.setAttribute('value', String(driverStepIndex + 1));
     driverHeaderProgress.setAttribute('value', String(45 + driverStepIndex * 10));
 
     var current = state.drivers[step.key];
     driverChoiceGroup.value = current;
-    driverContinue.toggleAttribute('disabled', !current);
 
     // Safety net: don't depend on whether the value assignment above
     // happened to dispatch a synthetic 'bui-change' (BuiChoiceGroup only
@@ -2224,6 +2842,31 @@
   // matching card — this is idempotent and safe to call any number of times
   // regardless of whether it's triggered by a real click, a synthetic
   // re-sync event, or renderDriverStep()'s own safety-net call.
+  function removeDriverConfirmButton(card) {
+    var inner = card.querySelector('.bui-choice-card');
+    var btn = inner && inner.querySelector('.driver-confirm-btn');
+    if (btn) btn.remove();
+  }
+
+  // Lets the visitor confirm and move on right from the card they just
+  // flipped — this is the ONLY way forward on the driver steps (the footer
+  // deliberately has no Continue of its own; it was redundant with this).
+  // Appended into the flipped card itself (see showDriverCardReference()),
+  // never into the other 3.
+  function addDriverConfirmButton(card) {
+    var inner = card.querySelector('.bui-choice-card');
+    if (!inner || inner.querySelector('.driver-confirm-btn')) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'driver-confirm-btn';
+    btn.textContent = 'Confirm & Continue';
+    btn.addEventListener('click', function (evt) {
+      evt.stopPropagation(); // don't let this re-trigger the card's own click-to-select handler
+      advanceDriverStep();
+    });
+    inner.appendChild(btn);
+  }
+
   function resetDriverCardDescriptions() {
     var cards = Array.prototype.slice.call(driverChoiceGroup.querySelectorAll('bui-choice-card'));
     cards.forEach(function (card) {
@@ -2232,6 +2875,7 @@
       }
       card.classList.remove('is-flipping');
       card.setAttribute('description', card.dataset.originalDescription);
+      removeDriverConfirmButton(card);
     });
   }
 
@@ -2242,6 +2886,7 @@
     if (!card) return;
     if (!animate || window.BUI.prefersReducedMotion()) {
       card.setAttribute('description', nuanced);
+      addDriverConfirmButton(card);
       return;
     }
     card.classList.add('is-flipping');
@@ -2251,6 +2896,7 @@
       // a stale timeout re-apply nuanced text to a no-longer-selected card.
       if (card.classList.contains('is-flipping')) {
         card.setAttribute('description', nuanced);
+        addDriverConfirmButton(card);
       }
     }, 160);
   }
@@ -2259,7 +2905,6 @@
     var step = DRIVER_STEPS[driverStepIndex];
     var isNewChoice = state.drivers[step.key] !== evt.detail.value;
     state.drivers[step.key] = evt.detail.value;
-    driverContinue.removeAttribute('disabled');
     resetDriverCardDescriptions();
     if (evt.detail.value) showDriverCardReference(step.key, evt.detail.value, isNewChoice);
   });
@@ -2273,7 +2918,7 @@
     renderDriverStep();
   });
 
-  driverContinue.addEventListener('bui-click', function () {
+  function advanceDriverStep() {
     var step = DRIVER_STEPS[driverStepIndex];
     if (!state.drivers[step.key]) return;
 
@@ -2286,7 +2931,8 @@
     } else {
       showStep('contact');
     }
-  });
+  }
+
 
   /* =====================================================================
    * Step 9: Get Your Report — captures the name/email/consent this native
@@ -2299,7 +2945,10 @@
   }
 
   function refreshContactContinue() {
-    var termsOk = !!(termsFieldEl && termsFieldEl.checked);
+    // A recognized contact who confirmed their email already consented on a
+    // previous visit — don't gate them on the checkbox again; the backend
+    // just associates the new property with their existing Contact.
+    var termsOk = !!(termsFieldEl && termsFieldEl.checked) || state.recognition.confirmed;
     var ready = !!state.contact.firstName && isValidEmail(state.contact.email) && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
   }
@@ -2332,8 +2981,16 @@
   // live testing since this sandbox has no network path to the live page.
   window.BUI.ghl.whenFieldReady(CONFIG.GHL_TERMS_FIELD, function (el) {
     termsFieldEl = el;
-    el.addEventListener('change', refreshContactContinue);
-    el.addEventListener('click', refreshContactContinue);
+    function onTermsChange() {
+      // Stamp the consent moment (not the submit moment) — this exact
+      // timestamp is what gets recorded on the GHL contact for compliance.
+      if (el.checked && !state.contact.consentTs) {
+        state.contact.consentTs = new Date().toISOString();
+      }
+      refreshContactContinue();
+    }
+    el.addEventListener('change', onTermsChange);
+    el.addEventListener('click', onTermsChange);
 
     var container = el.closest('.checkbox-container') || el.parentElement;
     var slot = document.getElementById('terms-slot');
@@ -2348,37 +3005,25 @@
 
   contactContinue.addEventListener('bui-click', function () {
     if (contactContinue.hasAttribute('disabled')) return;
-    contactContinue.setAttribute('disabled', ''); // guard against a second click firing a second native submit
-    submitNativeThenAssess();
+    contactContinue.setAttribute('disabled', ''); // guard against a double-click firing a second webhook call
+    startAssessment();
   });
 
-  // Fires GHL's own native Survey submission — creating the Contact-linked
-  // Property record n8n will search for — then waits GHL_SUBMIT_SETTLE_MS
-  // for it to actually persist before calling WEBHOOK_URL. See
-  // GHL_SUBMIT_SELECTOR above for why this can't happen any earlier or
-  // any later than right here. Shows the loading step immediately, before
-  // that wait, rather than after it — the click should never sit there
-  // looking unresponsive while nothing on screen has changed yet.
-  function submitNativeThenAssess() {
+  // GHL's native Survey submission is deliberately NOT fired here anymore.
+  // It was the old way the Contact-linked Property record got created, via
+  // submitNative() clicking GHL's hidden submit control — confirmed dead
+  // live on 2026-07-10: fields populated and consent checked, but GHL no
+  // longer honors the synthetic (isTrusted: false) click, so no record was
+  // ever created. Record creation now happens server-side in the n8n
+  // pipeline via the GHL API (create + contact upsert + owner association
+  // + consent note), fed by the FirstName/Email/Consent fields this widget
+  // sends in buildWebhookPayload(). Nothing here depends on GHL's page
+  // internals anymore, and no settle delay is needed before scoring.
+  function startAssessment() {
     showStep('loading');
     checklist.current = 1;
     buildProgress.setAttribute('value', '0');
-
-    // Defensive re-write immediately before submitting — googlePlaceId and
-    // propertyName were first written back at the Location step, possibly
-    // minutes ago. GHL's Vue Survey has been observed remounting fields'
-    // DOM nodes on its own re-renders elsewhere on this project, which
-    // would silently lose an earlier .value write (a freshly mounted node
-    // starts blank). Re-syncing right here, right before the value is
-    // actually needed, closes that gap regardless of the exact cause.
-    syncGhlField('googlePlaceId', state.address.placeId);
-    syncGhlField('propertyName', state.address.propertyName);
-
-    var submitted = window.BUI.ghl.submitNative(CONFIG.GHL_SUBMIT_SELECTOR);
-    if (!submitted) {
-      console.warn('[brichaus-assessment] Native GHL submit control not found (' + CONFIG.GHL_SUBMIT_SELECTOR + ') — the Property record was not created via GHL submission before scoring.');
-    }
-    setTimeout(runAssessment, submitted ? CONFIG.GHL_SUBMIT_SETTLE_MS : 0);
+    runAssessment();
   }
 
   /* =====================================================================
@@ -2400,6 +3045,28 @@
       GooglePlaceID: state.address.placeId,
       FormattedAddress: state.address.formattedAddress,
       PropertyName: state.address.propertyName || state.address.formattedAddress,
+      // Property type, two granularities: the visitor's own Step-1 answer
+      // (coarse, always present) and RentCast's classification from the
+      // quicklook (granular — "Condo", "Townhouse", etc.; empty when the
+      // quicklook failed). n8n writes both to the GHL Property record
+      // (property_type / property_type_rentcast) and Dataverse so records
+      // can be filtered by type.
+      PropertyType: state.propertyType === 'multi' ? 'Multifamily' : 'Single Family',
+      RentCastPropertyType: state.rentCast.propertyType || '',
+      // Contact + consent — the n8n pipeline (not GHL's native survey
+      // submission) now creates the GHL Contact, the Property record, and
+      // their association from these. Consent is structurally always true
+      // here (the Continue button is disabled until the terms checkbox is
+      // checked) but sent explicitly, with the moment it was given, so the
+      // backend records a real compliance trail rather than inferring it.
+      FirstName: state.contact.firstName,
+      Email: state.contact.email,
+      // Known GHL contact id from the recognition flow, when this visitor
+      // confirmed their email as an existing contact — lets the backend
+      // associate the property directly even if the email were edited.
+      ContactID: state.recognition.confirmed ? state.recognition.contactId : '',
+      Consent: !!(termsFieldEl && termsFieldEl.checked),
+      ConsentTimestamp: state.contact.consentTs || new Date().toISOString(),
       // Opt into the two-phase report only when we have somewhere to poll for
       // the narrative. Without REPORT_STATUS_URL the pipeline responds
       // synchronously with the full report, so we must not request async.
@@ -2616,8 +3283,12 @@
     }
     demoBanner.classList.toggle('hidden', !(result.isDemo || isIllustrative));
 
-    // Header address — from the selected place, falling back to the derived name.
-    var addr = state.address.formattedAddress || state.address.propertyName || '';
+    // Report title — the derived property name (computePropertyName:
+    // Google displayName or "<number> <street>"), NOT the full
+    // formattedAddress with city/state/zip/country, which read as clutter
+    // in the title slot. Falls back to the formatted address only when no
+    // name could be derived.
+    var addr = state.address.propertyName || state.address.formattedAddress || '';
     reportAddress.textContent = addr;
     reportAddress.classList.toggle('hidden', !addr);
 
@@ -2627,7 +3298,7 @@
     // (.revenue-hero__total) already used for "$X/mo total" on the
     // Projected Revenue step.
     heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
-    heroFeeSub.innerHTML = 'recommended monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span> on ' + currency(grossMonthly) + ' gross monthly rent';
+    heroFeeSub.innerHTML = 'estimated monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span> on ' + currency(grossMonthly) + ' gross monthly rent';
 
     // Workload band + meter: always computable client-side (even in demo
     // mode / a failed webhook), so this section stays visible unconditionally
@@ -2865,9 +3536,12 @@
   }
 
   /* =====================================================================
-   * Proposal — 5 branded service cards (4 static + AssetShield, dynamic).
+   * Proposal — 6 branded service cards (5 static + AssetShield, dynamic).
+   * Live source is Dataverse (see SERVICES_CATALOG_URL / fetchServicesCatalog
+   * below) — FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD here are only used
+   * if that fetch fails or is slow, so the section never blanks out.
    * =================================================================== */
-  var SERVICE_CARDS = [
+  var FALLBACK_SERVICE_CARDS = [
     { icon: '🏠', title: 'Market-to-Move-In™',
       desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
       items: [
@@ -2908,6 +3582,16 @@
         'Confirm Utilities Transfer',
         'Coordinate Tenant Communications',
         'Negotiate Lease Renewals &amp; Agreements'
+      ] },
+    { icon: '👥', title: 'Managed Tenants™',
+      desc: 'Keep residents engaged and your property compliant with consistent, professional tenant relationship management throughout the lease term.',
+      items: [
+        'Resident Portal Access &amp; Support',
+        'Lease Renewal Management',
+        'Policy &amp; Community Standards Enforcement',
+        'Routine Tenant Communications',
+        'Complaint &amp; Conflict Resolution',
+        'Resident Satisfaction Check-ins'
       ] }
   ];
 
@@ -2916,9 +3600,9 @@
   // corresponding input field there) — Leasing Fee Protection, Lost Rent
   // Coverage, and Malicious Tenant Damage Coverage were dropped because
   // Power Automate's fee formula has no field to price them at all.
-  var ASSET_SHIELD = {
+  var FALLBACK_ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
-    desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
+    desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
     items: [
       'Annual Inspections',
       'Pet Placement Protection',
@@ -2927,6 +3611,38 @@
     ]
   };
 
+  // Fetches the live catalog (Dataverse-backed single source of truth) and
+  // resolves to { cards, assetShield } — the shape buildServiceCard/
+  // renderProposalServiceCards already expect. NEVER rejects: any failure
+  // (network error, bad JSON, empty/malformed response, or simply taking
+  // too long) resolves to the FALLBACK_* constants above instead, so a
+  // catalog outage degrades to slightly-stale content, not a blank section.
+  function fetchServicesCatalog() {
+    var fallback = { cards: FALLBACK_SERVICE_CARDS, assetShield: FALLBACK_ASSET_SHIELD };
+    if (!CONFIG.SERVICES_CATALOG_URL) return Promise.resolve(fallback);
+
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(fallback); }, 4000); });
+    var live = fetch(CONFIG.SERVICES_CATALOG_URL).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      var categories = (data && data.categories) || [];
+      if (!categories.length) throw new Error('empty catalog');
+      var assetShield = null;
+      var cards = [];
+      categories.forEach(function (c) {
+        var card = { icon: c.icon, title: c.title, desc: c.desc, items: c.items || [] };
+        if (c.title === 'AssetShield™') assetShield = card; else cards.push(card);
+      });
+      if (!assetShield) throw new Error('catalog missing AssetShield™');
+      return { cards: cards, assetShield: assetShield };
+    }).catch(function () { return fallback; });
+
+    return Promise.race([live, timeout]);
+  }
+
+  var catalogPromise = fetchServicesCatalog();
+
   // Bridges the real server field (report.operationalProfile.categories[].category,
   // a display string) to the machine keys ASSET_SHIELD_TRIGGERS is keyed by —
   // the pipeline has no "key" field of its own, only the display name.
@@ -2934,6 +3650,9 @@
     'Tenant Friction': 'tenantFriction',
     'Turnover Pressure': 'turnoverPressure',
     'Maintenance Burden': 'maintenanceBurden',
+    // Current pipeline label + the pre-rename one — cached proposals
+    // (report-status cache, Dataverse snapshots) still carry the old string.
+    'Compliance & Administration': 'complianceBurden',
     'Compliance Burden': 'complianceBurden'
   };
 
@@ -3109,11 +3828,16 @@
     var cats = (profile && profile.categories) || [];
     var badgedItems = computeBadgedAssetShieldItems(cats);
 
-    serviceCardsList.innerHTML = '';
-    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
-    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
-    cards.push(assetShieldCard);
-    runRevealSequence(cards, assetShieldCard);
+    // catalogPromise was kicked off at load time (in parallel with the
+    // scoring webhook), so by the time this fires it's almost always
+    // already resolved — this await just guards the rare case it hasn't.
+    catalogPromise.then(function (catalog) {
+      serviceCardsList.innerHTML = '';
+      var cards = catalog.cards.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
+      var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(catalog.assetShield, badgedItems));
+      cards.push(assetShieldCard);
+      runRevealSequence(cards, assetShieldCard);
+    });
   }
 
   downloadReportBtn.addEventListener('click', function () {
@@ -3124,16 +3848,41 @@
     window.print();
   });
 
+  // Loads the GHL booking calendar into the Schedule step's iframe, once.
+  // Runs on the first "Schedule your consultation" click rather than at
+  // startup so visitors who never schedule never pay the calendar's load
+  // cost. Prefills the widget from the contact details already collected
+  // (GHL calendars read first_name/email query params), and injects GHL's
+  // own form_embed.js helper, which listens for the iframe's postMessage
+  // and grows it to the calendar's real height — without it the embed sits
+  // at the CSS min-height with the calendar clipped inside.
+  var bookingEmbedReady = false;
+  function ensureBookingEmbed() {
+    if (bookingEmbedReady) return;
+    bookingEmbedReady = true;
+    var iframe = document.getElementById('booking-iframe');
+    var params = [];
+    if (state.contact.firstName) params.push('first_name=' + encodeURIComponent(state.contact.firstName));
+    if (state.contact.email) params.push('email=' + encodeURIComponent(state.contact.email));
+    var url = CONFIG.BOOKING_URL + (params.length ? (CONFIG.BOOKING_URL.indexOf('?') === -1 ? '?' : '&') + params.join('&') : '');
+    iframe.src = url;
+    document.getElementById('booking-fallback-link').href = url;
+    var resizer = document.createElement('script');
+    resizer.src = 'https://link.msgsndr.com/js/form_embed.js';
+    document.body.appendChild(resizer);
+  }
+
   scheduleBtn.addEventListener('bui-click', function () {
     if (!CONFIG.BOOKING_URL) {
       console.warn('[brichaus-assessment] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
       return;
     }
-    // Same-tab navigation — a real transition to the next funnel page, not a
-    // popup. The live report is deliberately not preserved across this
-    // navigation; the visitor's durable copy is the emailed PDF (see
-    // BOOKING_URL's doc comment above).
-    window.location.href = CONFIG.BOOKING_URL;
+    ensureBookingEmbed();
+    showStep('schedule');
+  });
+
+  root.querySelector('[data-back="results"]').addEventListener('bui-click', function () {
+    showStep('results');
   });
 
   /* =====================================================================

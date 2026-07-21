@@ -94,17 +94,44 @@
     '.bui-field__icon { flex: 0 0 auto; display: flex; align-items: center; padding-left: var(--bui-space-3); color: var(--bui-color-text-muted); }',
     '.bui-field__control {',
     '  font-family: var(--bui-font-family);',
-    '  font-size: var(--bui-font-size-md);',
+    '  font-size: var(--bui-font-size-control);', /* 16px min — prevents iOS focus-zoom */
     '  color: var(--bui-color-text);',
     '  background: transparent;',
     '  border: none;',
     '  outline: none;',
+    /* Without this, iOS Safari keeps its own native text-field chrome
+       (a faint inset rounded box, most visible around the leading icon)
+       layered underneath our custom .bui-field__control-wrap border —
+       reads as a stray "double border" once the wrap is focus-styled. */
+    '  -webkit-appearance: none;',
+    '  appearance: none;',
     '  padding: 0.6em 0.75em;',
     '  width: 100%;',
     '  min-width: 0;',
     '}',
     '.bui-field__hint { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }',
     '.bui-field__error { font-size: var(--bui-font-size-sm); color: var(--bui-color-danger); }',
+    /* Clear (X) button — hidden until the field has text. */
+    '.bui-field__clear {',
+    '  flex: 0 0 auto;',
+    '  display: none;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  width: 26px;',
+    '  height: 26px;',
+    '  margin-right: 6px;',
+    '  padding: 0;',
+    '  border: none;',
+    '  background: none;',
+    '  border-radius: 50%;',
+    '  cursor: pointer;',
+    '  color: var(--bui-color-text-faint);',
+    '  font-size: 15px;',
+    '  line-height: 1;',
+    '}',
+    '.bui-field__clear[data-visible="true"] { display: inline-flex; }',
+    '.bui-field__clear:hover { color: var(--bui-color-text); }',
+    '.bui-field__clear:focus-visible { box-shadow: var(--bui-focus-ring); outline: none; }',
     '.bui-address-listbox {',
     '  position: absolute;',
     '  top: 100%;',
@@ -228,8 +255,23 @@
       listbox.id = listboxId;
       listbox.setAttribute('role', 'listbox');
 
+      // Clear (X) control — appears once the field has any text; clicking
+      // it empties the field and reports the wipe through the exact same
+      // bui-input/bui-change events manual deletion would fire, so
+      // consumers need no special handling for it.
+      var clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'bui-field__clear';
+      clearBtn.setAttribute('aria-label', 'Clear address');
+      clearBtn.innerHTML = '&#10005;';
+      // preventDefault on mousedown keeps focus in the input, so the
+      // browser never fires the native blur 'change' mid-clear.
+      clearBtn.addEventListener('mousedown', function (evt) { evt.preventDefault(); });
+      clearBtn.addEventListener('click', () => this._clear());
+
       controlWrap.appendChild(icon);
       controlWrap.appendChild(input);
+      controlWrap.appendChild(clearBtn);
 
       wrap.appendChild(label);
       wrap.appendChild(controlWrap);
@@ -239,6 +281,7 @@
       this.appendChild(wrap);
 
       this._input = input;
+      this._clearBtn = clearBtn;
       this._label = label;
       this._hint = hint;
       this._error = error;
@@ -255,6 +298,7 @@
         // was last picked — clears the flag below so a later blur is
         // reported as a genuine edit, not folded back into the selection.
         this._suppressNextChange = false;
+        this._syncClear();
         window.BUI.dispatch(this, 'bui-input', { value: input.value });
         this._scheduleSearch();
       });
@@ -296,9 +340,25 @@
       if (!this._buiRendered) return;
       if (name === 'value' && this._input.value !== newVal) {
         this._input.value = newVal || '';
+        this._syncClear();
         return;
       }
       this._syncAttrs();
+    }
+
+    _syncClear() {
+      this._clearBtn.dataset.visible = this._input.value ? 'true' : 'false';
+    }
+
+    _clear() {
+      this._input.value = '';
+      this._suppressNextChange = false;
+      this._closeListbox();
+      this._syncClear();
+      // Same event pair a manual select-all + delete would produce.
+      window.BUI.dispatch(this, 'bui-input', { value: '' });
+      window.BUI.dispatch(this, 'bui-change', { value: '', fromSelection: false });
+      this._input.focus();
     }
 
     _syncAttrs() {
@@ -454,9 +514,13 @@
         if (!isOpen) return;
         this._setActive(Math.max(0, this._activeIndex - 1));
       } else if (evt.key === 'Enter') {
-        if (!isOpen || this._activeIndex === -1) return;
+        if (!isOpen) return;
         evt.preventDefault();
-        this._selectSuggestion(this._activeIndex);
+        // No arrow-key highlight yet (the common case — visitor just typed
+        // and hit Enter without ever pressing an arrow key) falls back to
+        // the top suggestion, matching how most address autocompletes treat
+        // a bare Enter.
+        this._selectSuggestion(this._activeIndex === -1 ? 0 : this._activeIndex);
       } else if (evt.key === 'Escape') {
         if (!isOpen) return;
         evt.preventDefault();
@@ -472,6 +536,7 @@
       var description = extractText(prediction && prediction.text) || extractText(prediction);
 
       this._input.value = description;
+      this._syncClear();
       // The native 'change' listener above will still fire on its own
       // once this field blurs (setting .value while focused leaves the
       // browser's own dirty-tracking primed) — mark that upcoming event
@@ -519,8 +584,12 @@
     }
 
     set value(val) {
-      if (this._input) this._input.value = val;
-      else this.setAttribute('value', val);
+      if (this._input) {
+        this._input.value = val;
+        this._syncClear();
+      } else {
+        this.setAttribute('value', val);
+      }
     }
   }
 

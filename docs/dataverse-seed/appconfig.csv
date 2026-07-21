@@ -1,0 +1,7 @@
+"Config Key","Value","Data Type","Notes","Active"
+"leasingFeePctDefault","50","number","Default leasing fee % of one month's rent for a new property (Normalize Intake baseline).","Yes"
+"petCoverageDefault","false","boolean","Pet protection off by default (baseline, not label-derived).","Yes"
+"setupFeeCeilingUsd","250","number","One-time setup fee ceiling for new owners (not more than $250).","Yes"
+"proposalFreshnessMonths","3","number","Proposal / RentCast JSON considered stale after this many months (routing freshness).","Yes"
+"mfMinSampleListings","5","number","Minimum listings before a multifamily unit type anchors the market range (Generate MF Report).","Yes"
+"emailUnverifiedStatuses","invalid,catch-all,unknown,spamtrap,abuse,do_not_mail","csv","ZeroBounce statuses that mark an email unverified (Classify Email Status).","Yes"

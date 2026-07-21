@@ -16,6 +16,11 @@
  *   prefix       short text affix rendered in its own boxed segment
  *                before the input, e.g. prefix="$" for currency
  *   suffix       short text affix rendered after the input, e.g. suffix="%"
+ *   clearable    boolean — shows an X button once the field has text;
+ *                clicking it empties the field and fires bui-input/bui-change
+ *                the same as a manual clear would. Opt-in (not every field
+ *                wants one, e.g. currency/number fields), for search-style
+ *                fields where starting over is common.
  *
  * Slot (light DOM, by attribute):
  *   slot="prefix-icon"  an icon/SVG rendered inline before the input with
@@ -74,23 +79,51 @@
     '.bui-field__affix[data-kind="icon"] { padding-left: var(--bui-space-3); }',
     '.bui-field__control {',
     '  font-family: var(--bui-font-family);',
-    '  font-size: var(--bui-font-size-md);',
+    '  font-size: var(--bui-font-size-control);', /* 16px min — prevents iOS focus-zoom */
     '  color: var(--bui-color-text);',
     '  background: transparent;',
     '  border: none;',
     '  outline: none;',
+    /* Without this, iOS Safari keeps its own native text-field chrome (a
+       faint inset rounded box) layered underneath our custom
+       .bui-field__control-wrap border — reads as a stray "double border"
+       once the wrap is focus-styled. Same fix as bui-address-input. */
+    '  -webkit-appearance: none;',
+    '  appearance: none;',
     '  padding: 0.6em 0.75em;',
     '  width: 100%;',
     '  min-width: 0;',
     '}',
     '.bui-field__control:disabled { cursor: not-allowed; }',
     '.bui-field__hint { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }',
-    '.bui-field__error { font-size: var(--bui-font-size-sm); color: var(--bui-color-danger); }'
+    '.bui-field__error { font-size: var(--bui-font-size-sm); color: var(--bui-color-danger); }',
+    /* Clear (X) button — opt-in via the "clearable" attribute; hidden until
+       the field has text. */
+    '.bui-field__clear {',
+    '  flex: 0 0 auto;',
+    '  display: none;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  width: 26px;',
+    '  height: 26px;',
+    '  margin-right: 6px;',
+    '  padding: 0;',
+    '  border: none;',
+    '  background: none;',
+    '  border-radius: 50%;',
+    '  cursor: pointer;',
+    '  color: var(--bui-color-text-faint);',
+    '  font-size: 15px;',
+    '  line-height: 1;',
+    '}',
+    '.bui-field__clear[data-visible="true"] { display: inline-flex; }',
+    '.bui-field__clear:hover { color: var(--bui-color-text); }',
+    '.bui-field__clear:focus-visible { box-shadow: var(--bui-focus-ring); outline: none; }'
   ].join('\n'));
 
   class BuiInput extends HTMLElement {
     static get observedAttributes() {
-      return ['label', 'type', 'name', 'placeholder', 'hint', 'error', 'required', 'disabled', 'value', 'prefix', 'suffix'];
+      return ['label', 'type', 'name', 'placeholder', 'hint', 'error', 'required', 'disabled', 'value', 'prefix', 'suffix', 'inputmode', 'clearable'];
     }
 
     connectedCallback() {
@@ -129,7 +162,22 @@
       error.id = errorId;
       error.setAttribute('role', 'alert');
 
+      // Clear (X) control — only shown when the "clearable" attribute is
+      // set (see _syncAttrs). Clicking it empties the field and reports the
+      // wipe through the exact same bui-input/bui-change events manual
+      // deletion would fire, so consumers need no special handling for it.
+      var clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'bui-field__clear';
+      clearBtn.setAttribute('aria-label', 'Clear');
+      clearBtn.innerHTML = '&#10005;';
+      // preventDefault on mousedown keeps focus in the input, so the
+      // browser never fires the native blur 'change' mid-clear.
+      clearBtn.addEventListener('mousedown', function (evt) { evt.preventDefault(); });
+      clearBtn.addEventListener('click', () => this._clear());
+
       controlWrap.appendChild(input);
+      controlWrap.appendChild(clearBtn);
 
       wrap.appendChild(label);
       wrap.appendChild(controlWrap);
@@ -139,12 +187,14 @@
 
       this._controlWrap = controlWrap;
       this._input = input;
+      this._clearBtn = clearBtn;
       this._label = label;
       this._hint = hint;
       this._error = error;
       this._iconNode = iconNode || null;
 
       input.addEventListener('input', () => {
+        this._syncClear();
         window.BUI.dispatch(this, 'bui-input', { value: input.value });
       });
 
@@ -155,10 +205,24 @@
       this._syncAttrs();
     }
 
+    _syncClear() {
+      var clearable = this.hasAttribute('clearable');
+      this._clearBtn.dataset.visible = (clearable && this._input.value) ? 'true' : 'false';
+    }
+
+    _clear() {
+      this._input.value = '';
+      this._syncClear();
+      window.BUI.dispatch(this, 'bui-input', { value: '' });
+      window.BUI.dispatch(this, 'bui-change', { value: '' });
+      this._input.focus();
+    }
+
     attributeChangedCallback(name, oldVal, newVal) {
       if (!this._buiRendered) return;
       if (name === 'value' && this._input.value !== newVal) {
         this._input.value = newVal || '';
+        this._syncClear();
         return;
       }
       this._syncAttrs();
@@ -199,8 +263,15 @@
 
       this._label.textContent = this.getAttribute('label') || '';
       this._label.style.display = this.getAttribute('label') ? '' : 'none';
+      this._syncClear();
 
       input.type = this.getAttribute('type') || 'text';
+      // Forwarded so number-ish fields can summon the phone's numeric pad
+      // (inputmode="numeric"/"decimal") — type="number" alone doesn't
+      // reliably do that on iOS.
+      var inputmode = this.getAttribute('inputmode');
+      if (inputmode) input.setAttribute('inputmode', inputmode);
+      else input.removeAttribute('inputmode');
       input.name = this.getAttribute('name') || '';
       input.placeholder = this.getAttribute('placeholder') || '';
       if (this.hasAttribute('value') && input.value === '') input.value = this.getAttribute('value');

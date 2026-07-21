@@ -8,7 +8,7 @@
 <!--
   Brichaus Management Proposal Viewer — pasted as a GHL Custom HTML element
   on its own funnel/website page, live at
-  https://mgmt.brichausgroup.com/residential-management-proposal/?placeId=<GooglePlaceID>
+  https://brichausgroup.com/mgmt_proposal?placeId=<GooglePlaceID>
   (see PropScore: Main Pipeline's "Update GHL Property Record" step, which
   writes this exact URL to the property's proposal_link field once an
   assessment finishes). Renders the property's stored
@@ -23,10 +23,14 @@
   never sent to this page for comparison — only the server's boolean
   confirmed/recognized result is.
 -->
-<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/core/core.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/button.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/input.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/components/card.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@b333e50114f1507702ea4946fbda834546278105/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@b333e50114f1507702ea4946fbda834546278105/components/button.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@b333e50114f1507702ea4946fbda834546278105/components/input.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@b333e50114f1507702ea4946fbda834546278105/components/card.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@b333e50114f1507702ea4946fbda834546278105/components/modal.js"></script>
 
 <style>
   /* ===== Premium visual pass: page canvas, intro title, card chrome -----
@@ -56,12 +60,6 @@
     max-width: 620px;
     margin: 0 auto var(--bui-space-5);
   }
-  #brichaus-proposal .proposal-intro h1 {
-    margin: 0 0 8px;
-    font-size: 30px;
-    font-weight: 700;
-    color: #2B2F36;
-  }
   #brichaus-proposal .proposal-intro p {
     margin: 0 auto;
     max-width: 520px;
@@ -77,12 +75,10 @@
   #brichaus-proposal .bui-card[data-padding="sm"] .bui-card__footer {
     padding: 0;
   }
-  #brichaus-proposal .step-body-pad { padding: 52px 56px 44px; }
-  @media (max-width: 420px) {
-    #brichaus-proposal { padding-left: 10px; padding-right: 10px; }
-    #brichaus-proposal .step-body-pad { padding: 28px 16px 24px; }
-    #brichaus-proposal .proposal-panel { padding: 32px 24px; }
-  }
+  #brichaus-proposal .step-body-pad { padding: 26px 56px 44px; }
+  /* The mobile block lives at the very END of this stylesheet — several
+     selectors tie at equal specificity with later-in-source base rules,
+     so source order is what makes the mobile overrides win. */
   #brichaus-proposal .hidden { display: none !important; }
 
   /* ---- Status panels (loading / invalid / not-found / unavailable /
@@ -148,7 +144,7 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: #6B7280;
+    color: #4B5563;
     white-space: nowrap;
   }
   #brichaus-proposal .trust-item__icon {
@@ -163,6 +159,14 @@
     font-size: 11px;
     line-height: 1;
     flex-shrink: 0;
+  }
+  /* Footnote for the "Initial Proposal in Minutes*" guarantee above. */
+  #brichaus-proposal .trust-disclaimer {
+    margin: var(--bui-space-3) auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #9AA1AB;
   }
 
   /* ---- Email-confirmation gate (ported from app/index.html's
@@ -185,79 +189,119 @@
     color: var(--bui-color-danger);
   }
   #brichaus-proposal .recognition-state bui-button { margin-top: var(--bui-space-3); }
-
-  /* ---- Report layout (ported verbatim from app/index.html's Results step:
-     Operational Workload + Proposal service cards + CTA. Evidence/comps/
-     RentCast blocks are intentionally NOT ported — that raw data isn't part
-     of the stored proposal JSON.) ---- */
-  #brichaus-proposal .report-address {
-    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
-    color: var(--bui-color-text-faint); margin: 0 0 4px;
+  #brichaus-proposal .evidence-specs { display: flex; flex-direction: column; }
+  #brichaus-proposal .evidence-spec {
+    display: flex; justify-content: space-between; gap: var(--bui-space-2);
+    font-size: 13px; padding: 4px 0;
   }
-  #brichaus-proposal .report-h2 { margin: 0 0 var(--bui-space-4); font-size: 1.3rem; letter-spacing: -0.01em; }
+  #brichaus-proposal .evidence-spec span:first-child { color: var(--bui-color-text-muted); }
+  #brichaus-proposal .evidence-spec span:last-child { font-weight: 650; }
+
+  /* ---- Profile-behind-your-proposal popup — same facts-card + badge-row
+     language as intake-v2's review step, so a returning owner recognizes
+     it as "the same kind of screen." No chevrons/click targets here:
+     nothing is editable once a Contact is on file (see the markup comment
+     above #review-modal). ---- */
+  #brichaus-proposal .review-facts-card {
+    display: flex; align-items: flex-start; gap: var(--bui-space-3);
+    padding: var(--bui-space-3) var(--bui-space-4);
+    background: var(--bui-color-surface);
+    border: 1px solid var(--bui-color-border-strong);
+    border-radius: var(--bui-radius-md);
+    margin-top: var(--bui-space-3);
+  }
+  #brichaus-proposal .review-facts-icon { font-size: 26px; line-height: 1.2; }
+  #brichaus-proposal .review-facts-title { font-weight: 700; font-size: 15px; color: var(--bui-color-text); }
+  #brichaus-proposal .review-facts-sub { font-size: 12.5px; color: var(--bui-color-text-muted); margin-top: 2px; }
+  #brichaus-proposal .review-drivers { margin-top: var(--bui-space-4); }
+  #brichaus-proposal .review-drivers-heading {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-2);
+  }
+  #brichaus-proposal .review-driver-ro {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+    margin-bottom: 8px; background: var(--bui-color-surface);
+  }
+  #brichaus-proposal .review-driver-ro__icon { font-size: 17px; }
+  #brichaus-proposal .review-driver-ro__name { font-weight: 650; font-size: 13.5px; color: var(--bui-color-text); flex: 1; }
+  #brichaus-proposal .review-driver-ro__badge {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: var(--bui-radius-pill); white-space: nowrap;
+  }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="slate"] { background: var(--bui-color-info-bg); color: var(--bui-color-slate); }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="accent"] { background: var(--bui-color-accent-bg); color: var(--bui-color-accent-hover); }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="warning"] { background: var(--bui-color-warning-bg); color: var(--bui-color-warning); }
+  #brichaus-proposal .review-driver-ro__badge[data-tone="danger"] { background: var(--bui-color-accent-bg); color: var(--bui-color-danger); }
+  #brichaus-proposal .review-lock-note {
+    margin: var(--bui-space-3) 0 0;
+    font-size: 12.5px; line-height: 1.55; color: var(--bui-color-text-muted);
+  }
+  #brichaus-proposal .review-lock-link { color: var(--bui-color-accent); font-weight: 700; text-decoration: none; }
+  #brichaus-proposal .review-lock-link:hover { text-decoration: underline; }
+
+  /* ---- Report layout (ported from app/index.html's Results step: fee +
+     Proposal service cards + CTA. Evidence/comps/RentCast blocks are
+     intentionally NOT ported — that raw data isn't part of the stored
+     proposal JSON.) ---- */
+  /* The property's street line IS the report's title — big and dark so it's
+     obvious which property this is. A small uppercase "Prepared for: <name>"
+     tag sits above it, and a quieter "City, ST Zip" locality line sits
+     beneath it. */
+  /* Link to Google Maps for this address, in place of a static cached photo
+     — lets the visitor look around (Street View, satellite, etc.) and
+     confirm the location themselves rather than us asserting a single
+     image is definitely their building. */
+  #brichaus-proposal .report-map {
+    width: 100%; height: 220px; margin: var(--bui-space-2) 0 var(--bui-space-2);
+    border: 1px solid var(--bui-color-border); border-radius: var(--bui-radius-md);
+    overflow: hidden;
+  }
+  #brichaus-proposal .street-view-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12.5px; font-weight: 600; color: var(--bui-color-accent);
+    text-decoration: none; margin: 2px 0 var(--bui-space-4);
+  }
+  #brichaus-proposal .street-view-link:hover { text-decoration: underline; }
+  /* One-time setup fee note, shown at the end of the management-fee block. */
+  #brichaus-proposal .fee-setup-note {
+    margin: var(--bui-space-3) 0 0; font-size: 12px; line-height: 1.5;
+    color: var(--bui-color-text-muted);
+  }
+  /* Leasing fee, surfaced as the Market-to-Move-In service subheading. */
+  #brichaus-proposal .service-card__leasing {
+    margin: 2px 0 0; font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5;
+  }
+  #brichaus-proposal .service-card__leasing-pct {
+    font-size: 15.5px; font-weight: 800; color: var(--bui-color-text);
+  }
+  /* Section heading — sets a report block (e.g. Management Services) apart. */
+  #brichaus-proposal .proposal-section-heading {
+    font-size: 15px; font-weight: 800; letter-spacing: 0.01em;
+    color: var(--bui-color-text); margin-bottom: var(--bui-space-3);
+  }
+  #brichaus-proposal .comps-map-section { margin: var(--bui-space-5) 0; }
+  #brichaus-proposal .comps-map {
+    display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
+    object-fit: cover; border-radius: var(--bui-radius-lg, 12px);
+    background: var(--bui-color-surface-sunken, #EEF1F4);
+  }
+  #brichaus-proposal .prepared-for {
+    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--bui-color-accent); margin: 0 0 4px;
+  }
+  #brichaus-proposal .report-address {
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
+    color: #2B2F36; margin: 0 0 2px;
+  }
+  #brichaus-proposal .report-locality {
+    font-size: 1.02rem; font-weight: 600;
+    color: var(--bui-color-text-muted); margin: 0 0 var(--bui-space-4);
+  }
   #brichaus-proposal .report-kicker {
     font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700;
     color: var(--bui-color-text-faint); margin-bottom: var(--bui-space-2);
   }
-  #brichaus-proposal .report-band-pill {
-    font-size: 0.95rem; font-weight: 750; letter-spacing: 0.02em; margin-bottom: var(--bui-space-3);
-    color: var(--bui-color-accent);
-  }
-  #brichaus-proposal .report-band-pill[data-tone="slate"] { color: var(--bui-color-slate); }
-  #brichaus-proposal .report-band-pill[data-tone="accent"] { color: var(--bui-color-accent); }
-  #brichaus-proposal .report-band-pill[data-tone="warning"] { color: var(--bui-color-warning); }
-  #brichaus-proposal .report-band-pill[data-tone="danger"] { color: var(--bui-color-danger); }
-  #brichaus-proposal .op-profile { text-align: left; }
-  #brichaus-proposal .workload-head {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: var(--bui-space-3); margin-bottom: var(--bui-space-2);
-  }
-  #brichaus-proposal .demand-meter { flex: 1; max-width: 190px; }
-  #brichaus-proposal .demand-meter__track {
-    position: relative; height: 7px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--bui-color-slate) 0%, var(--bui-color-accent) 45%, var(--bui-color-warning) 72%, var(--bui-color-danger) 100%);
-  }
-  #brichaus-proposal .demand-meter__mark {
-    position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; border-radius: 50%;
-    background: var(--bui-color-surface); border: 3px solid var(--bui-color-accent);
-    transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  }
-  #brichaus-proposal .demand-meter__mark[data-tone="slate"] { border-color: var(--bui-color-slate); }
-  #brichaus-proposal .demand-meter__mark[data-tone="accent"] { border-color: var(--bui-color-accent); }
-  #brichaus-proposal .demand-meter__mark[data-tone="warning"] { border-color: var(--bui-color-warning); }
-  #brichaus-proposal .demand-meter__mark[data-tone="danger"] { border-color: var(--bui-color-danger); }
-  #brichaus-proposal .demand-meter__scale { display: flex; justify-content: space-between; margin-top: 6px; }
-  #brichaus-proposal .demand-meter__scale span {
-    font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bui-color-text-faint);
-  }
-  #brichaus-proposal .workload-summary {
-    margin: 0 0 var(--bui-space-3); font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.55;
-  }
-  #brichaus-proposal .op-profile-row { border-top: 1px solid var(--bui-color-border); }
-  #brichaus-proposal .op-profile-row:first-child { border-top: none; }
-  #brichaus-proposal .op-profile-head {
-    display: flex; align-items: center; gap: var(--bui-space-2);
-    padding: var(--bui-space-3) 0; cursor: pointer; list-style: none;
-  }
-  #brichaus-proposal .op-profile-head::-webkit-details-marker { display: none; }
-  #brichaus-proposal .op-profile-head::after {
-    content: '›'; margin-left: auto; font-size: 14px; font-weight: 700;
-    color: var(--bui-color-text-faint); transition: transform var(--bui-transition-base, 150ms ease);
-  }
-  #brichaus-proposal .op-profile-row[open] > .op-profile-head::after { transform: rotate(90deg); }
-  #brichaus-proposal .op-profile-head:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 3px; border-radius: 4px; }
-  #brichaus-proposal .op-cat-name { font-weight: 700; font-size: 13px; }
-  #brichaus-proposal .op-cat-label {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 1px 7px; border-radius: 999px; background: transparent;
-    color: var(--bui-color-text-muted); border: 1px solid var(--bui-color-border);
-  }
-  #brichaus-proposal .op-cat-label[data-tone="low"] { color: var(--bui-color-success); border-color: var(--bui-color-success); background: var(--bui-color-success-bg); }
-  #brichaus-proposal .op-cat-label[data-tone="normal"] { color: var(--bui-color-info); border-color: var(--bui-color-info); background: var(--bui-color-info-bg); }
-  #brichaus-proposal .op-cat-label[data-tone="high"] { color: var(--bui-color-warning); border-color: var(--bui-color-warning); background: var(--bui-color-warning-bg); }
-  #brichaus-proposal .op-cat-label[data-tone="severe"] { color: var(--bui-color-danger); border-color: var(--bui-color-danger); background: var(--bui-color-danger-bg); }
-  #brichaus-proposal .op-cat-summary { font-size: 12.5px; color: var(--bui-color-text-muted); line-height: 1.5; padding: 0 0 var(--bui-space-3); }
-
   #brichaus-proposal .revenue-hero {
     position: relative; overflow: hidden;
     margin-top: var(--bui-space-4);
@@ -275,15 +319,96 @@
   }
   #brichaus-proposal .revenue-hero__amount {
     position: relative; font-size: 2.6rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
+    font-family: 'Playfair Display', Georgia, serif;
   }
   #brichaus-proposal .revenue-hero__sub { position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4; }
   #brichaus-proposal .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
+  /* Fee basis line — names the OIA band the fee is based on (same
+     data-tone vocabulary as the driver badges in the See Details popup). */
+  #brichaus-proposal .revenue-hero__basis {
+    position: relative; margin-top: 6px; padding-top: 6px; font-size: 11.5px; color: #c3cad4; line-height: 1.4;
+  }
+  #brichaus-proposal .revenue-hero__basis::before {
+    content: ""; position: absolute; top: 0; left: 0; width: 28px; height: 1px; background: rgba(255,255,255,0.18);
+  }
+  #brichaus-proposal .revenue-hero__basis strong { font-weight: 700; }
+  #brichaus-proposal .revenue-hero__basis strong[data-tone="slate"] { color: #e2e7ec; }
+  #brichaus-proposal .revenue-hero__basis strong[data-tone="accent"] { color: var(--bui-color-accent); }
+  #brichaus-proposal .revenue-hero__basis strong[data-tone="warning"] { color: var(--bui-color-warning); }
+  #brichaus-proposal .revenue-hero__basis strong[data-tone="danger"] { color: var(--bui-color-danger); }
+  /* "See Details" — opens #review-modal with the profile behind this fee
+     (property facts + driver breakdown). A quiet text link, not a second
+     competing CTA button — Schedule your consultation lower on the page
+     stays the one prominent action. */
+  #brichaus-proposal .revenue-hero__details-btn {
+    position: relative; margin-top: 10px;
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: var(--bui-font-family); font-size: 11.5px; font-weight: 700;
+    letter-spacing: 0.03em; text-decoration: underline; color: #c3cad4;
+  }
+  #brichaus-proposal .revenue-hero__details-btn:hover { color: var(--bui-color-accent-light); }
+  #brichaus-proposal .revenue-hero__details-btn:focus-visible { outline: none; box-shadow: var(--bui-focus-ring); border-radius: 2px; }
+
+  /* Management Services header — top-rule-plus-heading marking the shift
+     from the money block into the service-card catalog. */
+  #brichaus-proposal .services-heading {
+    margin-top: var(--bui-space-5); padding-top: var(--bui-space-4);
+    border-top: 1px solid var(--bui-color-border);
+  }
+
+  /* Property Metrics (Estimated) — proforma-style line items below the fee.
+     Hairline rule between each row, a heavier rule above the Total line
+     (the proforma "rule before the subtotal" convention). */
+  #brichaus-proposal .perf-proforma__label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--bui-color-text-muted); margin: var(--bui-space-4) 0 4px;
+  }
+  #brichaus-proposal .perf-proforma__intro {
+    margin: 0 0 var(--bui-space-2); font-size: 12px; color: var(--bui-color-text-muted); line-height: 1.5;
+  }
+  #brichaus-proposal .perf-proforma {
+    padding-top: var(--bui-space-2);
+  }
+  #brichaus-proposal .perf-line {
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--bui-space-2);
+    font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--bui-color-border);
+  }
+  #brichaus-proposal .perf-line__label { color: var(--bui-color-text-muted); }
+  #brichaus-proposal .perf-line__value { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--bui-color-text); }
+  #brichaus-proposal .perf-line__value[data-tone="severe"] { color: var(--bui-color-danger); }
+  #brichaus-proposal .perf-line--total {
+    border-bottom: none; border-top: 1.5px solid var(--bui-color-text); margin-top: 2px; padding-top: 7px;
+  }
+  #brichaus-proposal .perf-line--total .perf-line__label { color: var(--bui-color-accent); font-weight: 700; }
+  #brichaus-proposal .perf-line--total .perf-line__value { color: var(--bui-color-accent); font-size: 14px; font-weight: 800; }
 
   #brichaus-proposal .proposal-section { text-align: left; margin-top: var(--bui-space-5); }
   #brichaus-proposal .report-summary {
     text-align: left; margin-top: var(--bui-space-4);
     padding-left: var(--bui-space-3); border-left: 3px solid var(--bui-color-accent);
   }
+  /* Collapsed-by-default disclosure around the narrative analysis. */
+  #brichaus-proposal .report-narrative {
+    text-align: left;
+    margin-top: var(--bui-space-5);
+    border-top: 1px solid var(--bui-color-border);
+    padding-top: var(--bui-space-4);
+  }
+  #brichaus-proposal .report-narrative > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-proposal .report-narrative > summary::-webkit-details-marker { display: none; }
+  #brichaus-proposal .report-narrative > summary::after { content: '+'; font-size: 15px; line-height: 1; }
+  #brichaus-proposal .report-narrative[open] > summary::after { content: '\2212'; }
   #brichaus-proposal .report-summary-text { margin: 0; font-size: var(--bui-font-size-md); line-height: 1.6; color: var(--bui-color-text); }
   #brichaus-proposal .report-confidence {
     margin: var(--bui-space-2) 0 0; font-size: 11.5px; color: var(--bui-color-text-muted);
@@ -358,21 +483,67 @@
   #brichaus-proposal .report-download:hover { color: var(--bui-color-accent-hover); }
   #brichaus-proposal .report-download:focus-visible { outline: 2px solid var(--bui-color-accent); outline-offset: 2px; border-radius: 4px; }
 
+  /* ===== Embedded booking calendar (revealed by "Schedule your
+     consultation" — see revealScheduleEmbed()). Same treatment as
+     app/index.html's Schedule step: a safe min-height, then GHL's
+     form_embed.js helper drives the real height via postMessage. */
+  #brichaus-proposal .schedule-embed { margin-top: var(--bui-space-5); text-align: left; }
+  #brichaus-proposal .booking-embed iframe {
+    display: block;
+    width: 100%;
+    min-height: 700px;
+    border: none;
+    overflow: hidden;
+  }
+  #brichaus-proposal .booking-fallback {
+    margin: var(--bui-space-3) 0 0;
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+    text-align: center;
+  }
+  #brichaus-proposal .booking-fallback a {
+    color: var(--bui-color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   @media print {
+    /* Print ONLY the proposal report. The hosting GHL page can carry chrome
+       we don't control — a survey/form, the chat widget, nav — which would
+       otherwise bleed into the PDF (see the leaked survey fields on a live
+       "Download PDF"). Hide everything, then re-show just our report, and
+       pull it to the top so the now-invisible chrome leaves no blank space. */
+    body * { visibility: hidden !important; }
+    #brichaus-proposal, #brichaus-proposal * { visibility: visible !important; }
+    #brichaus-proposal { position: absolute !important; left: 0; top: 0; width: 100%; }
+    /* Still fully removed from the printed report itself. */
     #brichaus-proposal .recognition-panel,
+    #brichaus-proposal .schedule-embed,
     #brichaus-proposal .report-cta { display: none !important; }
+  }
+
+  /* ===== Mobile — kept LAST so these equal-specificity overrides win on
+     source order (same rationale as app/index.html's mobile block).
+     640px breakpoint, not 420: modern phones are 390-430 CSS px wide. */
+  @media (max-width: 640px) {
+    #brichaus-proposal { padding-left: 8px; padding-right: 8px; }
+    #brichaus-proposal .proposal-intro p { font-size: 15px; }
+    #brichaus-proposal .step-body-pad { padding: 13px 16px 24px; }
+    #brichaus-proposal .proposal-panel { padding: 28px 18px; }
+    #brichaus-proposal .trust-panel { gap: 12px 20px; }
   }
 </style>
 </head>
 <body>
 <div id="brichaus-proposal">
 
-  <!-- Persistent title/subtitle above every state -- same pattern as
-       app/index.html's .assessment-intro (showPanel() only ever toggles
-       .hidden on [data-state] elements, never touches this sibling). -->
+  <!-- No page-level "Your Management Proposal" banner — dropped per owner
+       review (the report's own address-as-title header carries it now).
+       Only the gate instruction remains, and showPanel() hides it once
+       the report (or an error state) shows, so a stale "confirm your
+       email" prompt never lingers over the loaded proposal. -->
   <div class="proposal-intro">
-    <h1>Your Management Proposal</h1>
-    <p>Confirm your email below to view your personalized property management proposal.</p>
+    <p id="proposal-intro-sub">Confirm your email below to view your personalized property management proposal.</p>
   </div>
 
   <div data-state="loading" class="proposal-panel">
@@ -415,60 +586,117 @@
     </div>
   </div>
 
+  <!-- Profile-behind-your-proposal popup — every path here (recognize/
+       confirmEmail, silent handoff, internalPreview) already has a Contact
+       associated with this property, so per the fee-integrity rule these
+       fields are read-only, same as before. It no longer gates the report
+       (see presentProposal()): the visitor lands straight on the report,
+       and opens this from the "See Details" link on the fee block instead.
+       Once a Contact exists for a property, only internal staff can change
+       this data, via Proposal Engine. (Pre-contact visitors get the
+       editable version of this same idea — intake-v2.html's own review
+       step, before a Contact ever gets created.) -->
+  <bui-modal id="review-modal" label="Profile behind your proposal">
+    <div slot="title">Your Profile</div>
+    <p class="recognition-message" id="review-intro-message">Here's the profile behind your proposal.</p>
+
+    <div class="review-facts-card">
+      <span class="review-facts-icon">🏠</span>
+      <div>
+        <div class="review-facts-title" id="review-facts-title"></div>
+        <div class="review-facts-sub" id="review-facts-sub"></div>
+      </div>
+    </div>
+
+    <div class="evidence-specs" id="review-readonly-specs"></div>
+
+    <div class="review-drivers" id="review-drivers"></div>
+
+    <p class="review-lock-note" id="review-lock-note">Something changed since this was put together? <a href="#" id="review-lock-link" class="review-lock-link">Schedule a quick call</a> and we'll update your profile and proposal.</p>
+  </bui-modal>
+
   <!-- The rendered proposal — ported from app/index.html's Results step
-       (Operational Workload + Proposal service cards + CTA). No progress
-       bar/header here; this isn't a funnel step. -->
+       (fee + Proposal service cards + CTA). No progress bar/header here;
+       this isn't a funnel step. -->
   <div data-state="report" class="hidden">
     <bui-card variant="elevated" padding="sm" class="results-card">
       <div class="step-body-pad">
+        <p id="prepared-for" class="prepared-for hidden"></p>
         <p id="report-address" class="report-address hidden"></p>
-        <h2 class="report-h2">Your Management Proposal Report</h2>
+        <p id="report-locality" class="report-locality hidden"></p>
+        <!-- Overhead satellite pin, same treatment as intake-v2's Location
+             step — set in renderReportMap(). Geocoded client-side from the
+             address string (no stored lat/lng on the report), and hidden
+             whenever the Google Maps JS script isn't loaded on this page
+             (see renderReportMap's own doc comment) — never a blocker. -->
+        <div id="report-map" class="report-map hidden"></div>
+        <!-- Link to Google Maps for this address, set in renderStreetViewLink(). -->
+        <a id="street-view-link" class="street-view-link hidden" href="#" target="_blank" rel="noopener">View property on Google Maps ↗</a>
 
-        <div id="op-profile" class="op-profile hidden">
-          <div class="report-kicker">Operational Workload</div>
-          <div class="workload-head">
-            <div class="report-band-pill" id="hero-band">—</div>
-            <div class="demand-meter">
-              <div class="demand-meter__track"><span class="demand-meter__mark" id="demand-mark"></span></div>
-              <div class="demand-meter__scale"><span>Low</span><span>Severe</span></div>
-            </div>
-          </div>
-          <p id="workload-summary" class="workload-summary hidden"></p>
-          <div id="op-profile-list"></div>
-        </div>
-
-        <div id="report-summary" class="report-summary hidden">
-          <p class="report-summary-text" id="report-summary-text"></p>
-          <p class="report-confidence hidden" id="report-confidence"></p>
-        </div>
-
+        <!-- Report order (per owner review): the management fee first (with the
+             one-time setup-fee note beneath it), then the service cards — the
+             leasing fee rides as the Market-to-Move-In subheading — then
+             straight to the consultation CTA. The AI narrative is NOT
+             rendered here — it lives in a GHL field for internal call
+             scripts / follow-up. -->
         <div class="proposal-section">
-          <div class="report-kicker">Our Proposal</div>
           <div class="revenue-hero">
             <span class="revenue-hero__orb" aria-hidden="true"></span>
             <div class="revenue-hero__kicker">Full Service Management</div>
             <div class="revenue-hero__amount num" id="hero-fee">—</div>
             <div class="revenue-hero__sub" id="hero-fee-sub"></div>
+            <div class="revenue-hero__basis hidden" id="hero-fee-basis"></div>
+            <button type="button" class="revenue-hero__details-btn" id="see-details-btn">See Details</button>
           </div>
+          <!-- One-time setup fee wording (SETUP_FEE ceiling from CONFIG). Set in
+               renderFeeSetupNote(); a placeholder until a real amount is wired. -->
+          <p class="fee-setup-note" id="fee-setup-note"></p>
+
+          <!-- Property Metrics (Estimated) — a proforma-style read of vacancy
+               and rent-gap performance, from report.performanceMetrics (set
+               server-side in the Main Pipeline). Absent entirely for a
+               legacy/cached proposal that predates this field, or when
+               Turnover Pressure is Minimal (see the pipeline's own gate) —
+               see renderPerformanceMetrics(). -->
+          <div id="perf-metrics" class="hidden">
+            <p class="perf-proforma__label">Property Metrics (Estimated)</p>
+            <p class="perf-proforma__intro">We'll build your operating ProForma from here, so it stays up to date and becomes a running measure of annual performance and valuation.</p>
+            <div class="perf-proforma">
+              <div class="perf-line"><span class="perf-line__label">Gross Collected Rent</span><span class="perf-line__value" id="perf-gross-rent">—</span></div>
+              <div class="perf-line"><span class="perf-line__label">Vacancy Rate</span><span class="perf-line__value" id="perf-vacancy-rate">—</span></div>
+              <div class="perf-line"><span class="perf-line__label">Vacancy Cost</span><span class="perf-line__value" id="perf-vacancy-cost">—</span></div>
+              <div class="perf-line hidden" id="perf-rent-gap-row"><span class="perf-line__label">Rent Gap</span><span class="perf-line__value" id="perf-rent-gap">—</span></div>
+              <div class="perf-line perf-line--total"><span class="perf-line__label">Total Annual Opportunity</span><span class="perf-line__value" id="perf-total-opportunity">—</span></div>
+            </div>
+          </div>
+
+          <div class="proposal-section-heading services-heading">Management Services</div>
           <div class="service-list" id="service-cards"></div>
         </div>
 
+        <!-- No Operational Demand section here (removed per owner review —
+             move the visitor to the consultation instead). The demand
+             profile lives in the "See Details" popup off the fee block. -->
         <div class="report-cta">
           <bui-button variant="primary" full-width id="schedule-btn">Schedule your consultation</bui-button>
           <p class="cta-followup-note">Questions about this proposal? We're happy to walk through it with you.</p>
-          <button type="button" id="download-report-btn" class="report-download">Download this proposal (PDF)</button>
+        </div>
+
+        <!-- Embedded booking calendar — the SAME experience the funnel's
+             Schedule step gives (see app/index.html), so the emailed
+             proposal-link CTA and the live funnel both end in one place.
+             Hidden until "Schedule your consultation" is clicked; the
+             iframe src is set lazily at that moment (see
+             revealScheduleEmbed()) so non-schedulers never load it. -->
+        <div id="schedule-embed" class="schedule-embed hidden">
+          <div class="report-kicker">Pick a Time That Works for You</div>
+          <div class="booking-embed">
+            <iframe id="booking-iframe" title="Schedule your consultation" scrolling="no"></iframe>
+          </div>
+          <p class="booking-fallback">Calendar not loading? <a id="booking-fallback-link" href="#" target="_blank" rel="noopener">Open the scheduling page directly</a>.</p>
         </div>
       </div>
     </bui-card>
-  </div>
-
-  <!-- Persistent trust row below every state -- same pattern/copy as
-       app/index.html's .trust-panel. -->
-  <div class="trust-panel">
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Licensed &amp; Insured</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>No-Obligation Assessment</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Your Data Is Never Sold</span>
-    <span class="trust-item"><span class="trust-item__icon">&#10003;</span>Response Within 24 Hours</span>
   </div>
 
 </div>
@@ -490,8 +718,49 @@
     CONTACT_RECOGNITION_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-contact-recognition',
     // Where "Schedule Consultation" sends the visitor. Leave blank to no-op
     // with a console warning instead of navigating to a dead link.
-    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya'
+    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
+    // Additional pricing terms shown with the management fee. PLACEHOLDERS —
+    // not yet wired to the pipeline. Leasing fee is a % of one month's rent
+    // per new tenant signed; setup is a flat one-time fee. Update these two
+    // values here (or later, wire them into the scoring response).
+    LEASING_FEE_PCT: 50,
+    SETUP_FEE: 250,
+    // Services catalog (the branded service cards + AssetShield), read live
+    // from Dataverse (single source of truth, also used by contracts and
+    // elsewhere) instead of hardcoded here. If this fetch fails or is slow,
+    // FALLBACK_SERVICE_CARDS/FALLBACK_ASSET_SHIELD below keep the section
+    // working — a catalog outage should never blank the proposal.
+    SERVICES_CATALOG_URL: 'https://brichaus.app.n8n.cloud/webhook/services-catalog',
+
+    // Shared-secret header sent on every ghl-contact-recognition call below,
+    // matched against a Header Auth credential on the n8n trigger node. This
+    // is a first layer against automated/opportunistic abuse of the public
+    // endpoint, not a real secret — it ships in this public page's JS, so
+    // anyone can read it via view-source. A GHL custom value (same one
+    // intake-v2.html reads) so the key lives in ONE place and can be
+    // rotated without a code/paste change. Leave the custom value unset
+    // (or this file un-interpolated) to send no auth header — fails open.
+    WEBHOOK_AUTH_HEADER_VALUE: '{{custom_values.propscore_webhook_key}}'
   };
+
+  // Resolve WEBHOOK_AUTH_HEADER_VALUE: if GHL didn't interpolate it (raw
+  // file, or the custom value is unset), send no auth header rather than
+  // the literal placeholder text.
+  if (!CONFIG.WEBHOOK_AUTH_HEADER_VALUE || CONFIG.WEBHOOK_AUTH_HEADER_VALUE.indexOf('{{') !== -1) {
+    CONFIG.WEBHOOK_AUTH_HEADER_VALUE = '';
+  }
+
+  var WEBHOOK_AUTH_HEADER_NAME = 'X-PropScore-Key';
+
+  // Merges the shared-secret auth header (when configured) into a fetch()
+  // headers object without repeating this at every call site.
+  function authHeaders(extra) {
+    var headers = Object.assign({}, extra);
+    if (CONFIG.WEBHOOK_AUTH_HEADER_VALUE) {
+      headers[WEBHOOK_AUTH_HEADER_NAME] = CONFIG.WEBHOOK_AUTH_HEADER_VALUE;
+    }
+    return headers;
+  }
 
   var root = document.getElementById('brichaus-proposal');
   var panels = {};
@@ -502,9 +771,26 @@
     Object.keys(panels).forEach(function (key) {
       panels[key].classList.toggle('hidden', key !== name);
     });
+    // The "confirm your email below" subtitle only makes sense before the
+    // gate is resolved — once loadProposal() has been called (pastGate),
+    // the 'loading' panel it also uses means "fetching your proposal," not
+    // "confirm your email," so the subtitle must stay hidden from then on.
+    var introSub = document.getElementById('proposal-intro-sub');
+    if (introSub) introSub.classList.toggle('hidden', pastGate || (name !== 'loading' && name !== 'gate'));
   }
 
   var placeId = new URLSearchParams(window.location.search).get('placeId');
+  // Staff-preview bypass (Power Pages Create-New widget's "Preview proposal"
+  // link only — never surfaced publicly). Effective ONLY when recognize()
+  // finds no contact at all: there's no owner identity to protect yet, so
+  // skipping straight to loadProposal() (which itself has no contact
+  // dependency — it just reads cr55d_onlineproposaljson by placeId) is safe.
+  // A record that DOES have a contact still goes through the full
+  // recognize -> confirmEmail gate regardless of this flag, so this can
+  // never be used to view a real, claimed owner's proposal by guessing their
+  // placeId — the "placeId can't expose another owner's proposal" guarantee
+  // above is unchanged for every record that matters.
+  var internalPreview = new URLSearchParams(window.location.search).get('internal') === '1';
 
   /* =====================================================================
    * Email-confirmation gate (ported from app/index.html's recognition
@@ -522,17 +808,17 @@
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
   var recognitionWelcome = document.getElementById('recognition-welcome');
 
-  var recognition = { firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
-  var recognitionEmailValue = '';
-  var recognitionPhoneValue = '';
-  ['bui-input', 'bui-change'].forEach(function (eventName) {
-    recognitionEmailInput.addEventListener(eventName, function (evt) {
-      recognitionEmailValue = (evt.detail.value || '').trim();
-    });
-    recognitionPhoneInput.addEventListener(eventName, function (evt) {
-      recognitionPhoneValue = (evt.detail.value || '').trim();
-    });
-  });
+  var recognition = { firstName: '', fullName: '', contactId: '', attempts: 0, wrongEmails: [] };
+  // The email that actually passed the server-side confirmEmail check —
+  // kept for prefilling the embedded booking calendar (never trusted for
+  // anything gate-related; the gate is server-verified).
+  var confirmedEmail = '';
+  // Set once loadProposal() is called (email confirmed, silently handed
+  // off, or bypassed via internalPreview) — from that point on we're
+  // fetching/showing the proposal itself, so the "Confirm your email
+  // below…" subtitle must never reappear even though loadProposal() also
+  // uses the 'loading' panel while it fetches (see showPanel()).
+  var pastGate = false;
 
   function showRecognitionState(name) {
     recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
@@ -541,16 +827,25 @@
   }
 
   recognitionConfirmBtn.addEventListener('bui-click', function () {
-    var emailAttempt = recognitionEmailValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click, which silently
+    // sent an empty string here in production (confirmed via live logs:
+    // an autofilled, visibly-correct email produced emailAttempt: "").
+    var emailAttempt = (recognitionEmailInput.value || '').trim();
     recognitionEmailError.classList.add('hidden');
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
     })
       .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
       .then(function (data) {
         if (data && data.confirmed) {
+          confirmedEmail = emailAttempt;
+          // Mirror the funnel's handoff so a refresh (or a hop back to the
+          // funnel and forward again) doesn't re-prompt in this tab.
+          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
           loadProposal();
           return;
         }
@@ -573,11 +868,14 @@
   });
 
   recognitionPhoneBtn.addEventListener('bui-click', function () {
-    var phone = recognitionPhoneValue;
+    // Read the input's live value directly rather than a mirrored variable
+    // fed by bui-input/bui-change events — browser autofill doesn't
+    // reliably fire those events before a submit click.
+    var phone = (recognitionPhoneInput.value || '').trim();
     if (!phone) return;
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         action: 'conflict',
         googlePlaceId: placeId,
@@ -599,28 +897,96 @@
       });
   });
 
+  // Fresh-submission handoff: the assessment funnel (same origin) just
+  // finished and stashed this property's proposal payload for an instant,
+  // gate-free first paint. One-shot — consumed on read, so a later refresh
+  // falls through to the normal recognize/gate/getCachedProposal path (by
+  // then the backend has committed the record and that path works). Skipping
+  // the round-trip here is deliberate: right after submission the pipeline's
+  // contact-link and cache writes may not be committed yet, so a live
+  // recognize/getCachedProposal could race them and dead-end on notfound/
+  // unavailable — the funnel already has the finished Phase-A payload, so we
+  // render straight from it.
+  function readFreshHandoff(pid) {
+    var raw;
+    try { raw = sessionStorage.getItem('bui-fresh-proposal'); } catch (e) { return null; }
+    if (!raw) return null;
+    try { sessionStorage.removeItem('bui-fresh-proposal'); } catch (e) { /* one-shot best-effort */ }
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return null; }
+    if (!parsed || parsed.placeId !== pid || !parsed.data) return null;
+    // Ignore a stale handoff left by an abandoned tab (~10 min ceiling).
+    if (parsed.ts && (Date.now() - parsed.ts) > 10 * 60 * 1000) return null;
+    return parsed;
+  }
+
   /* =====================================================================
-   * Page bootstrap: recognize -> gate -> confirmEmail -> getCachedProposal
+   * Page bootstrap: fresh-handoff -> recognize -> gate -> confirmEmail
+   *                 -> getCachedProposal
    * =================================================================== */
   function init() {
     if (!placeId) {
       showPanel('invalid');
       return;
     }
+    var fresh = readFreshHandoff(placeId);
+    if (fresh) {
+      confirmedEmail = fresh.email || '';
+      recognition.firstName = fresh.firstName || '';
+      recognitionFirstname.textContent = recognition.firstName;
+      renderProposal(fresh.data);
+      showPanel('report');
+      return;
+    }
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
     })
       .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
       .then(function (data) {
         if (!data || !data.recognized) {
+          if (internalPreview) { loadProposal(); return; }
           showPanel('notfound');
           return;
         }
         recognition.firstName = data.firstName || '';
+        recognition.fullName = data.fullName || '';
         recognition.contactId = data.contactId || '';
         recognitionFirstname.textContent = recognition.firstName;
+        // Silent-confirm handoff: the assessment funnel (same origin)
+        // stores the email the visitor already confirmed there, so this
+        // page shouldn't ask for it a second time in the same tab. It is
+        // still verified server-side with the exact same confirmEmail
+        // action a manual entry would use — this only skips the typing,
+        // never the check. Any failure falls back to the normal gate.
+        var handedOff = '';
+        try { handedOff = sessionStorage.getItem('bui-confirmed-email') || ''; } catch (e) { /* non-fatal */ }
+        if (handedOff) {
+          fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: handedOff })
+          })
+            .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
+            .then(function (confirmData) {
+              if (confirmData && confirmData.confirmed) {
+                confirmedEmail = handedOff;
+                loadProposal();
+              } else {
+                // Different property/owner than the one confirmed in the
+                // funnel — drop the stale handoff and gate normally.
+                try { sessionStorage.removeItem('bui-confirmed-email'); } catch (e) { /* non-fatal */ }
+                showRecognitionState('welcome');
+                showPanel('gate');
+              }
+            })
+            .catch(function () {
+              showRecognitionState('welcome');
+              showPanel('gate');
+            });
+          return;
+        }
         showRecognitionState('welcome');
         showPanel('gate');
       })
@@ -631,11 +997,12 @@
   }
 
   function loadProposal() {
+    pastGate = true;
     showPanel('loading');
     document.getElementById('loading-status-text').textContent = 'Loading your proposal…';
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ action: 'getCachedProposal', googlePlaceId: placeId })
     })
       .then(function (res) { return res.ok ? res.json() : { found: false }; })
@@ -644,13 +1011,106 @@
           showPanel('unavailable');
           return;
         }
-        renderProposal(data);
-        showPanel('report');
+        presentProposal(data);
       })
       .catch(function (err) {
         console.warn('[brichaus-proposal] getCachedProposal failed:', err);
         showPanel('unavailable');
       });
+  }
+
+  /* =====================================================================
+   * Profile-behind-your-proposal popup — populated here, opened later via
+   * the "See Details" link on the fee block (see the see-details-btn
+   * handler below). No longer gates the report: presentProposal() renders
+   * straight into 'report' now. Read-only (see the markup comment above
+   * #review-modal): a contact is already associated with this property by
+   * the time we get here (the gate/internalPreview bypass are the only
+   * ways in), so per the fee-integrity rule these fields aren't
+   * visitor-editable — that's intake-v2's review step's job, pre-contact.
+   * This just presents what the proposal is based on; the copy
+   * deliberately does NOT ask the visitor to "confirm" anything, since
+   * they have no way to act on that — it offers a real corrective path
+   * (schedule a call) instead. Same facts-card + badge-row visual language
+   * as intake-v2's review step, minus the click targets.
+   * =================================================================== */
+  var CATEGORY_ICONS = {
+    'Tenant Friction': '👥', 'Turnover Pressure': '🔄',
+    'Maintenance Burden': '🔧', 'Compliance & Administration': '⚖️'
+  };
+
+  function presentProposal(data) {
+    var reviewIntroMessage = document.getElementById('review-intro-message');
+    var factsTitle = document.getElementById('review-facts-title');
+    var factsSub = document.getElementById('review-facts-sub');
+    var readonlySpecs = document.getElementById('review-readonly-specs');
+    var driversWrap = document.getElementById('review-drivers');
+    var lockLink = document.getElementById('review-lock-link');
+
+    reviewIntroMessage.textContent = recognition.firstName
+      ? 'Welcome back, ' + recognition.firstName + ' — here’s the profile behind your proposal.'
+      : 'Here’s the profile behind your proposal.';
+
+    factsTitle.textContent = data.propertyName || data.formattedAddress || '';
+    var subParts = [data.propertyType || ''];
+    if (data.propertyType === 'Multifamily' && data.unitCount) subParts.push(data.unitCount + ' units');
+    factsSub.textContent = subParts.filter(Boolean).join(' · ');
+
+    readonlySpecs.innerHTML = '';
+    if (data.rentPerUnit != null) {
+      readonlySpecs.appendChild(buildEvidenceSpecRow('Average Monthly Rent', currency(data.rentPerUnit) + '/mo'));
+    }
+
+    driversWrap.innerHTML = '';
+    var categories = ((data.report && data.report.operationalProfile && data.report.operationalProfile.categories) || [])
+      .filter(function (cat) { return cat && cat.label; });
+    if (categories.length) {
+      var heading = document.createElement('p');
+      heading.className = 'review-drivers-heading';
+      heading.textContent = 'Operational Demand';
+      driversWrap.appendChild(heading);
+      categories.forEach(function (cat) {
+        driversWrap.appendChild(buildDriverRoRow(cat));
+      });
+    }
+
+    if (lockLink && CONFIG.BOOKING_URL) lockLink.href = CONFIG.BOOKING_URL;
+
+    renderProposal(data);
+    showPanel('report');
+  }
+
+  // Uses the property's real, already-assessed OIA label (cat.label) and
+  // score band verbatim — the same source renderOperationalProfile() reads
+  // further down this page — rather than a separate invented vocabulary.
+  // categoryScore() (defined below, hoisted) resolves either the current
+  // numeric cat.score or an older cached proposal's label-only shape.
+  function buildDriverRoRow(cat) {
+    var row = document.createElement('div');
+    row.className = 'review-driver-ro';
+    var icon = document.createElement('span');
+    icon.className = 'review-driver-ro__icon';
+    icon.textContent = CATEGORY_ICONS[cat.category] || '';
+    var name = document.createElement('span');
+    name.className = 'review-driver-ro__name';
+    name.textContent = cat.category;
+    var badge = document.createElement('span');
+    badge.className = 'review-driver-ro__badge';
+    var cs = categoryScore(cat);
+    var tone = cs == null ? 'accent' : (cs >= 2 ? 'danger' : cs >= 1.5 ? 'warning' : cs >= 1 ? 'accent' : 'slate');
+    badge.setAttribute('data-tone', tone);
+    badge.textContent = cat.label;
+    row.appendChild(icon); row.appendChild(name); row.appendChild(badge);
+    return row;
+  }
+
+  function buildEvidenceSpecRow(label, value) {
+    var row = document.createElement('div');
+    row.className = 'evidence-spec';
+    var l = document.createElement('span'); l.textContent = label;
+    var v = document.createElement('span'); v.textContent = value;
+    row.appendChild(l); row.appendChild(v);
+    return row;
   }
 
   /* =====================================================================
@@ -660,12 +1120,12 @@
    * =================================================================== */
   var DemandEngine = (function () {
     var BANDS = [
-      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Minimal Operational Complexity', tone: 'slate' },
-      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-Average Operational Complexity', tone: 'slate' },
-      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical Operational Complexity', tone: 'accent' },
-      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-Average Operational Complexity', tone: 'warning' },
-      { min: 3.00, max: 7.99, label: 'HIGH', caption: 'High Operational Complexity', tone: 'warning' },
-      { min: 8.00, max: 16.00, label: 'SEVERE', caption: 'Severe Operational Complexity', tone: 'danger' }
+      { min: 0.0625, max: 0.49, label: 'VERY LOW', caption: 'Well below typical operational demand', tone: 'slate' },
+      { min: 0.50, max: 0.99, label: 'LOW', caption: 'Below-average operational demand', tone: 'slate' },
+      { min: 1.00, max: 1.49, label: 'NORMAL', caption: 'Typical operational demand for this property', tone: 'accent' },
+      { min: 1.50, max: 2.99, label: 'ELEVATED', caption: 'Above-average operational demand', tone: 'warning' },
+      { min: 3.00, max: 7.99, label: 'SUBSTANTIAL', caption: 'Well above typical operational demand', tone: 'warning' },
+      { min: 8.00, max: 16.00, label: 'INTENSIVE', caption: 'Operational demand at the top of the range', tone: 'danger' }
     ];
 
     function bandByLabel(label) {
@@ -686,12 +1146,20 @@
     return '$' + Math.round(n).toLocaleString('en-US');
   }
 
+  // DemandEngine band labels are ALL CAPS (a pill-badge convention) — this
+  // reads them naturally inline inside a sentence, e.g. "VERY LOW" -> "Very Low".
+  function titleCaseBandLabel(label) {
+    return String(label || '').toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
   /* =====================================================================
-   * Proposal — 5 branded service cards (verbatim from app/index.html;
-   * see that file for the full doc comments on each table).
+   * Proposal — 6 branded service cards. Live source is Dataverse (see
+   * SERVICES_CATALOG_URL / fetchServicesCatalog below) — the FALLBACK_*
+   * constants here are only used if that fetch fails or is slow, so the
+   * section never blanks out.
    * =================================================================== */
-  var SERVICE_CARDS = [
-    { icon: '🏠', title: 'Market-to-Move-In™',
+  var FALLBACK_SERVICE_CARDS = [
+    { icon: '🏠', title: 'Market-to-Move-In™', leasing: true,
       desc: 'From market preparation through move-in, we position your property to attract qualified residents while creating a smooth leasing experience.',
       items: [
         'Comparable Marketing Analysis &amp; Real Estate Consulting',
@@ -731,12 +1199,22 @@
         'Confirm Utilities Transfer',
         'Coordinate Tenant Communications',
         'Negotiate Lease Renewals &amp; Agreements'
+      ] },
+    { icon: '👥', title: 'Managed Tenants™',
+      desc: 'Keep residents engaged and your property compliant with consistent, professional tenant relationship management throughout the lease term.',
+      items: [
+        'Resident Portal Access &amp; Support',
+        'Lease Renewal Management',
+        'Policy &amp; Community Standards Enforcement',
+        'Routine Tenant Communications',
+        'Complaint &amp; Conflict Resolution',
+        'Resident Satisfaction Check-ins'
       ] }
   ];
 
-  var ASSET_SHIELD = {
+  var FALLBACK_ASSET_SHIELD = {
     icon: '🛡️', title: 'AssetShield™',
-    desc: 'Reduce financial risk with integrated protection programs that safeguard your income, your property, and your investment.',
+    desc: 'Additional services recommended for your property — checked items are already included in your proposal.',
     items: [
       'Annual Inspections',
       'Pet Placement Protection',
@@ -745,18 +1223,70 @@
     ]
   };
 
+  // Fetches the live catalog (Dataverse-backed single source of truth) and
+  // resolves to { cards, assetShield } — the shape buildServiceCard/
+  // renderProposalServiceCards already expect. NEVER rejects: any failure
+  // (network error, bad JSON, empty/malformed response, or simply taking
+  // too long) resolves to the FALLBACK_* constants above instead, so a
+  // catalog outage degrades to slightly-stale content, not a blank section.
+  // `leasing: true` on Market-to-Move-In™ is app-level display logic (shows
+  // the leasing % inline on that one card), not catalog content, so it's
+  // set here by title match rather than expected from Dataverse.
+  function fetchServicesCatalog() {
+    var fallback = { cards: FALLBACK_SERVICE_CARDS, assetShield: FALLBACK_ASSET_SHIELD };
+    if (!CONFIG.SERVICES_CATALOG_URL) return Promise.resolve(fallback);
+
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(fallback); }, 4000); });
+    var live = fetch(CONFIG.SERVICES_CATALOG_URL).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      var categories = (data && data.categories) || [];
+      if (!categories.length) throw new Error('empty catalog');
+      var assetShield = null;
+      var cards = [];
+      categories.forEach(function (c) {
+        var card = { icon: c.icon, title: c.title, desc: c.desc, items: c.items || [] };
+        if (c.title === 'Market-to-Move-In™') card.leasing = true;
+        if (c.title === 'AssetShield™') assetShield = card; else cards.push(card);
+      });
+      if (!assetShield) throw new Error('catalog missing AssetShield™');
+      return { cards: cards, assetShield: assetShield };
+    }).catch(function () { return fallback; });
+
+    return Promise.race([live, timeout]);
+  }
+
+  var catalogPromise = fetchServicesCatalog();
+
   var CATEGORY_KEY_BY_NAME = {
     'Tenant Friction': 'tenantFriction',
     'Turnover Pressure': 'turnoverPressure',
     'Maintenance Burden': 'maintenanceBurden',
+    // Current pipeline label + the pre-rename one — cached proposals
+    // (report-status cache, Dataverse snapshots) still carry the old string.
+    'Compliance & Administration': 'complianceBurden',
     'Compliance Burden': 'complianceBurden'
   };
 
+  // Keyed by SCORE threshold, not the label word — the operational labels are
+  // owner-editable in Dataverse (cr55d_oiascorelabel), so "High"/"Severe" are
+  // not stable. The score (0.5/1/1.5/2) is. Backend applies coverage on the same
+  // thresholds (see Main Pipeline: eviction/inspection >= 1.5, leasePlacement >= 2).
   var ASSET_SHIELD_TRIGGERS = {
-    tenantFriction: { High: ['Eviction Protection'], Severe: ['Eviction Protection'] },
-    turnoverPressure: { Severe: ['Lease Placement Protection'] },
-    maintenanceBurden: { High: ['Annual Inspections'], Severe: ['Annual Inspections'] }
+    tenantFriction: { minScore: 1.5, items: ['Eviction Protection'] },
+    turnoverPressure: { minScore: 2, items: ['Lease Placement Protection'] },
+    maintenanceBurden: { minScore: 1.5, items: ['Annual Inspections'] }
   };
+
+  // Resolve a category's severity score. New proposals carry cat.score; older
+  // cached proposals (pre-score, pre-rename) carry only the old label words —
+  // map those so historical proposals keep working.
+  var LEGACY_LABEL_SCORE = { Low: 0.5, Normal: 1, High: 1.5, Severe: 2 };
+  function categoryScore(cat) {
+    if (cat && cat.score != null && cat.score !== '') return Number(cat.score);
+    return cat && LEGACY_LABEL_SCORE[cat.label] != null ? LEGACY_LABEL_SCORE[cat.label] : null;
+  }
 
   var ASSET_SHIELD_RATIONALE = {
     'Eviction Protection': 'Tenant friction on this property is running high, which raises the odds of needing to pursue an eviction — this covers that process if it becomes necessary.',
@@ -772,14 +1302,16 @@
     var badged = new Set();
     categories.forEach(function (cat) {
       var key = CATEGORY_KEY_BY_NAME[cat.category];
-      var forKey = key && ASSET_SHIELD_TRIGGERS[key];
-      var forLabel = forKey && forKey[cat.label];
-      if (forLabel) forLabel.forEach(function (item) { badged.add(item); });
+      var rule = key && ASSET_SHIELD_TRIGGERS[key];
+      var score = categoryScore(cat);
+      if (rule && score != null && score >= rule.minScore) {
+        rule.items.forEach(function (item) { badged.add(item); });
+      }
     });
     return badged;
   }
 
-  function buildServiceCard(card, badgedSet) {
+  function buildServiceCard(card, badgedSet, leasingPct) {
     var wrap = document.createElement('div');
     wrap.className = 'service-card';
 
@@ -800,13 +1332,32 @@
     desc.textContent = card.desc;
     wrap.appendChild(desc);
 
+    // The leasing fee rides as the Market-to-Move-In subheading (leasing IS the
+    // Market-to-Move-In service). Percentage is emphasized; the "of one month's
+    // rent…" application follows in muted text. Only this card gets it.
+    if (card.leasing && leasingPct != null) {
+      var leasing = document.createElement('p');
+      leasing.className = 'service-card__leasing';
+      var pctSpan = document.createElement('span');
+      pctSpan.className = 'service-card__leasing-pct';
+      pctSpan.textContent = leasingPct + '%';
+      leasing.appendChild(pctSpan);
+      leasing.appendChild(document.createTextNode(' of one month’s rent, per new tenant we sign'));
+      wrap.appendChild(leasing);
+    }
+
     var details = document.createElement('details');
     details.className = 'service-card__details';
     var badgedCount = badgedSet ? badgedSet.size : 0;
     if (badgedCount > 0) details.setAttribute('open', '');
     var summary = document.createElement('summary');
     summary.className = 'service-card__summary';
-    summary.textContent = badgedCount > 0 ? ('View Included Services · ' + badgedCount + ' recommended for you') : 'View Included Services';
+    // Only AssetShield (the card that gets a badgedSet) frames its list as
+    // "Recommended Services" — the four core service cards list what's already
+    // included, so they read "View Included Services".
+    summary.textContent = badgedSet
+      ? (badgedCount > 0 ? ('Recommended Services · ' + badgedCount + ' for your property') : 'Recommended Services')
+      : 'View Included Services';
     details.appendChild(summary);
 
     var items = card.items.slice();
@@ -876,72 +1427,59 @@
     });
   }
 
-  function renderProposalServiceCards(report) {
+  function renderProposalServiceCards(report, leasingPct) {
     var serviceCardsList = document.getElementById('service-cards');
     var profile = report && report.operationalProfile;
     var cats = (profile && profile.categories) || [];
     var badgedItems = computeBadgedAssetShieldItems(cats);
 
-    serviceCardsList.innerHTML = '';
-    var cards = SERVICE_CARDS.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card)); });
-    var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(ASSET_SHIELD, badgedItems));
-    cards.push(assetShieldCard);
-    runRevealSequence(cards, assetShieldCard, serviceCardsList);
-  }
-
-  function renderReportSummary(report) {
-    var reportSummary = document.getElementById('report-summary');
-    var reportSummaryText = document.getElementById('report-summary-text');
-    var reportConfidence = document.getElementById('report-confidence');
-    var summary = report && report.clientSummary;
-    reportSummary.classList.toggle('hidden', !summary);
-    if (!summary) return;
-    reportSummaryText.textContent = summary;
-    var note = report.confidenceNote;
-    reportConfidence.textContent = note || '';
-    reportConfidence.classList.toggle('hidden', !note);
-  }
-
-  function renderOperationalProfile(report) {
-    var opProfileList = document.getElementById('op-profile-list');
-    var workloadSummary = document.getElementById('workload-summary');
-    var profile = report && report.operationalProfile;
-
-    var definition = profile && profile.operationalIntensityDefinition;
-    workloadSummary.textContent = definition || '';
-    workloadSummary.classList.toggle('hidden', !definition);
-
-    var cats = (profile && profile.categories) || [];
-    var withText = cats.filter(function (c) { return c && (c.summary || c.label); });
-
-    opProfileList.innerHTML = '';
-    withText.forEach(function (c) {
-      var row = document.createElement('details');
-      row.className = 'op-profile-row';
-
-      var head = document.createElement('summary');
-      head.className = 'op-profile-head';
-      var name = document.createElement('span');
-      name.className = 'op-cat-name';
-      name.textContent = c.category || '';
-      head.appendChild(name);
-      if (c.label) {
-        var label = document.createElement('span');
-        label.className = 'op-cat-label';
-        label.setAttribute('data-tone', String(c.label).trim().toLowerCase());
-        label.textContent = c.label;
-        head.appendChild(label);
-      }
-      row.appendChild(head);
-
-      if (c.summary) {
-        var sum = document.createElement('div');
-        sum.className = 'op-cat-summary';
-        sum.textContent = c.summary;
-        row.appendChild(sum);
-      }
-      opProfileList.appendChild(row);
+    // catalogPromise was kicked off at load time, so by the time this fires
+    // it's almost always already resolved — this await just guards the
+    // rare case it hasn't.
+    catalogPromise.then(function (catalog) {
+      serviceCardsList.innerHTML = '';
+      var cards = catalog.cards.map(function (card) { return serviceCardsList.appendChild(buildServiceCard(card, null, leasingPct)); });
+      var assetShieldCard = serviceCardsList.appendChild(buildServiceCard(catalog.assetShield, badgedItems));
+      cards.push(assetShieldCard);
+      runRevealSequence(cards, assetShieldCard, serviceCardsList);
     });
+  }
+
+  // Property Metrics (Estimated) — reads report.performanceMetrics, computed
+  // server-side (Main Pipeline's "Compute Performance Metrics" node). That
+  // node already applies the Turnover-Pressure-Minimal gate and returns null
+  // when it doesn't apply, so this function only ever needs to check truthy/
+  // absent — no duplicate tier logic here. Rent Gap is omitted (null) for
+  // multifamily properties, which don't have a single comparable market rent;
+  // the row hides but Total Annual Opportunity still shows (vacancy cost only).
+  function renderPerformanceMetrics(report) {
+    var section = document.getElementById('perf-metrics');
+    var metrics = report && report.performanceMetrics;
+    if (!metrics) {
+      section.classList.add('hidden');
+      return;
+    }
+    section.classList.remove('hidden');
+
+    document.getElementById('perf-gross-rent').textContent = currency(metrics.grossCollectedRentMonthly) + '/mo';
+
+    var vacancyRatePct = (metrics.vacancyRate || 0) * 100;
+    var vacancyRateEl = document.getElementById('perf-vacancy-rate');
+    vacancyRateEl.textContent = vacancyRatePct.toFixed(1) + '% (' + metrics.vacantUnits + ' of ' + metrics.unitCount +
+      (metrics.unitCount === 1 ? ' unit)' : ' units)');
+    vacancyRateEl.setAttribute('data-tone', vacancyRatePct > 15 ? 'severe' : '');
+
+    document.getElementById('perf-vacancy-cost').textContent = currency(metrics.vacancyCostAnnual) + '/yr';
+
+    var rentGapRow = document.getElementById('perf-rent-gap-row');
+    if (metrics.rentGapPerUnit != null) {
+      document.getElementById('perf-rent-gap').textContent = currency(metrics.rentGapPerUnit) + '/mo per unit';
+      rentGapRow.classList.remove('hidden');
+    } else {
+      rentGapRow.classList.add('hidden');
+    }
+
+    document.getElementById('perf-total-opportunity').textContent = currency(metrics.totalAnnualOpportunity) + '/yr';
   }
 
   /* =====================================================================
@@ -956,12 +1494,31 @@
     var reportAddress = document.getElementById('report-address');
     var heroFee = document.getElementById('hero-fee');
     var heroFeeSub = document.getElementById('hero-fee-sub');
-    var opProfile = document.getElementById('op-profile');
-    var heroBand = document.getElementById('hero-band');
-    var demandMark = document.getElementById('demand-mark');
 
-    reportAddress.textContent = data.propertyName || '';
-    reportAddress.classList.toggle('hidden', !data.propertyName);
+    // The address string is often the FULL formatted address
+    // ("Street, City, ST Zip[, Country]"). Title = the street line (first
+    // segment); locality = the middle (City, ST Zip), dropping a trailing
+    // country segment. Short names (no comma) show a title only.
+    var rawAddr = data.formattedAddress || data.propertyName || '';
+    var addrParts = rawAddr.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var title = (data.propertyName || rawAddr).split(',')[0].trim();
+    reportAddress.textContent = title;
+    reportAddress.classList.toggle('hidden', !title);
+
+    var localityEl = document.getElementById('report-locality');
+    var mid = addrParts.slice(1);
+    if (mid.length && /^(usa|united states)$/i.test(mid[mid.length - 1])) mid = mid.slice(0, -1);
+    var locality = mid.join(', ');
+    if (localityEl) { localityEl.textContent = locality; localityEl.classList.toggle('hidden', !locality); }
+
+    // "Prepared for" — the contact's full name when the funnel handed it off,
+    // otherwise the first name resolved during recognition, else hidden.
+    var preparedEl = document.getElementById('prepared-for');
+    var preparedName = (data.contactFullName || recognition.fullName || recognition.firstName || '').trim();
+    if (preparedEl) {
+      preparedEl.textContent = preparedName ? ('Prepared for: ' + preparedName) : '';
+      preparedEl.classList.toggle('hidden', !preparedName);
+    }
 
     var feeRate = parseFloat(data.feeCalcResponse);
     var monthlyFee = typeof data.monthlyFee === 'number' ? data.monthlyFee : null;
@@ -971,7 +1528,7 @@
       // numbers that are (monthlyFee = grossMonthly * feeRate).
       var grossMonthly = feeRate > 0 ? monthlyFee / feeRate : null;
       heroFee.innerHTML = feePct.toFixed(1) + '<span class="revenue-hero__total">%</span>';
-      heroFeeSub.innerHTML = 'recommended monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span>' +
+      heroFeeSub.innerHTML = 'estimated monthly fee &middot; <span class="revenue-hero__total">' + currency(monthlyFee) + '/mo</span>' +
         (grossMonthly !== null ? ' on ' + currency(grossMonthly) + ' gross monthly rent' : '');
     } else {
       heroFee.textContent = '—';
@@ -980,43 +1537,158 @@
 
     var bandLabel = report.operationalProfile && report.operationalProfile.band;
     var band = bandLabel ? DemandEngine.bandByLabel(bandLabel) : null;
-    if (band) {
-      opProfile.classList.remove('hidden');
-      heroBand.textContent = band.label;
-      heroBand.setAttribute('data-tone', band.tone);
-      // No raw numeric demand score is stored (only the band label) — the
-      // geometric mean of the band's own min/max stands in as the gauge
-      // position, since DemandEngine's scale is log-based (this places the
-      // marker at that band's visual midpoint, not the visitor's exact score).
-      var approxScore = Math.sqrt(band.min * band.max);
-      var pct = DemandEngine.gaugePercent(approxScore);
-      demandMark.style.left = Math.max(3, Math.min(97, pct)) + '%';
-      demandMark.setAttribute('data-tone', band.tone);
-    } else {
-      opProfile.classList.add('hidden');
+    var heroFeeBasis = document.getElementById('hero-fee-basis');
+    if (band && heroFeeBasis) {
+      heroFeeBasis.innerHTML = 'Based on the <strong data-tone="' + band.tone + '">' + titleCaseBandLabel(band.label) +
+        '</strong> operational demand derived from your assessment.';
+      heroFeeBasis.classList.remove('hidden');
+    } else if (heroFeeBasis) {
+      heroFeeBasis.classList.add('hidden');
     }
+    // No Operational Demand section on the report itself (removed per owner
+    // review — move the visitor to the consultation instead); the demand
+    // profile lives in the See Details popup, and the fee-basis line above
+    // still names the band. The AI narrative (clientSummary/confidenceNote)
+    // is likewise NOT rendered — internal, kept in a GHL field for call
+    // scripts / follow-up.
+    renderPerformanceMetrics(report);
+    renderProposalServiceCards(report, resolveLeasingPct(data));
+    renderFeeSetupNote();
+    renderReportMap(rawAddr);
+    renderStreetViewLink(rawAddr);
+  }
 
-    renderReportSummary(report);
-    renderOperationalProfile(report);
-    renderProposalServiceCards(report);
+  // Leasing % shown as the Market-to-Move-In subheading. ALWAYS uses the % the
+  // Fee Calculator used (surfaced by the pipeline as data.leasingFeePct),
+  // falling back to the CONFIG placeholder only until the pipeline supplies a
+  // real, non-zero value — the funnel currently sends 0, and 0% must never show
+  // on a customer proposal. Accepts a percent (50) or a fraction (0.5).
+  function resolveLeasingPct(data) {
+    var supplied = data && data.leasingFeePct != null && data.leasingFeePct !== '' ? Number(data.leasingFeePct) : NaN;
+    var raw = (!isNaN(supplied) && supplied > 0) ? supplied : CONFIG.LEASING_FEE_PCT;
+    return (raw > 0 && raw <= 1) ? Math.round(raw * 100) : raw;
+  }
+
+  // One-time setup fee wording, closing out the management-fee block. SETUP_FEE
+  // is the CONFIG ceiling ("not more than") — a placeholder until a real amount
+  // is wired in.
+  function renderFeeSetupNote() {
+    var note = document.getElementById('fee-setup-note');
+    if (!note) return;
+    var amount = '$' + Number(CONFIG.SETUP_FEE).toLocaleString('en-US');
+    note.textContent = 'A one-time setup fee of not more than ' + amount +
+      ' may apply to new owners joining the BRICHAUS family.';
+  }
+
+  // Overhead satellite pin — same google.maps.importLibrary('maps') /
+  // hybrid map-type treatment as intake-v2's Location step (showAddressMap),
+  // ported here so the report header carries the same visual confirmation.
+  // This page never receives a stored lat/lng, so the address string is
+  // geocoded client-side first; every failure (script not loaded on this
+  // GHL page, geocode miss, etc.) just leaves the map hidden — the "View
+  // property on Google Maps" link below it still works regardless.
+  var reportMap = null;
+  var reportMarker = null;
+  function renderReportMap(address) {
+    var mapDiv = document.getElementById('report-map');
+    if (!mapDiv) return;
+    if (!address || !(window.google && google.maps && typeof google.maps.importLibrary === 'function')) {
+      mapDiv.classList.add('hidden');
+      return;
+    }
+    google.maps.importLibrary('geocoding').then(function (lib) {
+      var geocoder = new lib.Geocoder();
+      return geocoder.geocode({ address: address });
+    }).then(function (result) {
+      var loc = result && result.results && result.results[0] && result.results[0].geometry && result.results[0].geometry.location;
+      if (!loc) { mapDiv.classList.add('hidden'); return; }
+      var center = { lat: loc.lat(), lng: loc.lng() };
+      return google.maps.importLibrary('maps').then(function (lib) {
+        if (!lib || typeof lib.Map !== 'function') { mapDiv.classList.add('hidden'); return; }
+        mapDiv.classList.remove('hidden');
+        if (!reportMap) {
+          reportMap = new lib.Map(mapDiv, {
+            center: center,
+            zoom: 18,
+            mapTypeId: 'hybrid',
+            disableDefaultUI: true,
+            zoomControl: true,
+            clickableIcons: false,
+            gestureHandling: 'cooperative'
+          });
+        } else {
+          reportMap.setCenter(center);
+        }
+        if (typeof google.maps.Marker === 'function') {
+          if (!reportMarker) reportMarker = new google.maps.Marker({ map: reportMap, position: center });
+          else reportMarker.setPosition(center);
+        }
+      });
+    }).catch(function () {
+      mapDiv.classList.add('hidden'); // geocoding/maps load failed — link-only is still fine
+    });
+  }
+
+  // A live link to Google Maps for this address — lets the visitor look
+  // around (Street View, satellite, etc.) and confirm the location
+  // themselves, instead of us asserting a single static photo is definitely
+  // their building. Driven by the same address string Google Places resolved
+  // during intake, not a stored lat/lng, so there's no coordinate to go
+  // stale or point at the wrong building, and nothing to cache.
+  function renderStreetViewLink(address) {
+    var link = document.getElementById('street-view-link');
+    if (!link) return;
+    if (!address) { link.classList.add('hidden'); return; }
+    link.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
+    link.classList.remove('hidden');
   }
 
   /* =====================================================================
    * CTA — same handlers as app/index.html's Results step.
    * =================================================================== */
-  document.getElementById('download-report-btn').addEventListener('click', function () {
-    window.print();
-  });
+  // Reveals the embedded booking calendar below the report and loads it
+  // on first click only — same lazy-src + form_embed.js auto-resize
+  // pattern as app/index.html's Schedule step (see its ensureBookingEmbed
+  // doc comment). Prefills the calendar from the recognized/confirmed
+  // visitor (GHL calendars read first_name/email query params).
+  var scheduleEmbedReady = false;
+  function revealScheduleEmbed() {
+    if (!CONFIG.BOOKING_URL) {
+      console.warn('[brichaus-proposal] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
+      return;
+    }
+    var embed = document.getElementById('schedule-embed');
+    if (!scheduleEmbedReady) {
+      scheduleEmbedReady = true;
+      var params = [];
+      if (recognition.firstName) params.push('first_name=' + encodeURIComponent(recognition.firstName));
+      if (confirmedEmail) params.push('email=' + encodeURIComponent(confirmedEmail));
+      var url = CONFIG.BOOKING_URL + (params.length ? (CONFIG.BOOKING_URL.indexOf('?') === -1 ? '?' : '&') + params.join('&') : '');
+      document.getElementById('booking-iframe').src = url;
+      document.getElementById('booking-fallback-link').href = url;
+      var resizer = document.createElement('script');
+      resizer.src = 'https://link.msgsndr.com/js/form_embed.js';
+      document.body.appendChild(resizer);
+    }
+    embed.classList.remove('hidden');
+    embed.scrollIntoView({ behavior: window.BUI.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
+  document.getElementById('schedule-btn').addEventListener('bui-click', revealScheduleEmbed);
 
-  function goToBooking() {
+  // The "proposal isn't ready yet" panel has no report to keep the visitor
+  // on, so its schedule button still navigates straight to the calendar.
+  document.getElementById('unavailable-schedule-btn').addEventListener('bui-click', function () {
     if (!CONFIG.BOOKING_URL) {
       console.warn('[brichaus-proposal] CONFIG.BOOKING_URL not set — "Schedule Consultation" has nowhere to send the visitor yet.');
       return;
     }
     window.location.href = CONFIG.BOOKING_URL;
-  }
-  document.getElementById('schedule-btn').addEventListener('bui-click', goToBooking);
-  document.getElementById('unavailable-schedule-btn').addEventListener('bui-click', goToBooking);
+  });
+
+  // Plain <button>, not bui-button — a native click, not bui-click.
+  document.getElementById('see-details-btn').addEventListener('click', function () {
+    document.getElementById('review-modal').show();
+  });
 
   init();
 })();

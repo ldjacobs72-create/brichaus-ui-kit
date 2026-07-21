@@ -44,7 +44,10 @@
 
   var STYLE_ID = 'bui-style-modal';
   window.BUI.injectStyle(STYLE_ID, [
-    'bui-modal { display: contents; }',
+    /* Hidden until _init() completes (it flips display to contents inline).
+       Covers the deferred-init window during initial parse — see
+       connectedCallback — so slotted content never flashes at page level. */
+    'bui-modal { display: none; }',
     'bui-modal, bui-modal * { box-sizing: border-box; }',
     '.bui-modal__backdrop {',
     '  position: fixed;',
@@ -122,6 +125,24 @@
 
     connectedCallback() {
       if (this._buiRendered) return;
+
+      // When this element is upgraded DURING the initial HTML parse (the
+      // component script loads in <head>), connectedCallback fires on the
+      // opening tag — before any children are parsed. Reading this.children
+      // then would find nothing: the title/body/footer slots would come up
+      // empty and the real content would land after the backdrop, visible at
+      // page level. Defer to DOMContentLoaded in that case; the injected
+      // "bui-modal { display: none }" rule hides the raw children meanwhile.
+      if (document.readyState === 'loading') {
+        var self = this;
+        document.addEventListener('DOMContentLoaded', function () { self._init(); }, { once: true });
+        return;
+      }
+      this._init();
+    }
+
+    _init() {
+      if (this._buiRendered) return;
       this._buiRendered = true;
 
       var children = Array.prototype.slice.call(this.children);
@@ -186,6 +207,7 @@
       this._onKeydown = this._onKeydown.bind(this);
 
       this._syncAttrs();
+      this.style.display = 'contents';
       if (this.hasAttribute('open')) this._open();
     }
 

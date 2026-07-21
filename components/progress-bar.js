@@ -21,7 +21,7 @@
  *               "N of M" text on the right of the label row
  *
  * Usage:
- *   <bui-progress-bar tone="header" label="3–6. Operational Assessment" value="43"></bui-progress-bar>
+ *   <bui-progress-bar tone="header" label="3–6. Operational Demand" value="43"></bui-progress-bar>
  *   <bui-progress-bar variant="segmented" label="Maintenance Driver" value="3" max="4"></bui-progress-bar>
  *   <bui-progress-bar label="Building your report" value="87"></bui-progress-bar>
  */
