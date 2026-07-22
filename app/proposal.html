@@ -855,6 +855,14 @@
       .then(function (data) {
         if (data && data.confirmed) {
           confirmedEmail = emailAttempt;
+          // The confirm response is the first (and only) place the server
+          // shares the verified owner's identity — recognize is name-blind
+          // now. With co-owned properties this is the MATCHED contact, so
+          // the "Prepared for" line and booking prefill show the verified
+          // visitor's own name, not an arbitrary co-owner's.
+          recognition.firstName = data.firstName || recognition.firstName;
+          recognition.fullName = data.fullName || recognition.fullName;
+          recognition.contactId = data.contactId || recognition.contactId;
           // Mirror the funnel's handoff so a refresh (or a hop back to the
           // funnel and forward again) doesn't re-prompt in this tab.
           try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
@@ -961,9 +969,11 @@
           showPanel('notfound');
           return;
         }
-        // Kept in JS state only (conflict handoff payload, booking prefill,
-        // "Prepared for" line) — never rendered before the gate is passed,
-        // so the owner's name is not revealed to whoever opened the link.
+        // The server's recognize response is name-blind ({recognized: true}
+        // only) — nothing about the owner reaches the client before the
+        // gate is passed. These stay as defensive reads for any older
+        // response shape; the verified identity arrives on the confirmEmail
+        // response instead (see the confirm handlers).
         recognition.firstName = data.firstName || '';
         recognition.fullName = data.fullName || '';
         recognition.contactId = data.contactId || '';
@@ -991,6 +1001,11 @@
             .then(function (confirmData) {
               if (confirmData && confirmData.confirmed) {
                 confirmedEmail = handedOff;
+                // Same as the typed gate: the verified identity arrives on
+                // the confirm response (recognize is name-blind).
+                recognition.firstName = confirmData.firstName || recognition.firstName;
+                recognition.fullName = confirmData.fullName || recognition.fullName;
+                recognition.contactId = confirmData.contactId || recognition.contactId;
                 loadProposal();
               } else {
                 // Different property/owner than the one confirmed in the
