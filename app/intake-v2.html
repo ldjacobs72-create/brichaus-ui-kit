@@ -123,6 +123,8 @@
     margin: 0 0 14px;
     font-size: 1.375rem;
   }
+  /* Step 1's heading runs 2pt smaller than the other steps' (owner review). */
+  #brichaus-assessment [data-step="location"] .step-intro h2 { font-size: 1.25rem; }
   #brichaus-assessment .step-intro p {
     margin: 0 0 28px;
     color: var(--bui-color-text-muted);
@@ -478,6 +480,10 @@
     font-size: var(--bui-font-size-sm);
     color: var(--bui-color-danger);
   }
+  /* "Schedule a quick call" link inside the confirmed-owner message —
+     profile changes go through a call, not a re-run of the assessment. */
+  #brichaus-assessment .recognition-call-link { color: var(--bui-color-accent); font-weight: 700; text-decoration: none; }
+  #brichaus-assessment .recognition-call-link:hover { text-decoration: underline; }
   #brichaus-assessment .recognition-state bui-button {
     margin-top: var(--bui-space-3);
   }
@@ -1082,7 +1088,7 @@
         <bui-progress-bar tone="header" label="1. Property Location" value="10"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Where is the property?</h2>
+        <h2>Where is your property?</h2>
         <p>We'll use this to pull market rent data and comparables.</p>
         <bui-address-input
           id="address-input"
@@ -1670,6 +1676,13 @@
     // it isn't interpolated (the raw file, or an unset custom value), so the
     // "View My Proposal" link can never break.
     PROPOSAL_PAGE_URL: '{{custom_values.management_proposal_url}}',
+
+    // Booking calendar, offered when a recognized owner wants to CHANGE the
+    // profile behind their saved proposal — profile edits go through a call
+    // (fee-integrity rule: once a Contact is on file, the party whose fee is
+    // being calculated doesn't self-edit its inputs). Same calendar as
+    // proposal.html's Schedule your consultation.
+    BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
 
     // Poll endpoint for the two-phase report. When the assessment POST sets
     // AsyncReport:true, the pipeline returns the deterministic answer (fee,
@@ -2696,7 +2709,17 @@
   // confirmEmail handler), never on the conflict-handoff done state.
   recognitionViewProposal.addEventListener('bui-click', function () {
     if (!CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId) return;
-    window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
+    // The just-confirmed email rides the URL so proposal.html's gate can
+    // confirm it silently (server-verified there, exactly like a typed
+    // entry) instead of prompting a second time. The sessionStorage handoff
+    // alone proved unreliable between these two GHL pages — their custom-
+    // code blocks don't share a storage context (same reason merge-tags
+    // interpolate on one page but not the other), so the visitor was being
+    // asked to confirm an email they'd confirmed seconds earlier.
+    var url = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
+    var confirmedEmail = (state.contact.email || '').trim();
+    if (state.recognition.confirmed && confirmedEmail) url += '&email=' + encodeURIComponent(confirmedEmail);
+    window.location.href = url;
   });
 
   function showRecognitionState(name) {
@@ -2814,25 +2837,24 @@
         if (placeId !== state.address.placeId) return; // superseded by a newer selection
         if (data && data.confirmed) {
           showRecognitionState('done');
-          recognitionDoneMessage.textContent = 'Thanks, ' + state.recognition.firstName + '! View your saved proposal, or continue below to run a fresh assessment on this property.';
+          // View Proposal is the ONLY way forward for a confirmed owner
+          // (owner decision): the saved profile is locked, so re-running the
+          // assessment on this property is off the table — Continue stays
+          // disabled. Profile changes go through a scheduled call instead.
+          recognitionDoneMessage.innerHTML = 'Thanks, ' + state.recognition.firstName + '! Your saved proposal is ready — view it below. Want to update anything in your profile? ' +
+            (CONFIG.BOOKING_URL
+              ? '<a href="' + CONFIG.BOOKING_URL + '" class="recognition-call-link" target="_blank" rel="noopener">Schedule a quick call</a> and we\'ll make the changes with you.'
+              : 'Schedule a quick call and we\'ll make the changes with you.');
           if (CONFIG.PROPOSAL_PAGE_URL) recognitionViewProposal.classList.remove('hidden');
-          locationContinue.removeAttribute('disabled');
-          // Hand the confirmed email to proposal.html (same origin) so its
-          // own gate can confirm silently instead of asking a second time.
-          // sessionStorage is tab-scoped and can throw in some private
-          // browsing modes — failing just means one extra email prompt.
-          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
-          // A confirmed existing contact shouldn't be re-onboarded at the
-          // "Get Your Report" step: prefill their known name and the email
-          // they just confirmed, and (see refreshContactContinue) skip the
-          // consent-checkbox gate — they already agreed when they first
-          // came through. The backend just associates the new property.
+          locationContinue.setAttribute('disabled', '');
+          // Remember the confirmed email for the View Proposal handoff below
+          // (it rides the URL — see the recognitionViewProposal handler) and
+          // for the same-origin sessionStorage fallback. sessionStorage is
+          // tab-scoped and can throw in some private browsing modes —
+          // failing just means one extra email prompt on the proposal page.
           state.recognition.confirmed = true;
-          if (!state.contact.firstName) state.contact.firstName = state.recognition.firstName;
           state.contact.email = emailAttempt;
-          contactNameInput.value = state.contact.firstName;
-          contactEmailInput.value = state.contact.email;
-          refreshContactContinue();
+          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
           return;
         }
         // Kept so the conflict handoff below can hand a human every email
@@ -3902,8 +3924,13 @@
       console.warn('[brichaus-assessment] PROPOSAL_PAGE_URL not set — cannot hand off to the proposal page.');
       return;
     }
+    // The consented email rides the URL as the sessionStorage fallback —
+    // the two GHL pages' custom-code blocks don't reliably share a storage
+    // context (see the View My Proposal handler), and without it a lost
+    // fresh-handoff payload would gate the visitor right after submitting.
     window.location.href = CONFIG.PROPOSAL_PAGE_URL +
-      (placeId ? '?placeId=' + encodeURIComponent(placeId) : '');
+      (placeId ? '?placeId=' + encodeURIComponent(placeId) : '') +
+      (placeId && state.contact.email ? '&email=' + encodeURIComponent(state.contact.email) : '');
   }
 
   /* =====================================================================
