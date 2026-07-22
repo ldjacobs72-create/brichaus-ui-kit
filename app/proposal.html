@@ -149,6 +149,28 @@
     color: var(--bui-color-danger);
   }
   #brichaus-proposal .recognition-state bui-button { margin-top: var(--bui-space-3); }
+  /* Ownership self-certification checkbox on the gate — same pattern as
+     intake-v2's claim flow (.consent-line there). */
+  #brichaus-proposal .consent-line {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--bui-space-2);
+    margin-top: var(--bui-space-3);
+    cursor: pointer;
+  }
+  #brichaus-proposal .consent-line input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--bui-color-accent);
+  }
+  #brichaus-proposal .consent-line span {
+    font-family: var(--bui-font-family);
+    font-size: var(--bui-font-size-sm);
+    line-height: 1.45;
+    color: var(--bui-color-text-muted);
+  }
   #brichaus-proposal .evidence-specs { display: flex; flex-direction: column; }
   #brichaus-proposal .evidence-spec {
     display: flex; justify-content: space-between; gap: var(--bui-space-2);
@@ -528,9 +550,17 @@
        doc comment for the full business-rule rationale. -->
   <div data-state="gate" class="proposal-panel hidden">
     <div id="recognition-panel" class="recognition-panel">
+      <!-- Deliberately name-blind: nothing about the record's owner is
+           revealed to whoever opened this link. The visitor asserts the
+           relationship (checkbox) and proves it with the email on file
+           (server-side confirmEmail check). -->
       <div id="recognition-welcome" class="recognition-state hidden">
-        <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your management proposal.</p>
+        <p class="recognition-message">Are you the owner of this property? Confirm your email below to view the management proposal.</p>
         <bui-input id="recognition-email-input" label="Email" type="email"></bui-input>
+        <label class="consent-line" id="gate-cert-line">
+          <input type="checkbox" id="gate-cert-checkbox" />
+          <span>I certify that I am the owner of this property, or an authorized representative acting on the owner's behalf.</span>
+        </label>
         <p id="recognition-email-error" class="recognition-error hidden">That doesn't match what we have on file — please try again.</p>
         <bui-button id="recognition-confirm-btn" variant="slate">Confirm Email</bui-button>
       </div>
@@ -770,8 +800,8 @@
    * panel — see checkContactRecognition()/recognitionConfirmBtn/
    * recognitionPhoneBtn there for the original, in-funnel version).
    * =================================================================== */
-  var recognitionFirstname = document.getElementById('recognition-firstname');
   var recognitionEmailInput = document.getElementById('recognition-email-input');
+  var recognitionCertifyInput = document.getElementById('gate-cert-checkbox');
   var recognitionEmailError = document.getElementById('recognition-email-error');
   var recognitionConfirmBtn = document.getElementById('recognition-confirm-btn');
   var recognitionPhone = document.getElementById('recognition-phone');
@@ -807,10 +837,19 @@
     // an autofilled, visibly-correct email produced emailAttempt: "").
     var emailAttempt = (recognitionEmailInput.value || '').trim();
     recognitionEmailError.classList.add('hidden');
+    // Ownership self-certification is required before we even ask the
+    // server — same cheap-deterrent pattern as intake-v2's claim flow:
+    // establishes intent and a paper trail, the email match is the proof.
+    if (!recognitionCertifyInput || !recognitionCertifyInput.checked) {
+      recognitionEmailError.textContent = 'Please certify your relationship to this property before continuing.';
+      recognitionEmailError.classList.remove('hidden');
+      return;
+    }
+    recognitionEmailError.textContent = "That doesn't match what we have on file — please try again.";
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
+      body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt, ownershipCertified: true })
     })
       .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
       .then(function (data) {
@@ -906,7 +945,6 @@
     if (fresh) {
       confirmedEmail = fresh.email || '';
       recognition.firstName = fresh.firstName || '';
-      recognitionFirstname.textContent = recognition.firstName;
       renderProposal(fresh.data);
       showPanel('report');
       return;
@@ -923,10 +961,12 @@
           showPanel('notfound');
           return;
         }
+        // Kept in JS state only (conflict handoff payload, booking prefill,
+        // "Prepared for" line) — never rendered before the gate is passed,
+        // so the owner's name is not revealed to whoever opened the link.
         recognition.firstName = data.firstName || '';
         recognition.fullName = data.fullName || '';
         recognition.contactId = data.contactId || '';
-        recognitionFirstname.textContent = recognition.firstName;
         // Silent-confirm handoff: the assessment funnel (same origin)
         // already confirmed the visitor's email, so this page shouldn't ask
         // for it a second time. Two channels, URL first: the funnel appends
@@ -1026,9 +1066,7 @@
     var driversWrap = document.getElementById('review-drivers');
     var lockLink = document.getElementById('review-lock-link');
 
-    reviewIntroMessage.textContent = recognition.firstName
-      ? 'Welcome back, ' + recognition.firstName + ' — here’s the profile behind your proposal.'
-      : 'Here’s the profile behind your proposal.';
+    reviewIntroMessage.textContent = 'Here’s the profile behind your proposal.';
 
     factsTitle.textContent = data.propertyName || data.formattedAddress || '';
     var subParts = [data.propertyType || ''];

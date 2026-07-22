@@ -1128,13 +1128,13 @@
         </div>
         <a id="street-view-link" class="street-view-link hidden" href="#" target="_blank" rel="noopener">View on Google Maps ↗</a>
 
+        <!-- Recognition panel. Deliberately name-blind and verification-free:
+             when routing finds an existing proposal for this address, the
+             done state below shows a neutral "we have a proposal on file"
+             message and hands off to proposal.html, where the ownership +
+             email verification gate lives. Nothing about the record's owner
+             (name, email) is ever revealed to whoever typed the address. -->
         <div id="recognition-panel" class="recognition-panel hidden">
-          <div id="recognition-welcome" class="recognition-state hidden">
-            <p class="recognition-message">Welcome back, <span id="recognition-firstname"></span>! Confirm your email to view your existing management proposal.</p>
-            <bui-input id="recognition-email-input" label="Email" type="email"></bui-input>
-            <p id="recognition-email-error" class="recognition-error hidden">That doesn't match what we have on file — please try again.</p>
-            <bui-button id="recognition-confirm-btn" variant="slate">Confirm Email</bui-button>
-          </div>
           <div id="recognition-claim" class="recognition-state hidden">
             <p class="recognition-message">Good news — we've already prepared a management proposal for this property. Enter your email to view it and claim it as yours.</p>
             <bui-input id="recognition-claim-email-input" label="Email" type="email"></bui-input>
@@ -1150,18 +1150,11 @@
             <p id="recognition-claim-error" class="recognition-error hidden">We couldn't claim this proposal just now — please try again in a moment.</p>
             <bui-button id="recognition-claim-btn" variant="slate">View &amp; Claim Proposal</bui-button>
           </div>
-          <div id="recognition-phone" class="recognition-state hidden">
-            <p class="recognition-message">We couldn't confirm your email. Leave a phone number and we'll have someone reach out to help.</p>
-            <bui-input id="recognition-phone-input" label="Phone Number" type="tel"></bui-input>
-            <bui-button id="recognition-phone-btn" variant="slate">Submit</bui-button>
-          </div>
           <div id="recognition-done" class="recognition-state hidden">
             <p id="recognition-done-message" class="recognition-message"></p>
-            <!-- Shown only on a successful email confirmation (not on the
-                 conflict-handoff path, which reuses this same done state) —
-                 jumps straight to the saved proposal instead of forcing a
-                 full re-run of the assessment. -->
-            <bui-button id="recognition-view-proposal" variant="slate" class="hidden">View My Proposal</bui-button>
+            <!-- Same-tab jump to proposal.html, which owns the ownership +
+                 email verification gate. -->
+            <bui-button id="recognition-view-proposal" variant="slate" class="hidden">View Proposal</bui-button>
           </div>
         </div>
       </div>
@@ -1815,10 +1808,10 @@
     // comparables come from the enriched RentCast quicklook and feed the
     // Snapshot-step preview; they stay null until the lookup returns.
     rentCast: { status: 'idle', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] },
-    // Populated by checkContactRecognition() when the selected property
-    // already has a known point of contact on file. attempts counts failed
-    // email-confirmation tries (2 allowed before the conflict/phone path).
-    recognition: { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] }
+    // Set by checkSiteRouting() when the selected property already has a
+    // proposal on file. Nothing else is tracked here: verification (email +
+    // ownership certification) happens entirely on proposal.html now.
+    recognition: { active: false }
   };
 
   var DRIVER_STEPS = [
@@ -1904,14 +1897,6 @@
   var addressVerifying = document.getElementById('address-verifying');
 
   var recognitionPanel = document.getElementById('recognition-panel');
-  var recognitionWelcome = document.getElementById('recognition-welcome');
-  var recognitionFirstname = document.getElementById('recognition-firstname');
-  var recognitionEmailInput = document.getElementById('recognition-email-input');
-  var recognitionEmailError = document.getElementById('recognition-email-error');
-  var recognitionConfirmBtn = document.getElementById('recognition-confirm-btn');
-  var recognitionPhone = document.getElementById('recognition-phone');
-  var recognitionPhoneInput = document.getElementById('recognition-phone-input');
-  var recognitionPhoneBtn = document.getElementById('recognition-phone-btn');
   var recognitionDone = document.getElementById('recognition-done');
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
   var recognitionViewProposal = document.getElementById('recognition-view-proposal');
@@ -2683,20 +2668,15 @@
   }
 
   // Resets the recognition panel to its hidden/inactive state — called
-  // whenever the address changes so a stale welcome/phone prompt from a
-  // previous selection never lingers on a new one.
+  // whenever the address changes so a stale prompt from a previous
+  // selection never lingers on a new one.
   function resetRecognitionPanel() {
-    state.recognition = { active: false, confirmed: false, firstName: '', contactId: '', attempts: 0, wrongEmails: [] };
+    state.recognition = { active: false };
     recognitionPanel.classList.add('hidden');
-    recognitionWelcome.classList.add('hidden');
-    recognitionPhone.classList.add('hidden');
     recognitionDone.classList.add('hidden');
     recognitionViewProposal.classList.add('hidden');
     recognitionClaim.classList.add('hidden');
     recognitionClaimError.classList.add('hidden');
-    recognitionEmailError.classList.add('hidden');
-    recognitionEmailInput.value = '';
-    recognitionPhoneInput.value = '';
     recognitionClaimEmailInput.value = '';
     if (recognitionClaimCertifyInput) recognitionClaimCertifyInput.checked = false;
     state.claimable = false;
@@ -2705,26 +2685,14 @@
   }
 
   // Same-tab jump to the standalone saved-proposal page for this property.
-  // Only ever visible after a successful email confirmation (see the
-  // confirmEmail handler), never on the conflict-handoff done state.
+  // placeId only — the visitor hasn't been verified here, so nothing else
+  // rides the URL. proposal.html owns the ownership + email gate.
   recognitionViewProposal.addEventListener('bui-click', function () {
     if (!CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId) return;
-    // The just-confirmed email rides the URL so proposal.html's gate can
-    // confirm it silently (server-verified there, exactly like a typed
-    // entry) instead of prompting a second time. The sessionStorage handoff
-    // alone proved unreliable between these two GHL pages — their custom-
-    // code blocks don't share a storage context (same reason merge-tags
-    // interpolate on one page but not the other), so the visitor was being
-    // asked to confirm an email they'd confirmed seconds earlier.
-    var url = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
-    var confirmedEmail = (state.contact.email || '').trim();
-    if (state.recognition.confirmed && confirmedEmail) url += '&email=' + encodeURIComponent(confirmedEmail);
-    window.location.href = url;
+    window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
   });
 
   function showRecognitionState(name) {
-    recognitionWelcome.classList.toggle('hidden', name !== 'welcome');
-    recognitionPhone.classList.toggle('hidden', name !== 'phone');
     recognitionDone.classList.toggle('hidden', name !== 'done');
     recognitionClaim.classList.toggle('hidden', name !== 'claim');
   }
@@ -2777,15 +2745,17 @@
         state.route = data.route || 'fetch-rentcast';
         state.propertyFacts = data.propertyFacts || null;
         if (state.route === 'proposal') {
-          // Reuse the existing recognition welcome/confirm-email machinery —
-          // confirming the email jumps to the saved proposal (existing
-          // behavior). Continue stays disabled; the panel drives it.
+          // Existing proposal on file → a neutral message + View Proposal
+          // only. No name, no email prompt: whoever typed this address
+          // hasn't proven anything yet, so verification (are-you-the-owner
+          // certification + email confirm) happens on proposal.html, not
+          // here. Continue stays disabled — the saved profile is locked, so
+          // re-running the assessment on this property is off the table.
           state.recognition.active = true;
-          state.recognition.firstName = data.firstName || '';
-          state.recognition.contactId = data.contactId || '';
-          recognitionFirstname.textContent = state.recognition.firstName;
+          recognitionDoneMessage.textContent = 'Good news — we already have a management proposal on file for this property. View it below; you’ll be asked to verify ownership there.';
+          if (CONFIG.PROPOSAL_PAGE_URL) recognitionViewProposal.classList.remove('hidden');
           recognitionPanel.classList.remove('hidden');
-          showRecognitionState('welcome');
+          showRecognitionState('done');
         } else {
           // render-known / fetch-rentcast → continue the funnel. Clicking
           // Continue advances to rentcast-render with these propertyFacts.
@@ -2814,66 +2784,9 @@
       });
   }
 
-  // (The old checkContactRecognition() was removed in the intake-v2 cleanup:
-  // checkSiteRouting() on the Location step owns the recognize decision now
-  // and populates state.recognition + the recognition panel. The
-  // confirmEmail/conflict handlers below stand on their own.)
-
-  recognitionConfirmBtn.addEventListener('bui-click', function () {
-    var placeId = state.address.placeId;
-    // Read the input's live value directly rather than a mirrored variable
-    // fed by bui-input/bui-change events — browser autofill doesn't
-    // reliably fire those events before a submit click, which silently
-    // sent an empty string here in production.
-    var emailAttempt = (recognitionEmailInput.value || '').trim();
-    recognitionEmailError.classList.add('hidden');
-    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action: 'confirmEmail', googlePlaceId: placeId, emailAttempt: emailAttempt })
-    })
-      .then(function (res) { return res.ok ? res.json() : { confirmed: false }; })
-      .then(function (data) {
-        if (placeId !== state.address.placeId) return; // superseded by a newer selection
-        if (data && data.confirmed) {
-          showRecognitionState('done');
-          // View Proposal is the ONLY way forward for a confirmed owner
-          // (owner decision): the saved profile is locked, so re-running the
-          // assessment on this property is off the table — Continue stays
-          // disabled. Profile changes go through a scheduled call instead.
-          recognitionDoneMessage.innerHTML = 'Thanks, ' + state.recognition.firstName + '! Your saved proposal is ready — view it below. Want to update anything in your profile? ' +
-            (CONFIG.BOOKING_URL
-              ? '<a href="' + CONFIG.BOOKING_URL + '" class="recognition-call-link" target="_blank" rel="noopener">Schedule a quick call</a> and we\'ll make the changes with you.'
-              : 'Schedule a quick call and we\'ll make the changes with you.');
-          if (CONFIG.PROPOSAL_PAGE_URL) recognitionViewProposal.classList.remove('hidden');
-          locationContinue.setAttribute('disabled', '');
-          // Remember the confirmed email for the View Proposal handoff below
-          // (it rides the URL — see the recognitionViewProposal handler) and
-          // for the same-origin sessionStorage fallback. sessionStorage is
-          // tab-scoped and can throw in some private browsing modes —
-          // failing just means one extra email prompt on the proposal page.
-          state.recognition.confirmed = true;
-          state.contact.email = emailAttempt;
-          try { sessionStorage.setItem('bui-confirmed-email', emailAttempt); } catch (e) { /* non-fatal */ }
-          return;
-        }
-        // Kept so the conflict handoff below can hand a human every email
-        // this visitor actually tried — useful context for figuring out who
-        // they really are, even though it's never compared against the real
-        // stored email again here (that comparison is server-side only).
-        if (emailAttempt) state.recognition.wrongEmails.push(emailAttempt);
-        state.recognition.attempts++;
-        if (state.recognition.attempts >= 2) {
-          showRecognitionState('phone');
-        } else {
-          recognitionEmailError.classList.remove('hidden');
-        }
-      })
-      .catch(function (err) {
-        console.warn('[brichaus-assessment] Email confirmation failed:', err);
-        recognitionEmailError.classList.remove('hidden');
-      });
-  });
+  // (This step no longer confirms emails or resolves conflicts — the
+  // ownership + email verification gate lives on proposal.html now, and
+  // its confirmEmail/conflict handlers there own those actions.)
 
   // Claim an internally-prepared proposal. Unlike confirmEmail (which verifies
   // the typed email against a stored contact), a claimable record has NO
@@ -2939,36 +2852,6 @@
         recognitionClaimBtn.removeAttribute('disabled');
         recognitionClaimError.textContent = "We couldn't claim this proposal just now — please try again in a moment.";
         recognitionClaimError.classList.remove('hidden');
-      });
-  });
-
-  recognitionPhoneBtn.addEventListener('bui-click', function () {
-    // Read the input's live value directly rather than a mirrored variable
-    // fed by bui-input/bui-change events — browser autofill doesn't
-    // reliably fire those events before a submit click.
-    var phone = (recognitionPhoneInput.value || '').trim();
-    if (!phone) return;
-    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({
-        action: 'conflict',
-        googlePlaceId: state.address.placeId,
-        formattedAddress: state.address.formattedAddress,
-        phone: phone,
-        existingFirstName: state.recognition.firstName,
-        existingContactId: state.recognition.contactId,
-        wrongEmailAttempts: state.recognition.wrongEmails
-      })
-    })
-      .then(function () {
-        showRecognitionState('done');
-        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly.";
-      })
-      .catch(function (err) {
-        console.warn('[brichaus-assessment] Conflict handoff failed:', err);
-        showRecognitionState('done');
-        recognitionDoneMessage.textContent = "Thanks — someone will reach out shortly.";
       });
   });
 
@@ -3559,15 +3442,10 @@
   }
 
   function refreshContactContinue() {
-    // A recognized contact who confirmed their email already consented on a
-    // previous visit — don't gate them on the checkbox again; the backend
-    // just associates the new property with their existing Contact.
-    var termsOk = !!(termsFieldEl && termsFieldEl.checked) || state.recognition.confirmed;
+    var termsOk = !!(termsFieldEl && termsFieldEl.checked);
     // Disposable / malformed emails keep Continue disabled (client pre-check).
     var emailOk = isValidEmail(state.contact.email) && !isDisposableEmail(state.contact.email);
-    // A recognized+confirmed visitor already exists in GHL with their details —
-    // don't re-demand a phone (same exemption as consent above).
-    var phoneOk = isValidPhone(state.contact.phone) || state.recognition.confirmed;
+    var phoneOk = isValidPhone(state.contact.phone);
     var ready = !!state.contact.firstName && emailOk && phoneOk && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
   }
@@ -3575,10 +3453,8 @@
   // Masks registered BEFORE the state listeners below, so by the time
   // state reads the field the rewrite has already happened. The contact
   // listener reads the input's live (masked) value, not evt.detail.value —
-  // that detail carries the pre-mask text. The recognition fallback phone
-  // field gets the same mask; its submit handler already reads .value live.
+  // that detail carries the pre-mask text.
   attachUsPhoneMask(contactPhoneInput);
-  attachUsPhoneMask(recognitionPhoneInput);
 
   ['bui-input', 'bui-change'].forEach(function (eventName) {
     contactNameInput.addEventListener(eventName, function (evt) {
@@ -3720,10 +3596,11 @@
       // feeds the GHL contact and the existing recognition phone-handoff path.
       Phone: state.contact.phone,
       Email: state.contact.email,
-      // Known GHL contact id from the recognition flow, when this visitor
-      // confirmed their email as an existing contact — lets the backend
-      // associate the property directly even if the email were edited.
-      ContactID: state.recognition.confirmed ? state.recognition.contactId : '',
+      // Always empty now: a recognized owner never reaches this submission
+      // (their route dead-ends at View Proposal on Step 1), so there is no
+      // pre-verified contact id to pass. Kept so the webhook contract and
+      // the backend's association logic stay unchanged.
+      ContactID: '',
       Consent: !!(termsFieldEl && termsFieldEl.checked),
       ConsentTimestamp: state.contact.consentTs || new Date().toISOString(),
       // Opt into the two-phase report only when we have somewhere to poll for
