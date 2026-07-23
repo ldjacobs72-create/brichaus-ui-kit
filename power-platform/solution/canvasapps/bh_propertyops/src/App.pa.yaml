@@ -1,0 +1,27 @@
+# Brichaus Property Ops — App
+# pa.yaml v3.0 source-code format. Authored to the documented schema:
+# https://raw.githubusercontent.com/microsoft/PowerApps-Tooling/refs/heads/master/schemas/pa-yaml/v3.0/pa.schema.yaml
+#
+# HOW TO USE THIS (read src/README.md first):
+#   .pa.yaml is Studio-generated/read-only by design. To instantiate these:
+#   paste each screen file's controls via Power Apps Studio > Code view, OR
+#   round-trip via Power Platform Git integration. Studio validates+normalizes
+#   control chrome (Variant/version). The Power Fx below is the source of truth.
+#
+# PREREQUISITE: the Dataverse table new_property must already be added to the
+# app as a data source aliased "Properties" (see docs/00 Phase 5.2).
+
+App:
+  Properties:
+    StartScreen: =scrProperties
+    # Brand tokens mirrored from the UI kit (core/core.js) so the internal tool
+    # reads as one system with the funnel. Referenced as gbl* across screens.
+    OnStart: |
+      =Set(gblAccent, ColorValue("#C08A2E"));
+      Set(gblAccentLight, ColorValue("#E0A94A"));
+      Set(gblSlate, ColorValue("#4A5A72"));
+      Set(gblSurfaceDark, ColorValue("#211E1C"));
+      Set(gblBg, ColorValue("#F4F5F7"));
+      Set(gblDanger, ColorValue("#9C3F2C"));
+      Set(gblWarning, ColorValue("#B5631E"));
+      Set(gblWhite, ColorValue("#FFFFFF"))

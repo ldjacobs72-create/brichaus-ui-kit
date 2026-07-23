@@ -5,6 +5,13 @@ funnels, landing pages, and portals. Every file is a plain `<script>`
 include — no bundler, no npm install, nothing to build. Copy files into a
 GHL embed and they work.
 
+> **Not part of the kit:** [`power-platform/`](power-platform/) is a separate
+> workspace for the internal, staff-facing **Power Platform Canvas App** that
+> operates on the same Dataverse `new_property` table as the intake funnel and
+> proposal viewer. It shares no code with this UI kit — only that table, which
+> is documented there as a contract. Start at
+> [`power-platform/README.md`](power-platform/README.md).
+
 ## What's in here
 
 ```

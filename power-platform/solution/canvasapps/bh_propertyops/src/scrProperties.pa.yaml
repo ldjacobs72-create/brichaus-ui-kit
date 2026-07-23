@@ -1,0 +1,151 @@
+# Screen 1 — Property list (master). Search + status filter + delegable gallery.
+# Data source alias: Properties  (= Dataverse table new_property)
+#
+# Choice handling is GLOBAL-NAME-FREE: this screen compares the choice's label
+# text via `.Value` (e.g. cr55d_managementstatus.Value = "Managed") instead of
+# guessing the option-set display name. Labels: Managed / Prospect / Pending /
+# Lost. If your labels differ, change the literal strings — that's the only
+# choice dependency here. (See docs/05 for a numeric-value fallback.)
+
+Screens:
+  scrProperties:
+    Properties:
+      Fill: =gblBg
+    Children:
+      - recHeader:
+          Control: Rectangle
+          Properties:
+            X: =0
+            Y: =0
+            Width: =Parent.Width
+            Height: =72
+            Fill: =gblSurfaceDark
+      - lblTitle:
+          Control: Label
+          Properties:
+            X: =24
+            Y: =0
+            Width: =520
+            Height: =72
+            Text: ="Brichaus Property Ops"
+            Color: =gblWhite
+            Size: =20
+            FontWeight: =FontWeight.Semibold
+            VerticalAlign: =VerticalAlign.Middle
+      - btnAdd:
+          Control: Button
+          Properties:
+            Text: ="+ Add property"
+            X: =Parent.Width - 200
+            Y: =18
+            Width: =176
+            Height: =36
+            Fill: =gblAccent
+            Color: =gblWhite
+            OnSelect: =Navigate(scrAddProperty, ScreenTransition.None)
+      - txtSearch:
+          Control: TextInput
+          Properties:
+            X: =24
+            Y: =96
+            Width: =520
+            Height: =40
+            HintText: ="Search by property name"
+            Default: =""
+      - drpStatus:
+          Control: DropDown
+          Properties:
+            X: =560
+            Y: =96
+            Width: =240
+            Height: =40
+            Items: =["All","Prospect","Pending","Managed","Lost"]
+            Default: ="All"
+      - lblCount:
+          Control: Label
+          Properties:
+            X: =Parent.Width - 260
+            Y: =104
+            Width: =236
+            Height: =28
+            Align: =Align.Right
+            Color: =gblSlate
+            Text: =CountRows(galProperties.AllItems) & " shown"
+      - galProperties:
+          Control: Gallery
+          Variant: Vertical
+          Properties:
+            X: =24
+            Y: =152
+            Width: =Parent.Width - 48
+            Height: =Parent.Height - 176
+            TemplateSize: =84
+            # Label-text filter (no option-set global name). At ~29 rows this
+            # is fine; the `.Value` comparison is non-delegable, so if this
+            # table ever exceeds a couple thousand rows, switch the status
+            # predicate to the delegable option-set form (see docs/05).
+            Items: |
+              =SortByColumns(
+                  Filter(
+                      Properties,
+                      (IsBlank(txtSearch.Text) || StartsWith(new_propertyname, txtSearch.Text)),
+                      (drpStatus.Selected.Value = "All" ||
+                          cr55d_managementstatus.Value = drpStatus.Selected.Value)
+                  ),
+                  "new_propertyname",
+                  SortOrder.Ascending
+              )
+            OnSelect: =Set(gblProperty, ThisItem); Navigate(scrPropertyDetail, ScreenTransition.None)
+          Children:
+            - lblRowName:
+                Control: Label
+                Properties:
+                  X: =12
+                  Y: =10
+                  Width: =520
+                  Height: =28
+                  Text: =ThisItem.new_propertyname
+                  Size: =15
+                  FontWeight: =FontWeight.Semibold
+                  Color: =gblSurfaceDark
+            - lblRowAddr:
+                Control: Label
+                Properties:
+                  X: =12
+                  Y: =40
+                  Width: =520
+                  Height: =24
+                  Text: =ThisItem.cr55d_city & ", " & ThisItem.cr55d_state
+                  Color: =gblSlate
+            - lblRowUnits:
+                Control: Label
+                Properties:
+                  X: =560
+                  Y: =28
+                  Width: =160
+                  Height: =28
+                  # 4 live rows have NULL unit count — render as an em dash.
+                  Text: |
+                    ="Units: " & If(IsBlank(ThisItem.new_unitcount), "—", Text(ThisItem.new_unitcount))
+                  Color: =gblSlate
+            - lblRowStatus:
+                Control: Label
+                Properties:
+                  X: =Parent.TemplateWidth - 160
+                  Y: =26
+                  Width: =136
+                  Height: =32
+                  Align: =Align.Center
+                  VerticalAlign: =VerticalAlign.Middle
+                  Color: =gblWhite
+                  Size: =12
+                  Text: =Coalesce(ThisItem.cr55d_managementstatus.Value, "—")
+                  Fill: |
+                    =Switch(
+                        ThisItem.cr55d_managementstatus.Value,
+                        "Managed", gblSlate,
+                        "Prospect", gblAccent,
+                        "Pending", gblWarning,
+                        "Lost", gblDanger,
+                        gblSlate
+                    )
