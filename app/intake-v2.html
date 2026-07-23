@@ -116,23 +116,108 @@
     grid-template-columns: 1fr 1fr;
     gap: var(--bui-space-4);
   }
+  /* ===== Systems-ready signal — hybrid: full trust banner on step 1 (the
+     first impression, powerful when green), compact header badge on every
+     later step (keeps the signal visible without spending body space).
+     Both driven by the one ghl-health verdict; see renderSystemStatus(). ===== */
   #brichaus-assessment .system-status {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--bui-space-3);
     margin-top: var(--bui-space-3);
-    font-size: var(--bui-font-size-sm);
-    color: var(--bui-color-text-muted);
+    padding: 12px 16px;
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .system-status.is-ok {
+    background: linear-gradient(100deg, var(--bui-color-success) 0%, #477950 100%);
+    color: #FFFFFF;
+    box-shadow: 0 8px 18px -8px rgba(51, 98, 58, 0.55);
+  }
+  #brichaus-assessment .system-status.is-degraded {
+    background: var(--bui-color-warning-bg);
+    border: 1px solid #EED9C4;
+    color: #8A4C17;
   }
   #brichaus-assessment .system-status__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+  }
+  #brichaus-assessment .system-status.is-ok .system-status__dot {
+    background: #B9E4C0;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
+    animation: bui-status-pulse 2.2s ease-in-out infinite;
+  }
+  #brichaus-assessment .system-status.is-degraded .system-status__dot { background: var(--bui-color-warning); }
+  #brichaus-assessment .system-status__label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  #brichaus-assessment .system-status__sub {
+    display: block;
+    font-size: 12px;
+    margin-top: 1px;
+  }
+  #brichaus-assessment .system-status.is-ok .system-status__sub { opacity: 0.85; }
+  #brichaus-assessment .system-status.is-degraded .system-status__sub { opacity: 0.9; }
+  @keyframes bui-status-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .system-status.is-ok .system-status__dot,
+    #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot { animation: none; }
+  }
+
+  /* Compact badge fused into the slate step header on steps 2+. Sits in a
+     second slim strip directly under <bui-progress-bar>, same slate
+     background, so it reads as one continuous header bar rather than a
+     bolted-on addition — bui-progress-bar is a shared component used
+     elsewhere, so its internals aren't touched. */
+  #brichaus-assessment .step-status-row {
+    background: var(--bui-color-slate);
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 var(--bui-space-4) 10px;
+  }
+  #brichaus-assessment .hdr-badge {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    border-radius: var(--bui-radius-pill);
+    padding: 5px 12px 5px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #brichaus-assessment .hdr-badge.is-ok,
+  #brichaus-assessment .hdr-badge.is-degraded { display: inline-flex; }
+  #brichaus-assessment .hdr-badge.is-ok {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(185, 228, 192, 0.6);
+    color: #DFF3E2;
+  }
+  #brichaus-assessment .hdr-badge.is-degraded {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #F4DCC2;
+  }
+  #brichaus-assessment .hdr-badge__dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     flex: none;
   }
-  #brichaus-assessment .system-status.is-ok .system-status__dot { background: #15803d; }
-  #brichaus-assessment .system-status.is-degraded .system-status__dot { background: #b45309; }
-  #brichaus-assessment .system-status.is-degraded { color: #b45309; }
+  #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot {
+    background: #7FD08C;
+    animation: bui-status-pulse 2.2s ease-in-out infinite;
+  }
+  #brichaus-assessment .hdr-badge.is-degraded .hdr-badge__dot { background: var(--bui-color-accent-light); }
   #brichaus-assessment .step-intro {
     padding: 52px 56px 0;
   }
@@ -1108,17 +1193,22 @@
         <h2>Where is your property?</h2>
         <p>We'll use this to pull market rent data and comparables.</p>
 
-        <!-- Live systems chip — green "Proposal Online" or an amber heads-up
-             when the proposal pipeline is degraded (fed by the ghl-health
+        <!-- Trust banner — green "Proposal Online" or an amber heads-up when
+             the proposal pipeline is degraded (fed by the ghl-health
              endpoint, which caches a Dataverse probe server-side). The amber
              copy is guarantee-first, not an outage notice: the outcome (a
              completed proposal) stays certain, only the delivery channel
              varies — see the "unavailable" step below for why that's now a
              backed promise, not just reassuring words. Purely informational:
-             the flow stays open either way. -->
+             the flow stays open either way. This is the hero instance of the
+             signal; renderSystemStatus() also drives a compact .hdr-badge
+             version fused into every later step's header. -->
         <div id="system-status" class="system-status hidden" role="status">
           <span class="system-status__dot" aria-hidden="true"></span>
-          <span class="system-status__text"></span>
+          <span>
+            <span class="system-status__label"></span>
+            <span class="system-status__sub"></span>
+          </span>
         </div>
         <bui-address-input
           id="address-input"
@@ -1208,6 +1298,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="2. Property Details" value="20"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Confirm your property details</h2>
@@ -1280,6 +1371,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="3. Property Snapshot" value="30"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Current Rent vs. Market</h2>
@@ -1341,6 +1433,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="4. Estimated Revenue" value="40"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Here's the income your property should generate each year</h2>
@@ -1368,6 +1461,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="5–8. Operational Demand" id="driver-header-progress" value="45"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <!-- Each driver gets its own icon + name, distinct at a glance, so
@@ -1414,6 +1508,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="Review Your Profile" id="review-header-progress" value="80"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Review your property profile</h2>
@@ -1520,6 +1615,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="9. Get Your Proposal" id="contact-header-progress" value="82"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Your proposal is coming together</h2>
@@ -3905,21 +4001,33 @@
   }
 
   /* =====================================================================
-   * Systems-ready chip (step 1) — asks the health endpoint whether the
-   * proposal pipeline's load-bearing dependency (Dataverse) is answering.
-   * The chip only appears once we have a verdict; an unreachable health
-   * endpoint counts as degraded (if we can't ask n8n, the funnel's own
-   * webhooks are likely down too).
+   * Systems-ready signal — asks the health endpoint whether the proposal
+   * pipeline's load-bearing dependency (Dataverse) is answering, then drives
+   * TWO surfaces from that one verdict: the full trust banner on step 1
+   * (the hero moment — hidden until a verdict arrives), and a compact
+   * .hdr-badge fused into every later step's header (there's one per step,
+   * inert markup until this fills it in; only the currently-visible step's
+   * copy is ever on screen since the others sit inside a hidden section).
+   * An unreachable health endpoint counts as degraded (if we can't ask n8n,
+   * the funnel's own webhooks are likely down too).
    * =================================================================== */
   function renderSystemStatus(ok) {
-    var el = document.getElementById('system-status');
-    if (!el) return;
-    el.classList.remove('hidden');
-    el.classList.toggle('is-ok', ok);
-    el.classList.toggle('is-degraded', !ok);
-    el.querySelector('.system-status__text').textContent = ok
-      ? 'Proposal Online'
-      : 'Your proposal is guaranteed — may arrive by email today';
+    var banner = document.getElementById('system-status');
+    if (banner) {
+      banner.classList.remove('hidden');
+      banner.classList.toggle('is-ok', ok);
+      banner.classList.toggle('is-degraded', !ok);
+      banner.querySelector('.system-status__label').textContent = ok ? 'Proposal Online' : 'Your proposal is guaranteed';
+      banner.querySelector('.system-status__sub').textContent = ok
+        ? 'Live market data & fee engine online — proposal in about a minute'
+        : 'Market data & scoring are fully live. If final pricing can’t finish on the spot, we’ll email your proposal as soon as it’s ready.';
+    }
+    var badgeText = ok ? 'Proposal Online' : 'Proposal via email';
+    Array.prototype.forEach.call(document.querySelectorAll('.hdr-badge'), function (badge) {
+      badge.classList.toggle('is-ok', ok);
+      badge.classList.toggle('is-degraded', !ok);
+      badge.querySelector('.hdr-badge__text').textContent = badgeText;
+    });
   }
 
   function refreshSystemStatus() {
