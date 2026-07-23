@@ -416,7 +416,7 @@
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .address-verifying__spinner { animation: none; }
   }
-  /* Contact step's "your report is already coming together" panel — see
+  /* Contact step's "your proposal is already coming together" panel — see
      the doc comment on its markup for why each row is allowed to claim
      "done". */
   #brichaus-assessment .report-progress {
@@ -1489,10 +1489,10 @@
   <section data-step="contact" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="9. Get Your Proposal" id="contact-header-progress" value="82"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Your report is coming together</h2>
+        <h2>Your proposal is coming together</h2>
         <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
 
         <!-- Genuinely-true progress, not staged theater: property/market data
@@ -1501,7 +1501,7 @@
              client-side back on earlier steps) — only the fee, which the
              live pipeline computes once the Contact-linked Property record
              exists, is still pending. Framing what's already done this way
-             is meant to make Get My Report read as an unlock, not the start
+             is meant to make Get My Proposal read as an unlock, not the start
              of a fresh wait. -->
         <div class="report-progress">
           <div class="report-progress__row is-done">
@@ -1535,7 +1535,7 @@
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="review">Back</bui-button>
-        <bui-button id="contact-continue" variant="primary" disabled>Get My Report</bui-button>
+        <bui-button id="contact-continue" variant="primary" disabled>Get My Proposal</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1548,17 +1548,17 @@
              owner review): the numbered "1..9" count belongs to questions
              the visitor answers; once they've answered the last one, the
              remaining screens are delivery, not steps to complete. -->
-        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
-        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your proposal is almost ready</h2>
         <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           Crunching the numbers and preparing your recommendations.
         </p>
         <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your report"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your proposal"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
@@ -1577,17 +1577,17 @@
   <section data-step="unavailable" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
-        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">We hit a snag finishing your report</h2>
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">We hit a snag finishing your proposal</h2>
         <p style="margin: 0 0 var(--bui-space-3); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           We&rsquo;re experiencing technical issues on our end and can&rsquo;t calculate your
           management proposal right now. Your assessment answers are saved.
         </p>
         <p id="unavailable-email-note" style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           Please check back in a little while &mdash; or sit tight and we&rsquo;ll email your
-          completed report to <strong id="unavailable-email"></strong> as soon as our
+          completed proposal to <strong id="unavailable-email"></strong> as soon as our
           systems are back up.
         </p>
         <bui-button id="unavailable-retry-btn" variant="slate">Try Again</bui-button>
@@ -3382,7 +3382,7 @@
 
 
   /* =====================================================================
-   * Step 9: Get Your Report — captures the name/email/consent this native
+   * Step 9: Get Your Proposal — captures the name/email/consent this native
    * submit needs to create a valid, Contact-linked record. Nothing before
    * this step writes name/email anywhere, and nothing after it should —
    * this is the one point in the flow where the native submit fires.
@@ -3664,13 +3664,13 @@
         msg = 'Scoring operational demand across your four drivers…';
         break;
       default:
-        msg = 'Generating your report…';
+        msg = 'Generating your proposal…';
     }
     loadingDetail.textContent = msg;
   }
 
   // Once the fake progress bar reaches its last stage, the detail line would
-  // otherwise sit frozen on "Generating your report…" for however long the
+  // otherwise sit frozen on "Generating your proposal…" for however long the
   // real webhook takes (often 15-25s more) — dead air that can read as
   // stuck. This rotates through a short, one-way sequence of reassurance
   // lines during that specific dead zone only; deliberately short (four
@@ -3679,7 +3679,7 @@
     'Almost there…',
     'Just a few more seconds…',
     'Any moment now…',
-    'Putting the finishing touches on your report…'
+    'Putting the finishing touches on your proposal…'
   ];
 
   function runAssessment() {
