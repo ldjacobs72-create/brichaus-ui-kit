@@ -1570,6 +1570,31 @@
     </bui-card>
   </section>
 
+  <!-- ============ STEP: unavailable (pipeline down — no real fee) ============
+       Shown instead of the proposal hand-off when the scoring webhook fails or
+       returns no computed fee. A live visitor must never see the illustrative
+       band-based placeholder fee as if it were a real quote. -->
+  <section data-step="unavailable" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
+      </div>
+      <div class="step-body-pad">
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">We hit a snag finishing your report</h2>
+        <p style="margin: 0 0 var(--bui-space-3); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          We&rsquo;re experiencing technical issues on our end and can&rsquo;t calculate your
+          management proposal right now. Your assessment answers are saved.
+        </p>
+        <p id="unavailable-email-note" style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          Please check back in a little while &mdash; or sit tight and we&rsquo;ll email your
+          completed report to <strong id="unavailable-email"></strong> as soon as our
+          systems are back up.
+        </p>
+        <bui-button id="unavailable-retry-btn" variant="slate">Try Again</bui-button>
+      </div>
+    </bui-card>
+  </section>
+
 
 
 </div>
@@ -1868,6 +1893,7 @@
     review: root.querySelector('[data-step="review"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
+    unavailable: root.querySelector('[data-step="unavailable"]'),
   };
 
   // The property-type choice-group (+ its per-card follow-up fields) lives
@@ -1966,6 +1992,12 @@
   var checklist = document.getElementById('checklist');
   var buildProgress = document.getElementById('build-progress');
   var loadingDetail = document.getElementById('loading-detail');
+  var unavailableEmail = document.getElementById('unavailable-email');
+  var unavailableEmailNote = document.getElementById('unavailable-email-note');
+  var unavailableRetryBtn = document.getElementById('unavailable-retry-btn');
+  // Re-runs the same submission (payload is rebuilt from state, which is
+  // still intact) — lets a visitor retry once we've recovered mid-outage.
+  unavailableRetryBtn.addEventListener('click', function () { startAssessment(); });
 
   var demoBanner = document.getElementById('demo-banner');
   var reportAddress = document.getElementById('report-address');
@@ -3709,6 +3741,20 @@
       handOffToProposal(webhookResult, !!isDemo);
     };
 
+    // Pipeline down or fee engine broken: a live visitor must never see the
+    // illustrative band placeholder as if it were a quote. Tell them we're
+    // having technical issues instead (and that we'll email the report).
+    var finishUnavailable = function (err) {
+      settled = true;
+      clearInterval(timer);
+      if (reassuranceTimer) clearInterval(reassuranceTimer);
+      console.error('[brichaus-assessment] Report pipeline unavailable:', err);
+      var email = (state.contact.email || '').trim();
+      if (unavailableEmail) unavailableEmail.textContent = email;
+      if (unavailableEmailNote) unavailableEmailNote.classList.toggle('hidden', !email);
+      showStep('unavailable');
+    };
+
     if (!CONFIG.WEBHOOK_URL) {
       console.warn('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — rendering results in demo mode.');
       setTimeout(function () { finish(null, true); }, 2600);
@@ -3724,11 +3770,14 @@
         if (!res.ok) throw new Error('Webhook responded with status ' + res.status);
         return res.json();
       })
-      .then(function (data) { finish(data, false); })
-      .catch(function (err) {
-        console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
-        finish(null, true);
-      });
+      .then(function (data) {
+        // A 200 without a computable fee rate is still a broken pipeline —
+        // Phase A always carries feeCalcResponse when the fee engine ran.
+        var feeRate = data ? parseFloat(data.feeCalcResponse) : NaN;
+        if (isFinite(feeRate) && feeRate > 0) finish(data, false);
+        else finishUnavailable(new Error('Webhook response has no computed fee (feeCalcResponse=' + (data && data.feeCalcResponse) + ')'));
+      })
+      .catch(function (err) { finishUnavailable(err); });
   }
 
   // Assessment complete → hand the finished proposal to the standalone
@@ -3752,8 +3801,11 @@
     var grossMonthly = state.rentPerUnit * state.unitCount;
 
     // Fee: same computation the inline report used to do — a real fee RATE
-    // from the pipeline (feeCalcResponse, e.g. 0.06), else an illustrative
-    // band-based placeholder for demo mode / a failed webhook.
+    // from the pipeline (feeCalcResponse, e.g. 0.06). The illustrative
+    // band-based placeholder below is reachable in DEMO MODE ONLY (no
+    // WEBHOOK_URL configured): a failed webhook or fee-less response now
+    // routes to the "unavailable" step instead of handing off with a
+    // placeholder dressed up as a quote.
     var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
     var feePct, monthlyFee;
     if (!isNaN(feeRate)) {
