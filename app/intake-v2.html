@@ -1108,11 +1108,14 @@
         <h2>Where is your property?</h2>
         <p>We'll use this to pull market rent data and comparables.</p>
 
-        <!-- Live systems chip — green "All systems ready" or an amber heads-up
+        <!-- Live systems chip — green "Proposal Online" or an amber heads-up
              when the proposal pipeline is degraded (fed by the ghl-health
-             endpoint, which caches a Dataverse probe server-side). Purely
-             informational: the flow stays open either way, and a mid-outage
-             submission still lands on the technical-issues screen. -->
+             endpoint, which caches a Dataverse probe server-side). The amber
+             copy is guarantee-first, not an outage notice: the outcome (a
+             completed proposal) stays certain, only the delivery channel
+             varies — see the "unavailable" step below for why that's now a
+             backed promise, not just reassuring words. Purely informational:
+             the flow stays open either way. -->
         <div id="system-status" class="system-status hidden" role="status">
           <span class="system-status__dot" aria-hidden="true"></span>
           <span class="system-status__text"></span>
@@ -1600,24 +1603,30 @@
   <!-- ============ STEP: unavailable (pipeline down — no real fee) ============
        Shown instead of the proposal hand-off when the scoring webhook fails or
        returns no computed fee. A live visitor must never see the illustrative
-       band-based placeholder fee as if it were a real quote. -->
+       band-based placeholder fee as if it were a real quote.
+
+       Guarantee-first framing, not an apology: as of the outage queue/gate
+       (n8n "PropScore: Main Pipeline" Park/Clear nodes + "Proposal Queue
+       Gate"), a failed submission is durably parked server-side and
+       auto-completes + emails the visitor once systems recover — so this
+       screen states that outcome as fact, not as a hope. -->
   <section data-step="unavailable" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
-        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">We hit a snag finishing your proposal</h2>
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your assessment is in</h2>
         <p style="margin: 0 0 var(--bui-space-3); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
-          We&rsquo;re experiencing technical issues on our end and can&rsquo;t calculate your
-          management proposal right now. Your assessment answers are saved.
+          Your proposal is guaranteed. Final pricing didn&rsquo;t finish live, so we&rsquo;re
+          completing it for you now &mdash; typically the same day. Nothing to redo, and
+          your answers are saved.
         </p>
         <p id="unavailable-email-note" style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
-          Please check back in a little while &mdash; or sit tight and we&rsquo;ll email your
-          completed proposal to <strong id="unavailable-email"></strong> as soon as our
-          systems are back up.
+          We&rsquo;ll email it to <strong id="unavailable-email"></strong> the moment
+          it&rsquo;s ready.
         </p>
-        <bui-button id="unavailable-retry-btn" variant="slate">Try Again</bui-button>
+        <bui-button id="unavailable-retry-btn" variant="slate">Try Live Delivery Again</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1743,7 +1752,7 @@
     // the moment scoring returns, and the narrative isn't shown to customers.
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
 
-    // Health endpoint behind the "All systems ready" chip on step 1. The
+    // Health endpoint behind the "Proposal Online" chip on step 1. The
     // workflow probes Dataverse (the dependency that actually goes down) with
     // a 5s timeout and caches the verdict server-side for 2 minutes, so page
     // loads never hammer Dataverse directly. Leave blank to hide the chip.
@@ -3909,8 +3918,8 @@
     el.classList.toggle('is-ok', ok);
     el.classList.toggle('is-degraded', !ok);
     el.querySelector('.system-status__text').textContent = ok
-      ? 'All systems ready'
-      : 'We’re working through technical issues — proposals may be delayed';
+      ? 'Proposal Online'
+      : 'Your proposal is guaranteed — may arrive by email today';
   }
 
   function refreshSystemStatus() {
