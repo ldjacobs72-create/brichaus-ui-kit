@@ -116,6 +116,108 @@
     grid-template-columns: 1fr 1fr;
     gap: var(--bui-space-4);
   }
+  /* ===== Systems-ready signal — hybrid: a quiet trust pill above the step-1
+     headline (sized to its own content, not a full-width block — the first
+     thing a visitor reads, not a banner that shouts), compact header badge
+     on every later step (keeps the signal visible without spending body
+     space). Both driven by the one ghl-health verdict; see
+     renderSystemStatus(). ===== */
+  #brichaus-assessment .system-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--bui-space-3);
+    padding: 10px 20px 10px 16px;
+    border-radius: var(--bui-radius-pill);
+    font-size: var(--bui-font-size-md);
+    font-weight: 400;
+  }
+  #brichaus-assessment .system-status.is-ok {
+    background: var(--bui-color-success-bg);
+    color: var(--bui-color-success);
+  }
+  #brichaus-assessment .system-status.is-degraded {
+    background: var(--bui-color-warning-bg);
+    color: #8A4C17;
+  }
+  #brichaus-assessment .system-status__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+  }
+  #brichaus-assessment .system-status.is-ok .system-status__dot {
+    background: var(--bui-color-success);
+    box-shadow: 0 0 0 4px rgba(51, 98, 58, 0.2);
+    animation: bui-status-pulse 1.8s ease-out infinite;
+  }
+  #brichaus-assessment .system-status.is-degraded .system-status__dot { background: var(--bui-color-warning); }
+  /* A visible "emitting" ping — the ring bursts outward at full strength and
+     fades, with a brief hold at rest before the next pulse, rather than a
+     faint in-place shimmer. */
+  @keyframes bui-status-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0.5); }
+    70% { box-shadow: 0 0 0 13px rgba(51, 98, 58, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .system-status.is-ok .system-status__dot,
+    #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot { animation: none; }
+  }
+
+  /* Compact badge fused into the slate step header on steps 2+. Sits in a
+     second slim strip directly under <bui-progress-bar>, same slate
+     background, so it reads as one continuous header bar rather than a
+     bolted-on addition — bui-progress-bar is a shared component used
+     elsewhere, so its internals aren't touched. */
+  #brichaus-assessment .step-status-row {
+    background: var(--bui-color-slate);
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 var(--bui-space-4) 10px;
+  }
+  #brichaus-assessment .hdr-badge {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    border-radius: var(--bui-radius-pill);
+    padding: 5px 12px 5px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #brichaus-assessment .hdr-badge.is-ok,
+  #brichaus-assessment .hdr-badge.is-degraded { display: inline-flex; }
+  #brichaus-assessment .hdr-badge.is-ok {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(185, 228, 192, 0.6);
+    color: #DFF3E2;
+  }
+  #brichaus-assessment .hdr-badge.is-degraded {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #F4DCC2;
+  }
+  #brichaus-assessment .hdr-badge__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+  }
+  #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot {
+    background: #7FD08C;
+    animation: bui-hdr-badge-pulse 1.8s ease-out infinite;
+  }
+  #brichaus-assessment .hdr-badge.is-degraded .hdr-badge__dot { background: var(--bui-color-accent-light); }
+  /* Same emitting-ping shape as the step-1 pill, tuned to a light ring so it
+     reads against the dark slate header instead of the pill's dark green. */
+  @keyframes bui-hdr-badge-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(127, 208, 140, 0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(127, 208, 140, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(127, 208, 140, 0); }
+  }
   #brichaus-assessment .step-intro {
     padding: 52px 56px 0;
   }
@@ -416,7 +518,7 @@
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .address-verifying__spinner { animation: none; }
   }
-  /* Contact step's "your report is already coming together" panel — see
+  /* Contact step's "your proposal is already coming together" panel — see
      the doc comment on its markup for why each row is allowed to claim
      "done". */
   #brichaus-assessment .report-progress {
@@ -1088,6 +1190,22 @@
         <bui-progress-bar tone="header" label="1. Property Location" value="10"></bui-progress-bar>
       </div>
       <div class="step-intro">
+        <!-- Trust pill — sits above the headline as the first thing a visitor
+             reads. Green "Property data and fee engine online" or an amber
+             heads-up when the proposal pipeline is degraded (fed by the
+             ghl-health endpoint, which caches a Dataverse probe server-side).
+             The amber copy is guarantee-first, not an outage notice: the
+             outcome (a completed proposal) stays certain, only the delivery
+             channel varies — see the "unavailable" step below for why that's
+             now a backed promise, not just reassuring words. Purely
+             informational: the flow stays open either way. This is the hero
+             instance of the signal; renderSystemStatus() also drives a
+             compact .hdr-badge version fused into every later step's
+             header. -->
+        <div id="system-status" class="system-status hidden" role="status">
+          <span class="system-status__dot" aria-hidden="true"></span>
+          <span class="system-status__text"></span>
+        </div>
         <h2>Where is your property?</h2>
         <p>We'll use this to pull market rent data and comparables.</p>
         <bui-address-input
@@ -1178,6 +1296,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="2. Property Details" value="20"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Confirm your property details</h2>
@@ -1250,6 +1369,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="3. Property Snapshot" value="30"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Current Rent vs. Market</h2>
@@ -1311,6 +1431,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="4. Estimated Revenue" value="40"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Here's the income your property should generate each year</h2>
@@ -1338,6 +1459,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="5–8. Operational Demand" id="driver-header-progress" value="45"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <!-- Each driver gets its own icon + name, distinct at a glance, so
@@ -1384,6 +1506,7 @@
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
         <bui-progress-bar tone="header" label="Review Your Profile" id="review-header-progress" value="80"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Review your property profile</h2>
@@ -1489,10 +1612,11 @@
   <section data-step="contact" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="9. Get Your Proposal" id="contact-header-progress" value="82"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
-        <h2>Your report is coming together</h2>
+        <h2>Your proposal is coming together</h2>
         <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
 
         <!-- Genuinely-true progress, not staged theater: property/market data
@@ -1501,7 +1625,7 @@
              client-side back on earlier steps) — only the fee, which the
              live pipeline computes once the Contact-linked Property record
              exists, is still pending. Framing what's already done this way
-             is meant to make Get My Report read as an unlock, not the start
+             is meant to make Get My Proposal read as an unlock, not the start
              of a fresh wait. -->
         <div class="report-progress">
           <div class="report-progress__row is-done">
@@ -1535,7 +1659,7 @@
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="review">Back</bui-button>
-        <bui-button id="contact-continue" variant="primary" disabled>Get My Report</bui-button>
+        <bui-button id="contact-continue" variant="primary" disabled>Get My Proposal</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1548,17 +1672,17 @@
              owner review): the numbered "1..9" count belongs to questions
              the visitor answers; once they've answered the last one, the
              remaining screens are delivery, not steps to complete. -->
-        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
-        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your proposal is almost ready</h2>
         <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           Crunching the numbers and preparing your recommendations.
         </p>
         <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your report"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your proposal"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
@@ -1566,6 +1690,37 @@
             <p id="loading-detail" class="loading-detail"></p>
           </div>
         </div>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: unavailable (pipeline down — no real fee) ============
+       Shown instead of the proposal hand-off when the scoring webhook fails or
+       returns no computed fee. A live visitor must never see the illustrative
+       band-based placeholder fee as if it were a real quote.
+
+       Guarantee-first framing, not an apology: as of the outage queue/gate
+       (n8n "PropScore: Main Pipeline" Park/Clear nodes + "Proposal Queue
+       Gate"), a failed submission is durably parked server-side and
+       auto-completes + emails the visitor once systems recover — so this
+       screen states that outcome as fact, not as a hope. -->
+  <section data-step="unavailable" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91"></bui-progress-bar>
+      </div>
+      <div class="step-body-pad">
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your assessment is in</h2>
+        <p style="margin: 0 0 var(--bui-space-3); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          Your proposal is guaranteed. Final pricing didn&rsquo;t finish live, so we&rsquo;re
+          completing it for you now &mdash; typically the same day. Nothing to redo, and
+          your answers are saved.
+        </p>
+        <p id="unavailable-email-note" style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          We&rsquo;ll email it to <strong id="unavailable-email"></strong> the moment
+          it&rsquo;s ready.
+        </p>
+        <bui-button id="unavailable-retry-btn" variant="slate">Try Live Delivery Again</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1690,6 +1845,12 @@
     // fetched back for display — the funnel hands off to the proposal page
     // the moment scoring returns, and the narrative isn't shown to customers.
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
+
+    // Health endpoint behind the "Proposal Online" chip on step 1. The
+    // workflow probes Dataverse (the dependency that actually goes down) with
+    // a 5s timeout and caches the verdict server-side for 2 minutes, so page
+    // loads never hammer Dataverse directly. Leave blank to hide the chip.
+    HEALTH_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-health',
 
     // Shared-secret header sent on every PropScore webhook call above, matched
     // against a Header Auth credential on each n8n trigger node. This is a
@@ -1868,6 +2029,7 @@
     review: root.querySelector('[data-step="review"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
+    unavailable: root.querySelector('[data-step="unavailable"]'),
   };
 
   // The property-type choice-group (+ its per-card follow-up fields) lives
@@ -1966,6 +2128,12 @@
   var checklist = document.getElementById('checklist');
   var buildProgress = document.getElementById('build-progress');
   var loadingDetail = document.getElementById('loading-detail');
+  var unavailableEmail = document.getElementById('unavailable-email');
+  var unavailableEmailNote = document.getElementById('unavailable-email-note');
+  var unavailableRetryBtn = document.getElementById('unavailable-retry-btn');
+  // Re-runs the same submission (payload is rebuilt from state, which is
+  // still intact) — lets a visitor retry once we've recovered mid-outage.
+  unavailableRetryBtn.addEventListener('click', function () { startAssessment(); });
 
   var demoBanner = document.getElementById('demo-banner');
   var reportAddress = document.getElementById('report-address');
@@ -2555,6 +2723,14 @@
   // silent (see 'error' branch in renderMarketRentHint) and never blocks
   // anything, unlike the real pipeline call.
   var rentCastRequestId = 0;
+  // Last address string actually sent to the quicklook endpoint (trimmed,
+  // case-folded). A typed-but-unselected address has no placeId, so its
+  // quicklook call can never be cache-keyed server-side (see the comment in
+  // fetchRentCastQuicklook) — every re-commit of the same unchanged text
+  // (blur/refocus on mobile, a stray Enter, re-typing over itself) would
+  // otherwise re-hit RentCast live with nothing to dedup it. This guard is
+  // the client-side backstop for exactly that case.
+  var lastRentCastFetchKey = '';
 
   // Rows with a usable median rent and at least one listing. Shared by the
   // preview and the final report so both apply the same "has data" bar.
@@ -2616,6 +2792,13 @@
 
   function fetchRentCastQuicklook(address) {
     if (!address || !CONFIG.RENTCAST_QUICKLOOK_URL) return;
+    // Exact-repeat guard (see lastRentCastFetchKey above) — the same address
+    // string + placeId pair already has a live/loading/ready result, so a
+    // re-fire (blur/refocus without a change, a stray Enter) is a no-op
+    // instead of a second live RentCast call.
+    var fetchKey = address.trim().toLowerCase() + '|' + (state.address.placeId || '');
+    if (fetchKey === lastRentCastFetchKey) return;
+    lastRentCastFetchKey = fetchKey;
     var requestId = ++rentCastRequestId;
     state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
     renderMarketRentHint();
@@ -3350,7 +3533,7 @@
 
 
   /* =====================================================================
-   * Step 9: Get Your Report — captures the name/email/consent this native
+   * Step 9: Get Your Proposal — captures the name/email/consent this native
    * submit needs to create a valid, Contact-linked record. Nothing before
    * this step writes name/email anywhere, and nothing after it should —
    * this is the one point in the flow where the native submit fires.
@@ -3632,13 +3815,13 @@
         msg = 'Scoring operational demand across your four drivers…';
         break;
       default:
-        msg = 'Generating your report…';
+        msg = 'Generating your proposal…';
     }
     loadingDetail.textContent = msg;
   }
 
   // Once the fake progress bar reaches its last stage, the detail line would
-  // otherwise sit frozen on "Generating your report…" for however long the
+  // otherwise sit frozen on "Generating your proposal…" for however long the
   // real webhook takes (often 15-25s more) — dead air that can read as
   // stuck. This rotates through a short, one-way sequence of reassurance
   // lines during that specific dead zone only; deliberately short (four
@@ -3647,7 +3830,7 @@
     'Almost there…',
     'Just a few more seconds…',
     'Any moment now…',
-    'Putting the finishing touches on your report…'
+    'Putting the finishing touches on your proposal…'
   ];
 
   function runAssessment() {
@@ -3709,6 +3892,20 @@
       handOffToProposal(webhookResult, !!isDemo);
     };
 
+    // Pipeline down or fee engine broken: a live visitor must never see the
+    // illustrative band placeholder as if it were a quote. Tell them we're
+    // having technical issues instead (and that we'll email the report).
+    var finishUnavailable = function (err) {
+      settled = true;
+      clearInterval(timer);
+      if (reassuranceTimer) clearInterval(reassuranceTimer);
+      console.error('[brichaus-assessment] Report pipeline unavailable:', err);
+      var email = (state.contact.email || '').trim();
+      if (unavailableEmail) unavailableEmail.textContent = email;
+      if (unavailableEmailNote) unavailableEmailNote.classList.toggle('hidden', !email);
+      showStep('unavailable');
+    };
+
     if (!CONFIG.WEBHOOK_URL) {
       console.warn('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — rendering results in demo mode.');
       setTimeout(function () { finish(null, true); }, 2600);
@@ -3724,11 +3921,14 @@
         if (!res.ok) throw new Error('Webhook responded with status ' + res.status);
         return res.json();
       })
-      .then(function (data) { finish(data, false); })
-      .catch(function (err) {
-        console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
-        finish(null, true);
-      });
+      .then(function (data) {
+        // A 200 without a computable fee rate is still a broken pipeline —
+        // Phase A always carries feeCalcResponse when the fee engine ran.
+        var feeRate = data ? parseFloat(data.feeCalcResponse) : NaN;
+        if (isFinite(feeRate) && feeRate > 0) finish(data, false);
+        else finishUnavailable(new Error('Webhook response has no computed fee (feeCalcResponse=' + (data && data.feeCalcResponse) + ')'));
+      })
+      .catch(function (err) { finishUnavailable(err); });
   }
 
   // Assessment complete → hand the finished proposal to the standalone
@@ -3752,8 +3952,11 @@
     var grossMonthly = state.rentPerUnit * state.unitCount;
 
     // Fee: same computation the inline report used to do — a real fee RATE
-    // from the pipeline (feeCalcResponse, e.g. 0.06), else an illustrative
-    // band-based placeholder for demo mode / a failed webhook.
+    // from the pipeline (feeCalcResponse, e.g. 0.06). The illustrative
+    // band-based placeholder below is reachable in DEMO MODE ONLY (no
+    // WEBHOOK_URL configured): a failed webhook or fee-less response now
+    // routes to the "unavailable" step instead of handing off with a
+    // placeholder dressed up as a quote.
     var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
     var feePct, monthlyFee;
     if (!isNaN(feeRate)) {
@@ -3811,9 +4014,50 @@
   }
 
   /* =====================================================================
+   * Systems-ready signal — asks the health endpoint whether the proposal
+   * pipeline's load-bearing dependency (Dataverse) is answering, then drives
+   * TWO surfaces from that one verdict: a quiet trust pill above the step-1
+   * headline (hidden until a verdict arrives), and a compact .hdr-badge
+   * fused into every later step's header (there's one per step, inert
+   * markup until this fills it in; only the currently-visible step's copy
+   * is ever on screen since the others sit inside a hidden section). An
+   * unreachable health endpoint counts as degraded (if we can't ask n8n,
+   * the funnel's own webhooks are likely down too).
+   * =================================================================== */
+  function renderSystemStatus(ok) {
+    var banner = document.getElementById('system-status');
+    if (banner) {
+      banner.classList.remove('hidden');
+      banner.classList.toggle('is-ok', ok);
+      banner.classList.toggle('is-degraded', !ok);
+      banner.querySelector('.system-status__text').textContent = ok
+        ? 'Property data and fee engine online — proposal in minutes from start to finish'
+        : 'Your proposal is guaranteed — may arrive by email today';
+    }
+    var badgeText = ok ? 'Proposal Online' : 'Proposal via email';
+    Array.prototype.forEach.call(document.querySelectorAll('.hdr-badge'), function (badge) {
+      badge.classList.toggle('is-ok', ok);
+      badge.classList.toggle('is-degraded', !ok);
+      badge.querySelector('.hdr-badge__text').textContent = badgeText;
+    });
+  }
+
+  function refreshSystemStatus() {
+    if (!CONFIG.HEALTH_URL) return;
+    fetch(CONFIG.HEALTH_URL, { headers: authHeaders({}) })
+      .then(function (res) {
+        if (!res.ok) throw new Error('health endpoint status ' + res.status);
+        return res.json();
+      })
+      .then(function (h) { renderSystemStatus(!!(h && h.ok === true)); })
+      .catch(function () { renderSystemStatus(false); });
+  }
+
+  /* =====================================================================
    * Startup
    * =================================================================== */
   showStep('location');
+  refreshSystemStatus();
 })();
 </script>
 </body>
