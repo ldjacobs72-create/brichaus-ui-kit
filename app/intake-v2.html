@@ -116,56 +116,45 @@
     grid-template-columns: 1fr 1fr;
     gap: var(--bui-space-4);
   }
-  /* ===== Systems-ready signal — hybrid: full trust banner on step 1 (the
-     first impression, powerful when green), compact header badge on every
-     later step (keeps the signal visible without spending body space).
-     Both driven by the one ghl-health verdict; see renderSystemStatus(). ===== */
+  /* ===== Systems-ready signal — hybrid: a quiet trust pill above the step-1
+     headline (sized to its own content, not a full-width block — the first
+     thing a visitor reads, not a banner that shouts), compact header badge
+     on every later step (keeps the signal visible without spending body
+     space). Both driven by the one ghl-health verdict; see
+     renderSystemStatus(). ===== */
   #brichaus-assessment .system-status {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: var(--bui-space-3);
-    margin-top: var(--bui-space-3);
-    padding: 12px 16px;
-    border-radius: var(--bui-radius-md);
+    gap: 10px;
+    margin-bottom: var(--bui-space-3);
+    padding: 10px 20px 10px 16px;
+    border-radius: var(--bui-radius-pill);
+    font-size: var(--bui-font-size-md);
+    font-weight: 700;
   }
   #brichaus-assessment .system-status.is-ok {
-    background: linear-gradient(100deg, var(--bui-color-success) 0%, #477950 100%);
-    color: #FFFFFF;
-    box-shadow: 0 8px 18px -8px rgba(51, 98, 58, 0.55);
+    background: var(--bui-color-success-bg);
+    color: var(--bui-color-success);
   }
   #brichaus-assessment .system-status.is-degraded {
     background: var(--bui-color-warning-bg);
-    border: 1px solid #EED9C4;
     color: #8A4C17;
   }
   #brichaus-assessment .system-status__dot {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     flex: none;
   }
   #brichaus-assessment .system-status.is-ok .system-status__dot {
-    background: #B9E4C0;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
+    background: var(--bui-color-success);
+    box-shadow: 0 0 0 4px rgba(51, 98, 58, 0.14);
     animation: bui-status-pulse 2.2s ease-in-out infinite;
   }
   #brichaus-assessment .system-status.is-degraded .system-status__dot { background: var(--bui-color-warning); }
-  #brichaus-assessment .system-status__label {
-    display: block;
-    font-size: 13.5px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-  }
-  #brichaus-assessment .system-status__sub {
-    display: block;
-    font-size: 12px;
-    margin-top: 1px;
-  }
-  #brichaus-assessment .system-status.is-ok .system-status__sub { opacity: 0.85; }
-  #brichaus-assessment .system-status.is-degraded .system-status__sub { opacity: 0.9; }
   @keyframes bui-status-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
-    50% { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0.22); }
+    50% { box-shadow: 0 0 0 6px rgba(51, 98, 58, 0); }
   }
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .system-status.is-ok .system-status__dot,
@@ -1190,26 +1179,24 @@
         <bui-progress-bar tone="header" label="1. Property Location" value="10"></bui-progress-bar>
       </div>
       <div class="step-intro">
-        <h2>Where is your property?</h2>
-        <p>We'll use this to pull market rent data and comparables.</p>
-
-        <!-- Trust banner — green "Proposal Online" or an amber heads-up when
-             the proposal pipeline is degraded (fed by the ghl-health
-             endpoint, which caches a Dataverse probe server-side). The amber
-             copy is guarantee-first, not an outage notice: the outcome (a
-             completed proposal) stays certain, only the delivery channel
-             varies — see the "unavailable" step below for why that's now a
-             backed promise, not just reassuring words. Purely informational:
-             the flow stays open either way. This is the hero instance of the
-             signal; renderSystemStatus() also drives a compact .hdr-badge
-             version fused into every later step's header. -->
+        <!-- Trust pill — sits above the headline as the first thing a visitor
+             reads. Green "Live market data & fee engine online" or an amber
+             heads-up when the proposal pipeline is degraded (fed by the
+             ghl-health endpoint, which caches a Dataverse probe server-side).
+             The amber copy is guarantee-first, not an outage notice: the
+             outcome (a completed proposal) stays certain, only the delivery
+             channel varies — see the "unavailable" step below for why that's
+             now a backed promise, not just reassuring words. Purely
+             informational: the flow stays open either way. This is the hero
+             instance of the signal; renderSystemStatus() also drives a
+             compact .hdr-badge version fused into every later step's
+             header. -->
         <div id="system-status" class="system-status hidden" role="status">
           <span class="system-status__dot" aria-hidden="true"></span>
-          <span>
-            <span class="system-status__label"></span>
-            <span class="system-status__sub"></span>
-          </span>
+          <span class="system-status__text"></span>
         </div>
+        <h2>Where is your property?</h2>
+        <p>We'll use this to pull market rent data and comparables.</p>
         <bui-address-input
           id="address-input"
           label="Property Address"
@@ -4003,12 +3990,12 @@
   /* =====================================================================
    * Systems-ready signal — asks the health endpoint whether the proposal
    * pipeline's load-bearing dependency (Dataverse) is answering, then drives
-   * TWO surfaces from that one verdict: the full trust banner on step 1
-   * (the hero moment — hidden until a verdict arrives), and a compact
-   * .hdr-badge fused into every later step's header (there's one per step,
-   * inert markup until this fills it in; only the currently-visible step's
-   * copy is ever on screen since the others sit inside a hidden section).
-   * An unreachable health endpoint counts as degraded (if we can't ask n8n,
+   * TWO surfaces from that one verdict: a quiet trust pill above the step-1
+   * headline (hidden until a verdict arrives), and a compact .hdr-badge
+   * fused into every later step's header (there's one per step, inert
+   * markup until this fills it in; only the currently-visible step's copy
+   * is ever on screen since the others sit inside a hidden section). An
+   * unreachable health endpoint counts as degraded (if we can't ask n8n,
    * the funnel's own webhooks are likely down too).
    * =================================================================== */
   function renderSystemStatus(ok) {
@@ -4017,10 +4004,9 @@
       banner.classList.remove('hidden');
       banner.classList.toggle('is-ok', ok);
       banner.classList.toggle('is-degraded', !ok);
-      banner.querySelector('.system-status__label').textContent = ok ? 'Proposal Online' : 'Your proposal is guaranteed';
-      banner.querySelector('.system-status__sub').textContent = ok
+      banner.querySelector('.system-status__text').textContent = ok
         ? 'Live market data & fee engine online — proposal in about a minute'
-        : 'Market data & scoring are fully live. If final pricing can’t finish on the spot, we’ll email your proposal as soon as it’s ready.';
+        : 'Your proposal is guaranteed — may arrive by email today';
     }
     var badgeText = ok ? 'Proposal Online' : 'Proposal via email';
     Array.prototype.forEach.call(document.querySelectorAll('.hdr-badge'), function (badge) {
