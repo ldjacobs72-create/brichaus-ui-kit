@@ -116,6 +116,23 @@
     grid-template-columns: 1fr 1fr;
     gap: var(--bui-space-4);
   }
+  #brichaus-assessment .system-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--bui-space-3);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text-muted);
+  }
+  #brichaus-assessment .system-status__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+  }
+  #brichaus-assessment .system-status.is-ok .system-status__dot { background: #15803d; }
+  #brichaus-assessment .system-status.is-degraded .system-status__dot { background: #b45309; }
+  #brichaus-assessment .system-status.is-degraded { color: #b45309; }
   #brichaus-assessment .step-intro {
     padding: 52px 56px 0;
   }
@@ -1090,6 +1107,16 @@
       <div class="step-intro">
         <h2>Where is your property?</h2>
         <p>We'll use this to pull market rent data and comparables.</p>
+
+        <!-- Live systems chip — green "All systems ready" or an amber heads-up
+             when the proposal pipeline is degraded (fed by the ghl-health
+             endpoint, which caches a Dataverse probe server-side). Purely
+             informational: the flow stays open either way, and a mid-outage
+             submission still lands on the technical-issues screen. -->
+        <div id="system-status" class="system-status hidden" role="status">
+          <span class="system-status__dot" aria-hidden="true"></span>
+          <span class="system-status__text"></span>
+        </div>
         <bui-address-input
           id="address-input"
           label="Property Address"
@@ -1715,6 +1742,12 @@
     // fetched back for display — the funnel hands off to the proposal page
     // the moment scoring returns, and the narrative isn't shown to customers.
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
+
+    // Health endpoint behind the "All systems ready" chip on step 1. The
+    // workflow probes Dataverse (the dependency that actually goes down) with
+    // a 5s timeout and caches the verdict server-side for 2 minutes, so page
+    // loads never hammer Dataverse directly. Leave blank to hide the chip.
+    HEALTH_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-health',
 
     // Shared-secret header sent on every PropScore webhook call above, matched
     // against a Header Auth credential on each n8n trigger node. This is a
@@ -3863,9 +3896,39 @@
   }
 
   /* =====================================================================
+   * Systems-ready chip (step 1) — asks the health endpoint whether the
+   * proposal pipeline's load-bearing dependency (Dataverse) is answering.
+   * The chip only appears once we have a verdict; an unreachable health
+   * endpoint counts as degraded (if we can't ask n8n, the funnel's own
+   * webhooks are likely down too).
+   * =================================================================== */
+  function renderSystemStatus(ok) {
+    var el = document.getElementById('system-status');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.toggle('is-ok', ok);
+    el.classList.toggle('is-degraded', !ok);
+    el.querySelector('.system-status__text').textContent = ok
+      ? 'All systems ready'
+      : 'We’re working through technical issues — proposals may be delayed';
+  }
+
+  function refreshSystemStatus() {
+    if (!CONFIG.HEALTH_URL) return;
+    fetch(CONFIG.HEALTH_URL, { headers: authHeaders({}) })
+      .then(function (res) {
+        if (!res.ok) throw new Error('health endpoint status ' + res.status);
+        return res.json();
+      })
+      .then(function (h) { renderSystemStatus(!!(h && h.ok === true)); })
+      .catch(function () { renderSystemStatus(false); });
+  }
+
+  /* =====================================================================
    * Startup
    * =================================================================== */
   showStep('location');
+  refreshSystemStatus();
 })();
 </script>
 </body>
