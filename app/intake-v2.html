@@ -2723,6 +2723,14 @@
   // silent (see 'error' branch in renderMarketRentHint) and never blocks
   // anything, unlike the real pipeline call.
   var rentCastRequestId = 0;
+  // Last address string actually sent to the quicklook endpoint (trimmed,
+  // case-folded). A typed-but-unselected address has no placeId, so its
+  // quicklook call can never be cache-keyed server-side (see the comment in
+  // fetchRentCastQuicklook) — every re-commit of the same unchanged text
+  // (blur/refocus on mobile, a stray Enter, re-typing over itself) would
+  // otherwise re-hit RentCast live with nothing to dedup it. This guard is
+  // the client-side backstop for exactly that case.
+  var lastRentCastFetchKey = '';
 
   // Rows with a usable median rent and at least one listing. Shared by the
   // preview and the final report so both apply the same "has data" bar.
@@ -2784,6 +2792,13 @@
 
   function fetchRentCastQuicklook(address) {
     if (!address || !CONFIG.RENTCAST_QUICKLOOK_URL) return;
+    // Exact-repeat guard (see lastRentCastFetchKey above) — the same address
+    // string + placeId pair already has a live/loading/ready result, so a
+    // re-fire (blur/refocus without a change, a stray Enter) is a no-op
+    // instead of a second live RentCast call.
+    var fetchKey = address.trim().toLowerCase() + '|' + (state.address.placeId || '');
+    if (fetchKey === lastRentCastFetchKey) return;
+    lastRentCastFetchKey = fetchKey;
     var requestId = ++rentCastRequestId;
     state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
     renderMarketRentHint();
