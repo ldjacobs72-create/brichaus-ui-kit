@@ -130,7 +130,7 @@
     padding: 10px 20px 10px 16px;
     border-radius: var(--bui-radius-pill);
     font-size: var(--bui-font-size-md);
-    font-weight: 700;
+    font-weight: 400;
   }
   #brichaus-assessment .system-status.is-ok {
     background: var(--bui-color-success-bg);
@@ -141,20 +141,24 @@
     color: #8A4C17;
   }
   #brichaus-assessment .system-status__dot {
-    width: 9px;
-    height: 9px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     flex: none;
   }
   #brichaus-assessment .system-status.is-ok .system-status__dot {
     background: var(--bui-color-success);
-    box-shadow: 0 0 0 4px rgba(51, 98, 58, 0.14);
-    animation: bui-status-pulse 2.2s ease-in-out infinite;
+    box-shadow: 0 0 0 4px rgba(51, 98, 58, 0.2);
+    animation: bui-status-pulse 1.8s ease-out infinite;
   }
   #brichaus-assessment .system-status.is-degraded .system-status__dot { background: var(--bui-color-warning); }
+  /* A visible "emitting" ping — the ring bursts outward at full strength and
+     fades, with a brief hold at rest before the next pulse, rather than a
+     faint in-place shimmer. */
   @keyframes bui-status-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0.22); }
-    50% { box-shadow: 0 0 0 6px rgba(51, 98, 58, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0.5); }
+    70% { box-shadow: 0 0 0 13px rgba(51, 98, 58, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0); }
   }
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .system-status.is-ok .system-status__dot,
@@ -204,9 +208,16 @@
   }
   #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot {
     background: #7FD08C;
-    animation: bui-status-pulse 2.2s ease-in-out infinite;
+    animation: bui-hdr-badge-pulse 1.8s ease-out infinite;
   }
   #brichaus-assessment .hdr-badge.is-degraded .hdr-badge__dot { background: var(--bui-color-accent-light); }
+  /* Same emitting-ping shape as the step-1 pill, tuned to a light ring so it
+     reads against the dark slate header instead of the pill's dark green. */
+  @keyframes bui-hdr-badge-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(127, 208, 140, 0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(127, 208, 140, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(127, 208, 140, 0); }
+  }
   #brichaus-assessment .step-intro {
     padding: 52px 56px 0;
   }
