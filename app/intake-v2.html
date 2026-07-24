@@ -495,28 +495,45 @@
     margin-bottom: var(--bui-space-4);
     text-align: center;
   }
-  #brichaus-assessment .address-verifying {
+  @keyframes bui-address-verifying-spin {
+    to { transform: rotate(360deg); }
+  }
+  /* Locating-property indicator — an opaque overlay on top of the Continue
+     button itself (see #location-continue-wrap) rather than a separate
+     status line, so the visitor's eye stays on the button they're about to
+     press instead of splitting attention between two places. Sized to
+     exactly cover the button via position:absolute + inset:0 on a
+     position:relative wrapper; see the wrapper's own doc comment in the
+     markup for why bui-button needs that wrapper (it can't host children
+     itself). */
+  #brichaus-assessment .btn-overlay-wrap { position: relative; display: inline-flex; }
+  #brichaus-assessment .btn-loading-overlay {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    margin-top: var(--bui-space-3);
-    font-size: 12.5px;
-    color: var(--bui-color-text-muted);
+    background: var(--bui-color-slate);
+    color: var(--bui-color-slate-contrast);
+    border-radius: var(--bui-radius-sm);
+    font-family: var(--bui-font-family);
+    font-size: var(--bui-font-size-md);
+    font-weight: 600;
+    pointer-events: none;
   }
-  #brichaus-assessment .address-verifying__spinner {
+  #brichaus-assessment .btn-loading-overlay.hidden { display: none; }
+  #brichaus-assessment .btn-loading-overlay__spinner {
     flex: 0 0 auto;
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 2px solid var(--bui-color-border);
-    border-top-color: #C1633F;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #FFFFFF;
     animation: bui-address-verifying-spin 700ms linear infinite;
   }
-  @keyframes bui-address-verifying-spin {
-    to { transform: rotate(360deg); }
-  }
   @media (prefers-reduced-motion: reduce) {
-    #brichaus-assessment .address-verifying__spinner { animation: none; }
+    #brichaus-assessment .btn-loading-overlay__spinner { animation: none; }
   }
   /* Contact step's "your proposal is already coming together" panel — see
      the doc comment on its markup for why each row is allowed to claim
@@ -1165,6 +1182,7 @@
        padding on the rust Continue would otherwise overflow small rows. */
     #brichaus-assessment .step-footer .spacer { display: none; }
     #brichaus-assessment .step-footer bui-button { flex: 1; }
+    #brichaus-assessment .step-footer .btn-overlay-wrap { flex: 1; }
     #brichaus-assessment .step-footer .bui-btn { width: 100%; }
     #brichaus-assessment .bui-btn[data-variant="slate"] { padding: 0 20px; }
     #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
@@ -1215,11 +1233,6 @@
           fields="formattedAddress,addressComponents,location,displayName"
           hint="Start typing to search.">
         </bui-address-input>
-
-        <div id="address-verifying" class="address-verifying hidden">
-          <span class="address-verifying__spinner" aria-hidden="true"></span>
-          Locating your property…
-        </div>
 
         <!-- Service-area gate — appears instead of the normal flow when the
              selected address is outside the active markets. Expansion-market
@@ -1279,7 +1292,19 @@
       <div slot="footer" class="step-footer">
         <!-- No Back: this is the funnel's first step now. -->
         <span class="spacer"></span>
-        <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
+        <!-- Wrapper exists only so the "Locating property…" indicator can sit
+             as an absolutely-positioned overlay directly on top of Continue
+             (see .btn-loading-overlay above) — bui-button can't host children
+             of its own (it captures its label text once on init and clears
+             it), so the overlay has to be a sibling inside a positioned
+             parent instead. -->
+        <div class="btn-overlay-wrap" id="location-continue-wrap">
+          <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
+          <span id="location-continue-loading" class="btn-loading-overlay hidden" aria-hidden="true">
+            <span class="btn-loading-overlay__spinner"></span>
+            Locating property…
+          </span>
+        </div>
       </div>
     </bui-card>
   </section>
@@ -1421,7 +1446,13 @@
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="rentcast-render">Back</bui-button>
-        <bui-button id="snapshot-continue" variant="slate">Continue</bui-button>
+        <!-- Gated on a real rent value — see updateSnapshotContinueGate(). Without
+             this a visitor could skip straight past the rent field and land on
+             the Estimated Revenue step with a silent $0/mo, which read as a
+             broken calculation rather than a skipped question. Label doubles
+             as the "why is this disabled" explanation instead of a separate
+             error message. -->
+        <bui-button id="snapshot-continue" variant="slate" disabled>Enter Rent to Continue</bui-button>
       </div>
     </bui-card>
   </section>
@@ -2056,7 +2087,7 @@
 
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
-  var addressVerifying = document.getElementById('address-verifying');
+  var addressVerifying = document.getElementById('location-continue-loading');
 
   var recognitionPanel = document.getElementById('recognition-panel');
   var recognitionDone = document.getElementById('recognition-done');
@@ -3203,6 +3234,20 @@
       renderChips(rc);
       renderComps(rc);
     }
+
+    updateSnapshotContinueGate();
+  }
+
+  // Continue stays disabled until a real (>0) rent is entered — see the
+  // markup comment on #snapshot-continue. Re-run on every keystroke via
+  // renderSnapshotPreview (already wired to rentInput's bui-input/bui-change
+  // above) so the button flips the instant the field becomes valid, not just
+  // on blur.
+  function updateSnapshotContinueGate() {
+    var hasRent = parseFloat(rentInput.value) > 0;
+    snapshotContinue.toggleAttribute('disabled', !hasRent);
+    var btnEl = snapshotContinue.querySelector('.bui-btn');
+    if (btnEl) btnEl.textContent = hasRent ? 'Continue' : 'Enter Rent to Continue';
   }
 
   locationContinue.addEventListener('bui-click', function () {
@@ -3234,6 +3279,7 @@
   });
 
   snapshotContinue.addEventListener('bui-click', function () {
+    if (snapshotContinue.hasAttribute('disabled')) return;
     // Not mirrored to a native field — n8n writes rent to the Property
     // record directly after search+update. Unit count
     // was already committed on the Property Type step.
