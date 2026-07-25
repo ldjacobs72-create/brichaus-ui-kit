@@ -116,6 +116,108 @@
     grid-template-columns: 1fr 1fr;
     gap: var(--bui-space-4);
   }
+  /* ===== Systems-ready signal — hybrid: a quiet trust pill above the step-1
+     headline (sized to its own content, not a full-width block — the first
+     thing a visitor reads, not a banner that shouts), compact header badge
+     on every later step (keeps the signal visible without spending body
+     space). Both driven by the one ghl-health verdict; see
+     renderSystemStatus(). ===== */
+  #brichaus-assessment .system-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--bui-space-3);
+    padding: 10px 20px 10px 16px;
+    border-radius: var(--bui-radius-pill);
+    font-size: var(--bui-font-size-md);
+    font-weight: 400;
+  }
+  #brichaus-assessment .system-status.is-ok {
+    background: var(--bui-color-success-bg);
+    color: var(--bui-color-success);
+  }
+  #brichaus-assessment .system-status.is-degraded {
+    background: var(--bui-color-warning-bg);
+    color: #8A4C17;
+  }
+  #brichaus-assessment .system-status__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+  }
+  #brichaus-assessment .system-status.is-ok .system-status__dot {
+    background: var(--bui-color-success);
+    box-shadow: 0 0 0 4px rgba(51, 98, 58, 0.2);
+    animation: bui-status-pulse 1.8s ease-out infinite;
+  }
+  #brichaus-assessment .system-status.is-degraded .system-status__dot { background: var(--bui-color-warning); }
+  /* A visible "emitting" ping — the ring bursts outward at full strength and
+     fades, with a brief hold at rest before the next pulse, rather than a
+     faint in-place shimmer. */
+  @keyframes bui-status-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0.5); }
+    70% { box-shadow: 0 0 0 13px rgba(51, 98, 58, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(51, 98, 58, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #brichaus-assessment .system-status.is-ok .system-status__dot,
+    #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot { animation: none; }
+  }
+
+  /* Compact badge fused into the slate step header on steps 2+. Sits in a
+     second slim strip directly under <bui-progress-bar>, same slate
+     background, so it reads as one continuous header bar rather than a
+     bolted-on addition — bui-progress-bar is a shared component used
+     elsewhere, so its internals aren't touched. */
+  #brichaus-assessment .step-status-row {
+    background: var(--bui-color-slate);
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 var(--bui-space-4) 10px;
+  }
+  #brichaus-assessment .hdr-badge {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    border-radius: var(--bui-radius-pill);
+    padding: 5px 12px 5px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  #brichaus-assessment .hdr-badge.is-ok,
+  #brichaus-assessment .hdr-badge.is-degraded { display: inline-flex; }
+  #brichaus-assessment .hdr-badge.is-ok {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(185, 228, 192, 0.6);
+    color: #DFF3E2;
+  }
+  #brichaus-assessment .hdr-badge.is-degraded {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #F4DCC2;
+  }
+  #brichaus-assessment .hdr-badge__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+  }
+  #brichaus-assessment .hdr-badge.is-ok .hdr-badge__dot {
+    background: #7FD08C;
+    animation: bui-hdr-badge-pulse 1.8s ease-out infinite;
+  }
+  #brichaus-assessment .hdr-badge.is-degraded .hdr-badge__dot { background: var(--bui-color-accent-light); }
+  /* Same emitting-ping shape as the step-1 pill, tuned to a light ring so it
+     reads against the dark slate header instead of the pill's dark green. */
+  @keyframes bui-hdr-badge-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(127, 208, 140, 0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(127, 208, 140, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(127, 208, 140, 0); }
+  }
   #brichaus-assessment .step-intro {
     padding: 52px 56px 0;
   }
@@ -393,30 +495,47 @@
     margin-bottom: var(--bui-space-4);
     text-align: center;
   }
-  #brichaus-assessment .address-verifying {
+  @keyframes bui-address-verifying-spin {
+    to { transform: rotate(360deg); }
+  }
+  /* Locating-property indicator — an opaque overlay on top of the Continue
+     button itself (see #location-continue-wrap) rather than a separate
+     status line, so the visitor's eye stays on the button they're about to
+     press instead of splitting attention between two places. Sized to
+     exactly cover the button via position:absolute + inset:0 on a
+     position:relative wrapper; see the wrapper's own doc comment in the
+     markup for why bui-button needs that wrapper (it can't host children
+     itself). */
+  #brichaus-assessment .btn-overlay-wrap { position: relative; display: inline-flex; }
+  #brichaus-assessment .btn-loading-overlay {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    margin-top: var(--bui-space-3);
-    font-size: 12.5px;
-    color: var(--bui-color-text-muted);
+    background: var(--bui-color-slate);
+    color: var(--bui-color-slate-contrast);
+    border-radius: var(--bui-radius-sm);
+    font-family: var(--bui-font-family);
+    font-size: var(--bui-font-size-md);
+    font-weight: 600;
+    pointer-events: none;
   }
-  #brichaus-assessment .address-verifying__spinner {
+  #brichaus-assessment .btn-loading-overlay.hidden { display: none; }
+  #brichaus-assessment .btn-loading-overlay__spinner {
     flex: 0 0 auto;
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 2px solid var(--bui-color-border);
-    border-top-color: #C1633F;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #FFFFFF;
     animation: bui-address-verifying-spin 700ms linear infinite;
   }
-  @keyframes bui-address-verifying-spin {
-    to { transform: rotate(360deg); }
-  }
   @media (prefers-reduced-motion: reduce) {
-    #brichaus-assessment .address-verifying__spinner { animation: none; }
+    #brichaus-assessment .btn-loading-overlay__spinner { animation: none; }
   }
-  /* Contact step's "your report is already coming together" panel — see
+  /* Contact step's "your proposal is already coming together" panel — see
      the doc comment on its markup for why each row is allowed to claim
      "done". */
   #brichaus-assessment .report-progress {
@@ -463,6 +582,15 @@
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .report-progress__spinner { animation: none; }
   }
+  /* "Still to do" checklist icon (see refreshContactContinue()) — a static,
+     rust-filled circle, deliberately NOT a spinner: this row means "we're
+     waiting on you," not "we're processing something." */
+  #brichaus-assessment .report-progress__icon.is-todo {
+    background: #C1633F;
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 700;
+  }
   #brichaus-assessment .recognition-panel {
     margin-top: var(--bui-space-4);
     padding: var(--bui-space-4);
@@ -484,8 +612,20 @@
      profile changes go through a call, not a re-run of the assessment. */
   #brichaus-assessment .recognition-call-link { color: var(--bui-color-accent); font-weight: 700; text-decoration: none; }
   #brichaus-assessment .recognition-call-link:hover { text-decoration: underline; }
-  #brichaus-assessment .recognition-state bui-button {
+  #brichaus-assessment .recognition-fresh-link {
+    display: block;
     margin-top: var(--bui-space-3);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--bui-color-text-muted);
+    text-decoration: underline;
+    text-decoration-color: var(--bui-color-border-strong);
+    text-underline-offset: 2px;
+  }
+  #brichaus-assessment .recognition-fresh-link:hover {
+    color: var(--bui-color-accent);
+    text-decoration-color: var(--bui-color-accent);
   }
   /* Service-area gate (see SERVICE_AREA config + the address-select
      handler): shown in place of the normal flow when the selected
@@ -501,6 +641,21 @@
   }
   #brichaus-assessment .service-area-message {
     margin: 0 0 var(--bui-space-3);
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
+  /* Danger-toned (not info-toned like the service-area gate above) — this
+     means a specific address couldn't be confirmed to exist at all, a more
+     severe case than "we don't serve this region yet." */
+  #brichaus-assessment .property-not-found-gate {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-danger-bg);
+    border: 1px solid var(--bui-color-danger);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .property-not-found-message {
+    margin: 0;
     font-size: var(--bui-font-size-md);
     color: var(--bui-color-text);
   }
@@ -544,9 +699,6 @@
     text-decoration: none; margin-top: var(--bui-space-2);
   }
   #brichaus-assessment .street-view-link:hover { text-decoration: underline; }
-  #brichaus-assessment #expansion-capture bui-button {
-    margin-top: var(--bui-space-3);
-  }
   #brichaus-assessment .income-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1063,6 +1215,7 @@
        padding on the rust Continue would otherwise overflow small rows. */
     #brichaus-assessment .step-footer .spacer { display: none; }
     #brichaus-assessment .step-footer bui-button { flex: 1; }
+    #brichaus-assessment .step-footer .btn-overlay-wrap { flex: 1; }
     #brichaus-assessment .step-footer .bui-btn { width: 100%; }
     #brichaus-assessment .bui-btn[data-variant="slate"] { padding: 0 20px; }
     #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
@@ -1085,23 +1238,35 @@
   <section data-step="location">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="1. Property Location" value="10"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="1. Property Location" value="10" show-value="false"></bui-progress-bar>
       </div>
       <div class="step-intro">
+        <!-- Trust pill — sits above the headline as the first thing a visitor
+             reads. Green "Property data and fee engine online" or an amber
+             heads-up when the proposal pipeline is degraded (fed by the
+             ghl-health endpoint, which caches a Dataverse probe server-side).
+             The amber copy is guarantee-first, not an outage notice: the
+             outcome (a completed proposal) stays certain, only the delivery
+             channel varies — see the "unavailable" step below for why that's
+             now a backed promise, not just reassuring words. Purely
+             informational: the flow stays open either way. This is the hero
+             instance of the signal; renderSystemStatus() also drives a
+             compact .hdr-badge version fused into every later step's
+             header. -->
+        <div id="system-status" class="system-status hidden" role="status">
+          <span class="system-status__dot" aria-hidden="true"></span>
+          <span class="system-status__text"></span>
+        </div>
         <h2>Where is your property?</h2>
         <p>We'll use this to pull market rent data and comparables.</p>
         <bui-address-input
           id="address-input"
           label="Property Address"
           region="us"
+          types="street_address,premise,subpremise"
           fields="formattedAddress,addressComponents,location,displayName"
           hint="Start typing to search.">
         </bui-address-input>
-
-        <div id="address-verifying" class="address-verifying hidden">
-          <span class="address-verifying__spinner" aria-hidden="true"></span>
-          Locating your property…
-        </div>
 
         <!-- Service-area gate — appears instead of the normal flow when the
              selected address is outside the active markets. Expansion-market
@@ -1111,9 +1276,24 @@
         <div id="service-area-gate" class="service-area-gate hidden">
           <p id="service-area-message" class="service-area-message"></p>
           <div id="expansion-capture" class="hidden">
+            <!-- Keep Me Posted lives in the footer (locationFooterMode ===
+                 'keep-posted') — this is just the email field it's gated on. -->
             <bui-input id="expansion-email-input" label="Email" type="email"></bui-input>
-            <bui-button id="expansion-notify-btn" variant="slate">Keep Me Posted</bui-button>
           </div>
+        </div>
+
+        <!-- Address-verification layer, part 2: shown when Site-Selected
+             Routing's RentCast check comes back with a definitive "no
+             property record here" (see checkSiteRouting() /
+             showPropertyNotFoundGate()). Distinct from the service-area gate
+             above — this is about a specific address not existing, not the
+             region being unserved. -->
+        <div id="property-not-found-gate" class="property-not-found-gate hidden">
+          <p id="property-not-found-message" class="property-not-found-message">
+            We couldn't confirm a property record exists at this exact address. Double-check the
+            house number and street name. If this is a new build or a property we haven't
+            indexed yet, contact us directly and we'll verify it manually.
+          </p>
         </div>
 
         <!-- Side-by-side satellite + Street View of the selected address — a
@@ -1134,6 +1314,12 @@
              message and hands off to proposal.html, where the ownership +
              email verification gate lives. Nothing about the record's owner
              (name, email) is ever revealed to whoever typed the address. -->
+        <!-- Single-action-button layout: the footer's Continue button IS the
+             one action for every state below (see locationFooterMode /
+             renderLocationFooterButton()) — it relabels itself to "View &
+             Claim Proposal" / "View Proposal" / "Keep Me Posted" instead of a
+             second button living in here alongside a dead, disabled
+             Continue. This panel stays purely informational + input fields. -->
         <div id="recognition-panel" class="recognition-panel hidden">
           <div id="recognition-claim" class="recognition-state hidden">
             <p class="recognition-message">Good news — we've already prepared a management proposal for this property. Enter your email to view it and claim it as yours.</p>
@@ -1148,20 +1334,33 @@
               <span>I certify that I am the owner of this property, or an authorized representative acting on the owner's behalf.</span>
             </label>
             <p id="recognition-claim-error" class="recognition-error hidden">We couldn't claim this proposal just now — please try again in a moment.</p>
-            <bui-button id="recognition-claim-btn" variant="slate">View &amp; Claim Proposal</bui-button>
+            <!-- The one alternative to claiming: run a fresh assessment on
+                 this address instead. A plain text link, not a second full
+                 button — View & Claim Proposal (the footer) stays the primary
+                 path. -->
+            <a href="#" id="fresh-assessment-link" class="recognition-fresh-link">Not this property? Start a fresh assessment instead</a>
           </div>
           <div id="recognition-done" class="recognition-state hidden">
             <p id="recognition-done-message" class="recognition-message"></p>
-            <!-- Same-tab jump to proposal.html, which owns the ownership +
-                 email verification gate. -->
-            <bui-button id="recognition-view-proposal" variant="slate" class="hidden">View Proposal</bui-button>
           </div>
         </div>
       </div>
       <div slot="footer" class="step-footer">
         <!-- No Back: this is the funnel's first step now. -->
         <span class="spacer"></span>
-        <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
+        <!-- Wrapper exists only so the "Locating property…" indicator can sit
+             as an absolutely-positioned overlay directly on top of Continue
+             (see .btn-loading-overlay above) — bui-button can't host children
+             of its own (it captures its label text once on init and clears
+             it), so the overlay has to be a sibling inside a positioned
+             parent instead. -->
+        <div class="btn-overlay-wrap" id="location-continue-wrap">
+          <bui-button id="location-continue" variant="slate" disabled>Continue</bui-button>
+          <span id="location-continue-loading" class="btn-loading-overlay hidden" aria-hidden="true">
+            <span class="btn-loading-overlay__spinner"></span>
+            Locating property…
+          </span>
+        </div>
       </div>
     </bui-card>
   </section>
@@ -1177,7 +1376,8 @@
   <section data-step="rentcast-render" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="2. Property Details" value="20"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="2. Property Details" value="20" show-value="false"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Confirm your property details</h2>
@@ -1249,7 +1449,8 @@
   <section data-step="snapshot" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="3. Property Snapshot" value="30"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="3. Property Snapshot" value="30" show-value="false"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Current Rent vs. Market</h2>
@@ -1301,7 +1502,13 @@
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="rentcast-render">Back</bui-button>
-        <bui-button id="snapshot-continue" variant="slate">Continue</bui-button>
+        <!-- Gated on a real rent value — see updateSnapshotContinueGate(). Without
+             this a visitor could skip straight past the rent field and land on
+             the Estimated Revenue step with a silent $0/mo, which read as a
+             broken calculation rather than a skipped question. Label doubles
+             as the "why is this disabled" explanation instead of a separate
+             error message. -->
+        <bui-button id="snapshot-continue" variant="slate" disabled>Enter Rent to Continue</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1310,7 +1517,8 @@
   <section data-step="revenue" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="40"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="4. Estimated Revenue" value="40" show-value="false"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Here's the income your property should generate each year</h2>
@@ -1337,7 +1545,8 @@
   <section data-step="driver" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="5–8. Operational Demand" id="driver-header-progress" value="45"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="5–8. Operational Demand" id="driver-header-progress" value="45" show-value="false"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <!-- Each driver gets its own icon + name, distinct at a glance, so
@@ -1383,7 +1592,8 @@
   <section data-step="review" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="Review Your Profile" id="review-header-progress" value="80"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Review Your Profile" id="review-header-progress" value="80" show-value="false"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
         <h2>Review your property profile</h2>
@@ -1489,10 +1699,11 @@
   <section data-step="contact" class="hidden">
     <bui-card variant="elevated" padding="sm">
       <div slot="header">
-        <bui-progress-bar tone="header" label="9. Get Your Report" id="contact-header-progress" value="82"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="9. Get Your Proposal" id="contact-header-progress" value="82" show-value="false"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
-        <h2>Your report is coming together</h2>
+        <h2>Your proposal is coming together</h2>
         <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
 
         <!-- Genuinely-true progress, not staged theater: property/market data
@@ -1501,7 +1712,7 @@
              client-side back on earlier steps) — only the fee, which the
              live pipeline computes once the Contact-linked Property record
              exists, is still pending. Framing what's already done this way
-             is meant to make Get My Report read as an unlock, not the start
+             is meant to make Get My Proposal read as an unlock, not the start
              of a fresh wait. -->
         <div class="report-progress">
           <div class="report-progress__row is-done">
@@ -1512,9 +1723,17 @@
             <span class="report-progress__icon">&#10003;</span>
             <span>Operational workload scored</span>
           </div>
-          <div class="report-progress__row is-active">
-            <span class="report-progress__spinner" aria-hidden="true"></span>
-            <span>Waiting for your confirmation…</span>
+          <!-- Was a spinning "Waiting for your confirmation…" — read as the
+               system processing something, not as a prompt to act (visitors
+               reported sitting on this screen for minutes without realizing
+               the form below needed filling in). A static, rust "still to
+               do" icon + an instruction that names the action replaces the
+               spinner; refreshContactContinue() below flips both to the
+               same done state as the rows above once the form is actually
+               complete. -->
+          <div class="report-progress__row is-active" id="contact-progress-row">
+            <span class="report-progress__icon is-todo" id="contact-progress-icon" aria-hidden="true">&#9660;</span>
+            <span id="contact-progress-text">Add your info below to finish</span>
           </div>
         </div>
 
@@ -1535,7 +1754,10 @@
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="review">Back</bui-button>
-        <bui-button id="contact-continue" variant="primary" disabled>Get My Report</bui-button>
+        <!-- Label doubles as the "why is this disabled" explanation, same
+             pattern as Step 1's footer button and Step 3's rent gate — see
+             refreshContactContinue(). -->
+        <bui-button id="contact-continue" variant="primary" disabled>Fill In Your Info to Continue</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1548,17 +1770,17 @@
              owner review): the numbered "1..9" count belongs to questions
              the visitor answers; once they've answered the last one, the
              remaining screens are delivery, not steps to complete. -->
-        <bui-progress-bar tone="header" label="Finalizing Your Report" value="91"></bui-progress-bar>
+        <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91" show-value="false"></bui-progress-bar>
       </div>
       <div class="step-body-pad">
-        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your report is almost ready</h2>
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your proposal is almost ready</h2>
         <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
           Crunching the numbers and preparing your recommendations.
         </p>
         <div style="max-width: 340px; margin: 0 auto; text-align: left;">
           <bui-checklist
             id="checklist"
-            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your report"
+            items="Located your property,Validating comps one last time,Scoring operational demand,Estimating management fee,Generating your proposal"
             current="1">
           </bui-checklist>
           <div style="margin-top: var(--bui-space-5);">
@@ -1566,6 +1788,37 @@
             <p id="loading-detail" class="loading-detail"></p>
           </div>
         </div>
+      </div>
+    </bui-card>
+  </section>
+
+  <!-- ============ STEP: unavailable (pipeline down — no real fee) ============
+       Shown instead of the proposal hand-off when the scoring webhook fails or
+       returns no computed fee. A live visitor must never see the illustrative
+       band-based placeholder fee as if it were a real quote.
+
+       Guarantee-first framing, not an apology: as of the outage queue/gate
+       (n8n "PropScore: Main Pipeline" Park/Clear nodes + "Proposal Queue
+       Gate"), a failed submission is durably parked server-side and
+       auto-completes + emails the visitor once systems recover — so this
+       screen states that outcome as fact, not as a hope. -->
+  <section data-step="unavailable" class="hidden">
+    <bui-card variant="elevated" padding="sm">
+      <div slot="header">
+        <bui-progress-bar tone="header" label="Finalizing Your Proposal" value="91" show-value="false"></bui-progress-bar>
+      </div>
+      <div class="step-body-pad">
+        <h2 style="margin: 0 0 4px; font-size: 1.3rem;">Your assessment is in</h2>
+        <p style="margin: 0 0 var(--bui-space-3); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          Your proposal is guaranteed. Final pricing didn&rsquo;t finish live, so we&rsquo;re
+          completing it for you now &mdash; typically the same day. Nothing to redo, and
+          your answers are saved.
+        </p>
+        <p id="unavailable-email-note" style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          We&rsquo;ll email it to <strong id="unavailable-email"></strong> the moment
+          it&rsquo;s ready.
+        </p>
+        <bui-button id="unavailable-retry-btn" variant="slate">Try Live Delivery Again</bui-button>
       </div>
     </bui-card>
   </section>
@@ -1690,6 +1943,12 @@
     // fetched back for display — the funnel hands off to the proposal page
     // the moment scoring returns, and the narrative isn't shown to customers.
     REPORT_STATUS_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-report-status',
+
+    // Health endpoint behind the "Proposal Online" chip on step 1. The
+    // workflow probes Dataverse (the dependency that actually goes down) with
+    // a 5s timeout and caches the verdict server-side for 2 minutes, so page
+    // loads never hammer Dataverse directly. Leave blank to hide the chip.
+    HEALTH_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-health',
 
     // Shared-secret header sent on every PropScore webhook call above, matched
     // against a Header Auth credential on each n8n trigger node. This is a
@@ -1868,6 +2127,7 @@
     review: root.querySelector('[data-step="review"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
+    unavailable: root.querySelector('[data-step="unavailable"]'),
   };
 
   // The property-type choice-group (+ its per-card follow-up fields) lives
@@ -1894,17 +2154,16 @@
 
   var addressInput = document.getElementById('address-input');
   var locationContinue = document.getElementById('location-continue');
-  var addressVerifying = document.getElementById('address-verifying');
+  var addressVerifying = document.getElementById('location-continue-loading');
 
   var recognitionPanel = document.getElementById('recognition-panel');
   var recognitionDone = document.getElementById('recognition-done');
   var recognitionDoneMessage = document.getElementById('recognition-done-message');
-  var recognitionViewProposal = document.getElementById('recognition-view-proposal');
   var recognitionClaim = document.getElementById('recognition-claim');
   var recognitionClaimEmailInput = document.getElementById('recognition-claim-email-input');
   var recognitionClaimCertifyInput = document.getElementById('claim-cert-checkbox');
   var recognitionClaimError = document.getElementById('recognition-claim-error');
-  var recognitionClaimBtn = document.getElementById('recognition-claim-btn');
+  var freshAssessmentLink = document.getElementById('fresh-assessment-link');
 
   var rentInput = document.getElementById('rent-input');
   var snapshotContinue = document.getElementById('snapshot-continue');
@@ -1961,11 +2220,20 @@
   var contactEmailInput = document.getElementById('contact-email-input');
   var contactPhoneInput = document.getElementById('contact-phone-input');
   var contactContinue = document.getElementById('contact-continue');
+  var contactProgressRow = document.getElementById('contact-progress-row');
+  var contactProgressIcon = document.getElementById('contact-progress-icon');
+  var contactProgressText = document.getElementById('contact-progress-text');
   var termsFieldEl = null; // resolved once by whenFieldReady below, reused on each visit to the contact step
 
   var checklist = document.getElementById('checklist');
   var buildProgress = document.getElementById('build-progress');
   var loadingDetail = document.getElementById('loading-detail');
+  var unavailableEmail = document.getElementById('unavailable-email');
+  var unavailableEmailNote = document.getElementById('unavailable-email-note');
+  var unavailableRetryBtn = document.getElementById('unavailable-retry-btn');
+  // Re-runs the same submission (payload is rebuilt from state, which is
+  // still intact) — lets a visitor retry once we've recovered mid-outage.
+  unavailableRetryBtn.addEventListener('click', function () { startAssessment(); });
 
   var demoBanner = document.getElementById('demo-banner');
   var reportAddress = document.getElementById('report-address');
@@ -2290,12 +2558,52 @@
     showStep('location');
   });
 
+  // --- Footer single-action-button state machine -------------------------
+  // location-continue is the ONE visible action on this step, whatever state
+  // it's in — it relabels + re-targets itself instead of a second button
+  // appearing alongside a dead, disabled Continue. Plain "Continue" gating
+  // (address picked, routing resolved, etc.) is untouched — it's already
+  // handled throughout this step; this only owns the three states that
+  // replace it: an existing proposal, a claimable one, and the out-of-area
+  // expansion capture.
+  var locationFooterMode = 'continue'; // 'continue' | 'view-proposal' | 'claim' | 'keep-posted' | 'keep-posted-done'
+
+  function setLocationFooterLabel(text) {
+    var btnEl = locationContinue.querySelector('.bui-btn');
+    if (btnEl) btnEl.textContent = text;
+  }
+
+  function renderLocationFooterButton() {
+    switch (locationFooterMode) {
+      case 'view-proposal':
+        setLocationFooterLabel('View Proposal');
+        locationContinue.toggleAttribute('disabled', !CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId);
+        break;
+      case 'claim':
+        setLocationFooterLabel('View & Claim Proposal');
+        locationContinue.toggleAttribute('disabled',
+          !isValidEmail((recognitionClaimEmailInput.value || '').trim()) ||
+          !recognitionClaimCertifyInput || !recognitionClaimCertifyInput.checked);
+        break;
+      case 'keep-posted':
+        setLocationFooterLabel('Keep Me Posted');
+        var email = (expansionEmailInput.value || '').trim();
+        locationContinue.toggleAttribute('disabled', !email || email.indexOf('@') === -1);
+        break;
+      case 'keep-posted-done':
+        setLocationFooterLabel("You're on the List");
+        locationContinue.setAttribute('disabled', '');
+        break;
+      default:
+        setLocationFooterLabel('Continue');
+    }
+  }
+
   // --- Service-area gate ------------------------------------------------
   var serviceAreaGate = document.getElementById('service-area-gate');
   var serviceAreaMessage = document.getElementById('service-area-message');
   var expansionCapture = document.getElementById('expansion-capture');
   var expansionEmailInput = document.getElementById('expansion-email-input');
-  var expansionNotifyBtn = document.getElementById('expansion-notify-btn');
 
   // Live Dataverse-backed lookup — see SERVICE_AREA_URL doc comment for the
   // fail-open rules. Always resolves (never rejects) with a tier string.
@@ -2317,6 +2625,10 @@
   function hideServiceAreaGate() {
     serviceAreaGate.classList.add('hidden');
     expansionCapture.classList.add('hidden');
+    if (locationFooterMode === 'keep-posted' || locationFooterMode === 'keep-posted-done') {
+      locationFooterMode = 'continue';
+      renderLocationFooterButton();
+    }
   }
 
   function showServiceAreaGate(tier, stateName) {
@@ -2325,6 +2637,8 @@
       serviceAreaMessage.textContent = "We're not managing properties in " + label +
         " quite yet — it's one of our next markets. Leave your email and you'll be the first to know when we launch.";
       expansionCapture.classList.remove('hidden');
+      locationFooterMode = 'keep-posted';
+      renderLocationFooterButton();
     } else {
       serviceAreaMessage.textContent = "We don't currently manage properties in " + label +
         ". We focus on Arkansas and California today.";
@@ -2333,7 +2647,26 @@
     serviceAreaGate.classList.remove('hidden');
   }
 
-  expansionNotifyBtn.addEventListener('bui-click', function () {
+  // --- Property-not-found gate (address-verification layer, part 2) -----
+  // Distinct from the service-area gate above: this fires when Site-Selected
+  // Routing's RentCast check comes back with a definitive "no property
+  // record here at all" (propertyVerification === 'not_found' — see
+  // checkSiteRouting()), not merely out-of-area. Danger-toned rather than
+  // info-toned so it visually reads as more severe than the (recoverable,
+  // informational) out-of-area case.
+  var propertyNotFoundGate = document.getElementById('property-not-found-gate');
+
+  function hidePropertyNotFoundGate() {
+    propertyNotFoundGate.classList.add('hidden');
+  }
+
+  function showPropertyNotFoundGate() {
+    propertyNotFoundGate.classList.remove('hidden');
+  }
+
+  // Fired from the footer button (locationFooterMode === 'keep-posted') —
+  // see the click dispatcher below.
+  function submitExpansionLead() {
     // Read the input's live value directly rather than a mirrored variable
     // fed by bui-input/bui-change events — browser autofill doesn't
     // reliably fire those events before a submit click, which silently
@@ -2362,6 +2695,16 @@
     });
     expansionCapture.classList.add('hidden');
     serviceAreaMessage.textContent = "Thanks — you're on the list! We'll reach out as soon as we open in " + stateName + ".";
+    locationFooterMode = 'keep-posted-done';
+    renderLocationFooterButton();
+  }
+
+  // Re-gate the footer button live as the visitor types, same pattern as
+  // the rent-step Continue gate.
+  ['bui-input', 'bui-change'].forEach(function (evtName) {
+    expansionEmailInput.addEventListener(evtName, function () {
+      if (locationFooterMode === 'keep-posted') renderLocationFooterButton();
+    });
   });
   // -----------------------------------------------------------------------
 
@@ -2450,6 +2793,25 @@
     var subpremise = extractAddressComponent(place.addressComponents, 'subpremise');
     state.address.unitNumber = subpremise || '';
     state.address.unitFromSubpremise = !!subpremise;
+
+    // Address-verification layer, part 1: a Google pick with no street
+    // number/route is a city, neighborhood, route, or POI, not a specific
+    // building — the `types` restriction on the field above cuts most of
+    // these before they're even suggested, but a bare "premise" can still
+    // lack a house number (e.g. an unnamed lot), so this is the real gate.
+    // Reject before spending anything on the service-area/RentCast/routing
+    // calls below — an imprecise pick can never resolve to a real property.
+    var streetNumber = extractAddressComponent(place.addressComponents, 'street_number');
+    var streetRoute = extractAddressComponent(place.addressComponents, 'route');
+    if (!streetNumber || !streetRoute) {
+      showAddressMap(place.location); // still show the pin — visually explains the rejection
+      hideServiceAreaGate();
+      hidePropertyNotFoundGate();
+      resetRecognitionPanel();
+      locationContinue.setAttribute('disabled', '');
+      addressInput.setAttribute('error', 'Please select a specific street address — not a city, neighborhood, or route.');
+      return;
+    }
     addressInput.setAttribute('error', '');
     // Shown for every selection — in-area or not, "is that pin my
     // property?" is the same secondary check.
@@ -2462,6 +2824,7 @@
     // like the routing check below, and the placeId is re-checked on
     // resolve so a superseded selection's answer is discarded.
     hideServiceAreaGate();
+    hidePropertyNotFoundGate();
     locationContinue.setAttribute('disabled', '');
     var gatePlaceId = state.address.placeId;
     addressVerifying.classList.remove('hidden');
@@ -2510,6 +2873,7 @@
     state.route = '';
     state.propertyFacts = null;
     hideServiceAreaGate();
+    hidePropertyNotFoundGate();
     hideAddressMap();
     locationContinue.setAttribute('disabled', '');
     addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
@@ -2523,6 +2887,7 @@
   // event too.
   addressInput.addEventListener('bui-input', function () {
     hideServiceAreaGate();
+    hidePropertyNotFoundGate();
     hideAddressMap();
   });
 
@@ -2555,6 +2920,14 @@
   // silent (see 'error' branch in renderMarketRentHint) and never blocks
   // anything, unlike the real pipeline call.
   var rentCastRequestId = 0;
+  // Last address string actually sent to the quicklook endpoint (trimmed,
+  // case-folded). A typed-but-unselected address has no placeId, so its
+  // quicklook call can never be cache-keyed server-side (see the comment in
+  // fetchRentCastQuicklook) — every re-commit of the same unchanged text
+  // (blur/refocus on mobile, a stray Enter, re-typing over itself) would
+  // otherwise re-hit RentCast live with nothing to dedup it. This guard is
+  // the client-side backstop for exactly that case.
+  var lastRentCastFetchKey = '';
 
   // Rows with a usable median rent and at least one listing. Shared by the
   // preview and the final report so both apply the same "has data" bar.
@@ -2616,6 +2989,13 @@
 
   function fetchRentCastQuicklook(address) {
     if (!address || !CONFIG.RENTCAST_QUICKLOOK_URL) return;
+    // Exact-repeat guard (see lastRentCastFetchKey above) — the same address
+    // string + placeId pair already has a live/loading/ready result, so a
+    // re-fire (blur/refocus without a change, a stray Enter) is a no-op
+    // instead of a second live RentCast call.
+    var fetchKey = address.trim().toLowerCase() + '|' + (state.address.placeId || '');
+    if (fetchKey === lastRentCastFetchKey) return;
+    lastRentCastFetchKey = fetchKey;
     var requestId = ++rentCastRequestId;
     state.rentCast = { status: 'loading', rent: null, rentRangeLow: null, rentRangeHigh: null, propertyType: '', unitConfiguration: null, comparables: [] };
     renderMarketRentHint();
@@ -2674,22 +3054,33 @@
     state.recognition = { active: false };
     recognitionPanel.classList.add('hidden');
     recognitionDone.classList.add('hidden');
-    recognitionViewProposal.classList.add('hidden');
     recognitionClaim.classList.add('hidden');
     recognitionClaimError.classList.add('hidden');
     recognitionClaimEmailInput.value = '';
     if (recognitionClaimCertifyInput) recognitionClaimCertifyInput.checked = false;
     state.claimable = false;
+    locationFooterMode = 'continue';
     locationContinue.toggleAttribute('disabled', !state.address.placeId);
+    renderLocationFooterButton();
     addressVerifying.classList.add('hidden');
   }
 
   // Same-tab jump to the standalone saved-proposal page for this property.
   // placeId only — the visitor hasn't been verified here, so nothing else
-  // rides the URL. proposal.html owns the ownership + email gate.
-  recognitionViewProposal.addEventListener('bui-click', function () {
+  // rides the URL. proposal.html owns the ownership + email gate. Fired from
+  // the footer button (locationFooterMode === 'view-proposal').
+  function goToSavedProposal() {
     if (!CONFIG.PROPOSAL_PAGE_URL || !state.address.placeId) return;
     window.location.href = CONFIG.PROPOSAL_PAGE_URL + '?placeId=' + encodeURIComponent(state.address.placeId);
+  }
+
+  // The alternative to claiming a claimable proposal: run a fresh assessment
+  // on this address instead — same action the footer's "Continue" used to
+  // perform on its own before the claim flow existed.
+  freshAssessmentLink.addEventListener('click', function (evt) {
+    evt.preventDefault();
+    showStep('rentcast-render');
+    renderRentcastRender();
   });
 
   function showRecognitionState(name) {
@@ -2744,32 +3135,54 @@
         data = data || {};
         state.route = data.route || 'fetch-rentcast';
         state.propertyFacts = data.propertyFacts || null;
+        // Address-verification layer, part 3: hard-block ONLY on a
+        // definitive "RentCast responded and found nothing here at all"
+        // (propertyVerification === 'not_found'). Deliberately strict ===
+        // — a missing/undefined field (the res.ok fallback above, or an
+        // older backend response) or 'unknown' (RentCast/network failure,
+        // ambiguous response) must fall through and fail open exactly like
+        // today; only a genuine not_found blocks. The .catch() below never
+        // sees this field at all, so an outage can never trip this gate.
+        if (data.propertyVerification === 'not_found') {
+          addressInput.setAttribute('error', "We couldn't confirm a property record exists at this address.");
+          showPropertyNotFoundGate();
+          locationContinue.setAttribute('disabled', '');
+          return;
+        }
+        hidePropertyNotFoundGate();
         if (state.route === 'proposal') {
-          // Existing proposal on file → a neutral message + View Proposal
-          // only. No name, no email prompt: whoever typed this address
-          // hasn't proven anything yet, so verification (are-you-the-owner
-          // certification + email confirm) happens on proposal.html, not
-          // here. Continue stays disabled — the saved profile is locked, so
-          // re-running the assessment on this property is off the table.
+          // Existing proposal on file → a neutral message, no name, no email
+          // prompt: whoever typed this address hasn't proven anything yet,
+          // so verification (are-you-the-owner certification + email
+          // confirm) happens on proposal.html, not here. The footer button
+          // becomes the one action, "View Proposal" — re-running the
+          // assessment on this property is off the table, so there's
+          // nothing for "Continue" to still do.
           state.recognition.active = true;
           recognitionDoneMessage.textContent = 'Good news — we already have a management proposal on file for this property. View it below; you’ll be asked to verify ownership there.';
-          if (CONFIG.PROPOSAL_PAGE_URL) recognitionViewProposal.classList.remove('hidden');
           recognitionPanel.classList.remove('hidden');
           showRecognitionState('done');
+          locationFooterMode = 'view-proposal';
+          renderLocationFooterButton();
         } else {
           // render-known / fetch-rentcast → continue the funnel. Clicking
           // Continue advances to rentcast-render with these propertyFacts.
           locationContinue.removeAttribute('disabled');
           // Claimable = a proposal already exists for this property with no
           // contact attached (an internally-prepared proposal). Offer a fast
-          // "view & claim" path: capture email → backend attaches the contact
-          // → jump straight to the saved proposal. Continue stays enabled so a
-          // fresh assessment remains available as the alternative.
+          // "view & claim" path: capture email → backend attaches the
+          // contact → jump straight to the saved proposal. The footer
+          // becomes "View & Claim Proposal", gated on email + certify; the
+          // fresh-assessment link inside the panel is the one alternative
+          // (a plain link, not a second full button) so a fresh assessment
+          // stays available without competing for primary billing.
           if (state.route === 'render-known' && data.claimable) {
             state.claimable = true;
             state.claimPlaceId = data.placeId || placeId;
             recognitionPanel.classList.remove('hidden');
             showRecognitionState('claim');
+            locationFooterMode = 'claim';
+            renderLocationFooterButton();
           }
         }
       })
@@ -2795,7 +3208,8 @@
   // Owner↔Property. On success we hand the email to proposal.html (same-origin,
   // sessionStorage) and jump straight there. Client pre-check only blocks
   // obvious junk; the server §C gate (Phase 3) is the real mailbox check.
-  recognitionClaimBtn.addEventListener('bui-click', function () {
+  // Fired from the footer button (locationFooterMode === 'claim').
+  function submitProposalClaim() {
     var placeId = state.claimPlaceId || state.address.placeId;
     // Read the input's live value directly rather than a mirrored variable
     // fed by bui-input/bui-change events — browser autofill doesn't
@@ -2813,7 +3227,7 @@
       return;
     }
     var claimUrl = CONFIG.CLAIM_URL || CONFIG.CONTACT_RECOGNITION_URL;
-    recognitionClaimBtn.setAttribute('disabled', '');
+    locationContinue.setAttribute('disabled', '');
     fetch(claimUrl, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -2822,7 +3236,6 @@
       .then(function (res) { return res.ok ? res.json() : { claimed: false }; })
       .then(function (data) {
         if (placeId !== (state.claimPlaceId || state.address.placeId)) return; // superseded
-        recognitionClaimBtn.removeAttribute('disabled');
         if (data && data.claimed) {
           // Claiming just attached this visitor as the property's Contact —
           // there's no saved profile to show yet (that's what "claimable"
@@ -2844,15 +3257,27 @@
           renderRentcastRender();
           return;
         }
+        locationContinue.removeAttribute('disabled');
         recognitionClaimError.textContent = "We couldn't claim this proposal just now — please try again in a moment.";
         recognitionClaimError.classList.remove('hidden');
       })
       .catch(function (err) {
         console.warn('[brichaus-assessment] Proposal claim failed:', err);
-        recognitionClaimBtn.removeAttribute('disabled');
+        locationContinue.removeAttribute('disabled');
         recognitionClaimError.textContent = "We couldn't claim this proposal just now — please try again in a moment.";
         recognitionClaimError.classList.remove('hidden');
       });
+  }
+
+  // Re-gate the footer button live as the visitor fills in the claim email +
+  // certify checkbox, same pattern as the rent-step Continue gate.
+  ['bui-input', 'bui-change'].forEach(function (evtName) {
+    recognitionClaimEmailInput.addEventListener(evtName, function () {
+      if (locationFooterMode === 'claim') renderLocationFooterButton();
+    });
+  });
+  recognitionClaimCertifyInput.addEventListener('change', function () {
+    if (locationFooterMode === 'claim') renderLocationFooterButton();
   });
 
   // Renders the Snapshot-step RentCast preview from state.rentCast, using the
@@ -3020,13 +3445,31 @@
       renderChips(rc);
       renderComps(rc);
     }
+
+    updateSnapshotContinueGate();
+  }
+
+  // Continue stays disabled until a real (>0) rent is entered — see the
+  // markup comment on #snapshot-continue. Re-run on every keystroke via
+  // renderSnapshotPreview (already wired to rentInput's bui-input/bui-change
+  // above) so the button flips the instant the field becomes valid, not just
+  // on blur.
+  function updateSnapshotContinueGate() {
+    var hasRent = parseFloat(rentInput.value) > 0;
+    snapshotContinue.toggleAttribute('disabled', !hasRent);
+    var btnEl = snapshotContinue.querySelector('.bui-btn');
+    if (btnEl) btnEl.textContent = hasRent ? 'Continue' : 'Enter Rent to Continue';
   }
 
   locationContinue.addEventListener('bui-click', function () {
     if (locationContinue.hasAttribute('disabled')) return;
-    // Address-first flow: Location now hands into the rentcast-render step
-    // (property facts + RentCast-assisted property type), which commits
-    // state.propertyType before the Snapshot step reads it.
+    if (locationFooterMode === 'view-proposal') { goToSavedProposal(); return; }
+    if (locationFooterMode === 'claim') { submitProposalClaim(); return; }
+    if (locationFooterMode === 'keep-posted') { submitExpansionLead(); return; }
+    // Default 'continue' mode: address-first flow hands into the
+    // rentcast-render step (property facts + RentCast-assisted property
+    // type), which commits state.propertyType before the Snapshot step
+    // reads it.
     showStep('rentcast-render');
     renderRentcastRender();
   });
@@ -3051,6 +3494,7 @@
   });
 
   snapshotContinue.addEventListener('bui-click', function () {
+    if (snapshotContinue.hasAttribute('disabled')) return;
     // Not mirrored to a native field — n8n writes rent to the Property
     // record directly after search+update. Unit count
     // was already committed on the Property Type step.
@@ -3350,7 +3794,7 @@
 
 
   /* =====================================================================
-   * Step 9: Get Your Report — captures the name/email/consent this native
+   * Step 9: Get Your Proposal — captures the name/email/consent this native
    * submit needs to create a valid, Contact-linked record. Nothing before
    * this step writes name/email anywhere, and nothing after it should —
    * this is the one point in the flow where the native submit fires.
@@ -3448,6 +3892,18 @@
     var phoneOk = isValidPhone(state.contact.phone);
     var ready = !!state.contact.firstName && emailOk && phoneOk && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
+    var btnEl = contactContinue.querySelector('.bui-btn');
+    if (btnEl) btnEl.textContent = ready ? 'Get My Proposal' : 'Fill In Your Info to Continue';
+    // The checklist's third row tracks the same "ready" state as the button
+    // — flips to the same done treatment as the two rows above it instead
+    // of staying stuck on "still to do" once the form is actually complete.
+    if (contactProgressRow) {
+      contactProgressRow.classList.toggle('is-active', !ready);
+      contactProgressRow.classList.toggle('is-done', ready);
+      contactProgressIcon.className = ready ? 'report-progress__icon' : 'report-progress__icon is-todo';
+      contactProgressIcon.innerHTML = ready ? '&#10003;' : '&#9660;';
+      contactProgressText.textContent = ready ? 'Your info is in' : 'Add your info below to finish';
+    }
   }
 
   // Masks registered BEFORE the state listeners below, so by the time
@@ -3632,13 +4088,13 @@
         msg = 'Scoring operational demand across your four drivers…';
         break;
       default:
-        msg = 'Generating your report…';
+        msg = 'Generating your proposal…';
     }
     loadingDetail.textContent = msg;
   }
 
   // Once the fake progress bar reaches its last stage, the detail line would
-  // otherwise sit frozen on "Generating your report…" for however long the
+  // otherwise sit frozen on "Generating your proposal…" for however long the
   // real webhook takes (often 15-25s more) — dead air that can read as
   // stuck. This rotates through a short, one-way sequence of reassurance
   // lines during that specific dead zone only; deliberately short (four
@@ -3647,7 +4103,7 @@
     'Almost there…',
     'Just a few more seconds…',
     'Any moment now…',
-    'Putting the finishing touches on your report…'
+    'Putting the finishing touches on your proposal…'
   ];
 
   function runAssessment() {
@@ -3709,6 +4165,20 @@
       handOffToProposal(webhookResult, !!isDemo);
     };
 
+    // Pipeline down or fee engine broken: a live visitor must never see the
+    // illustrative band placeholder as if it were a quote. Tell them we're
+    // having technical issues instead (and that we'll email the report).
+    var finishUnavailable = function (err) {
+      settled = true;
+      clearInterval(timer);
+      if (reassuranceTimer) clearInterval(reassuranceTimer);
+      console.error('[brichaus-assessment] Report pipeline unavailable:', err);
+      var email = (state.contact.email || '').trim();
+      if (unavailableEmail) unavailableEmail.textContent = email;
+      if (unavailableEmailNote) unavailableEmailNote.classList.toggle('hidden', !email);
+      showStep('unavailable');
+    };
+
     if (!CONFIG.WEBHOOK_URL) {
       console.warn('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — rendering results in demo mode.');
       setTimeout(function () { finish(null, true); }, 2600);
@@ -3724,11 +4194,14 @@
         if (!res.ok) throw new Error('Webhook responded with status ' + res.status);
         return res.json();
       })
-      .then(function (data) { finish(data, false); })
-      .catch(function (err) {
-        console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
-        finish(null, true);
-      });
+      .then(function (data) {
+        // A 200 without a computable fee rate is still a broken pipeline —
+        // Phase A always carries feeCalcResponse when the fee engine ran.
+        var feeRate = data ? parseFloat(data.feeCalcResponse) : NaN;
+        if (isFinite(feeRate) && feeRate > 0) finish(data, false);
+        else finishUnavailable(new Error('Webhook response has no computed fee (feeCalcResponse=' + (data && data.feeCalcResponse) + ')'));
+      })
+      .catch(function (err) { finishUnavailable(err); });
   }
 
   // Assessment complete → hand the finished proposal to the standalone
@@ -3752,8 +4225,11 @@
     var grossMonthly = state.rentPerUnit * state.unitCount;
 
     // Fee: same computation the inline report used to do — a real fee RATE
-    // from the pipeline (feeCalcResponse, e.g. 0.06), else an illustrative
-    // band-based placeholder for demo mode / a failed webhook.
+    // from the pipeline (feeCalcResponse, e.g. 0.06). The illustrative
+    // band-based placeholder below is reachable in DEMO MODE ONLY (no
+    // WEBHOOK_URL configured): a failed webhook or fee-less response now
+    // routes to the "unavailable" step instead of handing off with a
+    // placeholder dressed up as a quote.
     var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
     var feePct, monthlyFee;
     if (!isNaN(feeRate)) {
@@ -3811,9 +4287,50 @@
   }
 
   /* =====================================================================
+   * Systems-ready signal — asks the health endpoint whether the proposal
+   * pipeline's load-bearing dependency (Dataverse) is answering, then drives
+   * TWO surfaces from that one verdict: a quiet trust pill above the step-1
+   * headline (hidden until a verdict arrives), and a compact .hdr-badge
+   * fused into every later step's header (there's one per step, inert
+   * markup until this fills it in; only the currently-visible step's copy
+   * is ever on screen since the others sit inside a hidden section). An
+   * unreachable health endpoint counts as degraded (if we can't ask n8n,
+   * the funnel's own webhooks are likely down too).
+   * =================================================================== */
+  function renderSystemStatus(ok) {
+    var banner = document.getElementById('system-status');
+    if (banner) {
+      banner.classList.remove('hidden');
+      banner.classList.toggle('is-ok', ok);
+      banner.classList.toggle('is-degraded', !ok);
+      banner.querySelector('.system-status__text').textContent = ok
+        ? 'Property data and fee engine online — proposal in minutes from start to finish'
+        : 'Your proposal is guaranteed — may arrive by email today';
+    }
+    var badgeText = ok ? 'Proposal Online' : 'Proposal via email';
+    Array.prototype.forEach.call(document.querySelectorAll('.hdr-badge'), function (badge) {
+      badge.classList.toggle('is-ok', ok);
+      badge.classList.toggle('is-degraded', !ok);
+      badge.querySelector('.hdr-badge__text').textContent = badgeText;
+    });
+  }
+
+  function refreshSystemStatus() {
+    if (!CONFIG.HEALTH_URL) return;
+    fetch(CONFIG.HEALTH_URL, { headers: authHeaders({}) })
+      .then(function (res) {
+        if (!res.ok) throw new Error('health endpoint status ' + res.status);
+        return res.json();
+      })
+      .then(function (h) { renderSystemStatus(!!(h && h.ok === true)); })
+      .catch(function () { renderSystemStatus(false); });
+  }
+
+  /* =====================================================================
    * Startup
    * =================================================================== */
   showStep('location');
+  refreshSystemStatus();
 })();
 </script>
 </body>

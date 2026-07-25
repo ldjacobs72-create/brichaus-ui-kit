@@ -215,12 +215,6 @@
   #brichaus-proposal .review-driver-ro__badge[data-tone="accent"] { background: var(--bui-color-accent-bg); color: var(--bui-color-accent-hover); }
   #brichaus-proposal .review-driver-ro__badge[data-tone="warning"] { background: var(--bui-color-warning-bg); color: var(--bui-color-warning); }
   #brichaus-proposal .review-driver-ro__badge[data-tone="danger"] { background: var(--bui-color-accent-bg); color: var(--bui-color-danger); }
-  #brichaus-proposal .review-lock-note {
-    margin: var(--bui-space-3) 0 0;
-    font-size: 12.5px; line-height: 1.55; color: var(--bui-color-text-muted);
-  }
-  #brichaus-proposal .review-lock-link { color: var(--bui-color-accent); font-weight: 700; text-decoration: none; }
-  #brichaus-proposal .review-lock-link:hover { text-decoration: underline; }
 
   /* ---- Report layout (ported from app/index.html's Results step: fee +
      Proposal service cards + CTA. Evidence/comps/RentCast blocks are
@@ -600,8 +594,6 @@
     <div class="evidence-specs" id="review-readonly-specs"></div>
 
     <div class="review-drivers" id="review-drivers"></div>
-
-    <p class="review-lock-note" id="review-lock-note">Something changed since this was put together? <a href="#" id="review-lock-link" class="review-lock-link">Schedule a quick call</a> and we'll update your profile and proposal.</p>
   </bui-modal>
 
   <!-- The rendered proposal — ported from app/index.html's Results step
@@ -953,8 +945,7 @@
     if (fresh) {
       confirmedEmail = fresh.email || '';
       recognition.firstName = fresh.firstName || '';
-      renderProposal(fresh.data);
-      showPanel('report');
+      presentProposal(fresh.data);
       return;
     }
     fetch(CONFIG.CONTACT_RECOGNITION_URL, {
@@ -1079,7 +1070,6 @@
     var factsSub = document.getElementById('review-facts-sub');
     var readonlySpecs = document.getElementById('review-readonly-specs');
     var driversWrap = document.getElementById('review-drivers');
-    var lockLink = document.getElementById('review-lock-link');
 
     reviewIntroMessage.textContent = 'Here’s the profile behind your proposal.';
 
@@ -1105,8 +1095,6 @@
         driversWrap.appendChild(buildDriverRoRow(cat));
       });
     }
-
-    if (lockLink && CONFIG.BOOKING_URL) lockLink.href = CONFIG.BOOKING_URL;
 
     renderProposal(data);
     showPanel('report');
