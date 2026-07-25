@@ -669,6 +669,21 @@
     font-size: var(--bui-font-size-md);
     color: var(--bui-color-text);
   }
+  /* Danger-toned (not info-toned like the service-area gate above) — this
+     means a specific address couldn't be confirmed to exist at all, a more
+     severe case than "we don't serve this region yet." */
+  #brichaus-assessment .property-not-found-gate {
+    margin-top: var(--bui-space-4);
+    padding: var(--bui-space-4);
+    background: var(--bui-color-danger-bg);
+    border: 1px solid var(--bui-color-danger);
+    border-radius: var(--bui-radius-md);
+  }
+  #brichaus-assessment .property-not-found-message {
+    margin: 0;
+    font-size: var(--bui-font-size-md);
+    color: var(--bui-color-text);
+  }
   /* Follow-up fields relocated inside their property-type card (see
      ensureDetailsFieldsInCards). The card centers its text; form fields
      read better left-aligned. */
@@ -1274,6 +1289,7 @@
           id="address-input"
           label="Property Address"
           region="us"
+          types="street_address,premise,subpremise"
           fields="formattedAddress,addressComponents,location,displayName"
           hint="Start typing to search.">
         </bui-address-input>
@@ -1290,6 +1306,20 @@
                  'keep-posted') — this is just the email field it's gated on. -->
             <bui-input id="expansion-email-input" label="Email" type="email"></bui-input>
           </div>
+        </div>
+
+        <!-- Address-verification layer, part 2: shown when Site-Selected
+             Routing's RentCast check comes back with a definitive "no
+             property record here" (see checkSiteRouting() /
+             showPropertyNotFoundGate()). Distinct from the service-area gate
+             above — this is about a specific address not existing, not the
+             region being unserved. -->
+        <div id="property-not-found-gate" class="property-not-found-gate hidden">
+          <p id="property-not-found-message" class="property-not-found-message">
+            We couldn't confirm a property record exists at this exact address. Double-check the
+            house number and street name. If this is a new build or a property we haven't
+            indexed yet, contact us directly and we'll verify it manually.
+          </p>
         </div>
 
         <!-- Side-by-side satellite + Street View of the selected address — a
@@ -2649,6 +2679,23 @@
     serviceAreaGate.classList.remove('hidden');
   }
 
+  // --- Property-not-found gate (address-verification layer, part 2) -----
+  // Distinct from the service-area gate above: this fires when Site-Selected
+  // Routing's RentCast check comes back with a definitive "no property
+  // record here at all" (propertyVerification === 'not_found' — see
+  // checkSiteRouting()), not merely out-of-area. Danger-toned rather than
+  // info-toned so it visually reads as more severe than the (recoverable,
+  // informational) out-of-area case.
+  var propertyNotFoundGate = document.getElementById('property-not-found-gate');
+
+  function hidePropertyNotFoundGate() {
+    propertyNotFoundGate.classList.add('hidden');
+  }
+
+  function showPropertyNotFoundGate() {
+    propertyNotFoundGate.classList.remove('hidden');
+  }
+
   // Fired from the footer button (locationFooterMode === 'keep-posted') —
   // see the click dispatcher below.
   function submitExpansionLead() {
@@ -2778,6 +2825,25 @@
     var subpremise = extractAddressComponent(place.addressComponents, 'subpremise');
     state.address.unitNumber = subpremise || '';
     state.address.unitFromSubpremise = !!subpremise;
+
+    // Address-verification layer, part 1: a Google pick with no street
+    // number/route is a city, neighborhood, route, or POI, not a specific
+    // building — the `types` restriction on the field above cuts most of
+    // these before they're even suggested, but a bare "premise" can still
+    // lack a house number (e.g. an unnamed lot), so this is the real gate.
+    // Reject before spending anything on the service-area/RentCast/routing
+    // calls below — an imprecise pick can never resolve to a real property.
+    var streetNumber = extractAddressComponent(place.addressComponents, 'street_number');
+    var streetRoute = extractAddressComponent(place.addressComponents, 'route');
+    if (!streetNumber || !streetRoute) {
+      showAddressMap(place.location); // still show the pin — visually explains the rejection
+      hideServiceAreaGate();
+      hidePropertyNotFoundGate();
+      resetRecognitionPanel();
+      locationContinue.setAttribute('disabled', '');
+      addressInput.setAttribute('error', 'Please select a specific street address — not a city, neighborhood, or route.');
+      return;
+    }
     addressInput.setAttribute('error', '');
     // Shown for every selection — in-area or not, "is that pin my
     // property?" is the same secondary check.
@@ -2790,6 +2856,7 @@
     // like the routing check below, and the placeId is re-checked on
     // resolve so a superseded selection's answer is discarded.
     hideServiceAreaGate();
+    hidePropertyNotFoundGate();
     locationContinue.setAttribute('disabled', '');
     var gatePlaceId = state.address.placeId;
     addressVerifying.classList.remove('hidden');
@@ -2838,6 +2905,7 @@
     state.route = '';
     state.propertyFacts = null;
     hideServiceAreaGate();
+    hidePropertyNotFoundGate();
     hideAddressMap();
     locationContinue.setAttribute('disabled', '');
     addressInput.setAttribute('error', typed ? 'Please choose an address from the suggestions.' : '');
@@ -2851,6 +2919,7 @@
   // event too.
   addressInput.addEventListener('bui-input', function () {
     hideServiceAreaGate();
+    hidePropertyNotFoundGate();
     hideAddressMap();
   });
 
@@ -3098,6 +3167,21 @@
         data = data || {};
         state.route = data.route || 'fetch-rentcast';
         state.propertyFacts = data.propertyFacts || null;
+        // Address-verification layer, part 3: hard-block ONLY on a
+        // definitive "RentCast responded and found nothing here at all"
+        // (propertyVerification === 'not_found'). Deliberately strict ===
+        // — a missing/undefined field (the res.ok fallback above, or an
+        // older backend response) or 'unknown' (RentCast/network failure,
+        // ambiguous response) must fall through and fail open exactly like
+        // today; only a genuine not_found blocks. The .catch() below never
+        // sees this field at all, so an outage can never trip this gate.
+        if (data.propertyVerification === 'not_found') {
+          addressInput.setAttribute('error', "We couldn't confirm a property record exists at this address.");
+          showPropertyNotFoundGate();
+          locationContinue.setAttribute('disabled', '');
+          return;
+        }
+        hidePropertyNotFoundGate();
         if (state.route === 'proposal') {
           // Existing proposal on file → a neutral message, no name, no email
           // prompt: whoever typed this address hasn't proven anything yet,

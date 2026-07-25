@@ -124,7 +124,8 @@ gate; fails OPEN to `fetch-rentcast`.
   recognized: bool,           // true only on "proposal"
   firstName: "",              // for the recognition welcome panel
   contactId: "",              // known GHL contact id, if any
-  propertyFacts: { … } | null // enriched RentCast facts (below); null when unknown
+  propertyFacts: { … } | null,        // enriched RentCast facts (below); null when unknown
+  propertyVerification: "found" | "not_found" | "unknown"  // address-verification hard-block signal (below)
 }
 ```
 
@@ -134,6 +135,23 @@ gate; fails OPEN to `fetch-rentcast`.
   snapshot, continue the funnel to capture.
 - **fetch-rentcast** — no / stale (>3 mo) JSON → RentCast fetched server-side,
   facts snapshot rendered, continue.
+
+### `propertyVerification` — address-verification hard block
+
+Only meaningful on `fetch-rentcast` (the `proposal`/`render-known` routes
+already proved the property exists via a fresh Dataverse/cache record, so the
+backend always sends `"found"` on those routes). On `fetch-rentcast` it
+reflects what the live RentCast Property Records lookup actually returned:
+- **`"found"`** — a property record matched. Funnel continues normally.
+- **`"not_found"`** — RentCast affirmatively returned zero results for this
+  exact address (a definitive 2xx with an empty result set). The front end
+  **hard-blocks** Continue and shows a "couldn't confirm a property record
+  exists" gate until the visitor picks a different address.
+- **`"unknown"`** — RentCast errored, timed out, or returned something the
+  backend couldn't classify either way. This is **not** treated as a negative
+  result — the front end fails OPEN exactly like every other outage path in
+  this funnel (Continue stays enabled, no gate shown). Never hard-block on
+  `"unknown"`.
 
 ### `propertyFacts` shape (the enriched render contract — Phase 2b)
 
@@ -233,7 +251,9 @@ copy, the map/street-view extras, animations, the results-report presentation
 (as long as it consumes the §1 response shape), mobile treatment.
 
 **Fixed (breaks the backend if changed)**: the §1 payload field names + the
-driver multiplier scale; the §3 recognition action names + shapes; `GooglePlaceID`
+driver multiplier scale; the §3 recognition action names + shapes; the §3b
+site-routing response field names (including `propertyVerification`'s three
+literal values and the fail-open-on-`"unknown"` contract); `GooglePlaceID`
 must be a real Google place_id; the §5 state lists (unless business changes);
 same-origin + SHA-pin from §6.
 
