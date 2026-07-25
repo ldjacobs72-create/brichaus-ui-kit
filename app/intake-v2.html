@@ -211,20 +211,6 @@
     animation: bui-hdr-badge-pulse 1.8s ease-out infinite;
   }
   #brichaus-assessment .hdr-badge.is-degraded .hdr-badge__dot { background: var(--bui-color-accent-light); }
-  /* Single-row header variant (currently step 9 only — see the markup
-     comment on [data-step="contact"]): the badge sits inline where the
-     progress bar's own "N% Complete" text used to be (hidden via
-     show-value="false") instead of in a second step-status-row strip
-     underneath. Positioned by eye against the row's own padding rather than
-     a shared class, since bui-progress-bar owns that row's DOM and renders
-     no slot to place the badge inside directly. */
-  #brichaus-assessment .hdr-badge-inline-wrap { position: relative; }
-  #brichaus-assessment .hdr-badge-inline {
-    position: absolute;
-    top: 50%;
-    right: 56px;
-    transform: translateY(-50%);
-  }
   /* Same emitting-ping shape as the step-1 pill, tuned to a light ring so it
      reads against the dark slate header instead of the pill's dark green. */
   @keyframes bui-hdr-badge-pulse {
@@ -241,17 +227,6 @@
   }
   /* Step 1's heading runs 2pt smaller than the other steps' (owner review). */
   #brichaus-assessment [data-step="location"] .step-intro h2 { font-size: 1.25rem; }
-  /* Step count for the single-row header variant (see .hdr-badge-inline) —
-     the number the "N% Complete" text used to carry, now stated plainly
-     above the headline instead of inferred from a progress bar's width. */
-  #brichaus-assessment .body-step-kicker {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--bui-color-text-faint);
-    margin: 0 0 8px;
-  }
   #brichaus-assessment .step-intro p {
     margin: 0 0 28px;
     color: var(--bui-color-text-muted);
@@ -1244,7 +1219,6 @@
     #brichaus-assessment .step-footer .bui-btn { width: 100%; }
     #brichaus-assessment .bui-btn[data-variant="slate"] { padding: 0 20px; }
     #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row { padding: 14px 16px; }
-    #brichaus-assessment .hdr-badge-inline { right: 16px; }
     /* Name/Email side-by-side pair on the contact step stacks. */
     #brichaus-assessment .field-row { grid-template-columns: 1fr; }
   }
@@ -1724,17 +1698,11 @@
   <!-- ============ STEP: contact capture (creates the linked Contact + Property record) ============ -->
   <section data-step="contact" class="hidden">
     <bui-card variant="elevated" padding="sm">
-      <!-- One-row header (see .hdr-badge-inline below): the Proposal Online
-           badge sits where "82% Complete" used to be, and the step-status-row
-           strip it used to live in is gone entirely — the step count moves
-           into the body as a plain kicker above the headline instead, so the
-           header stays a single line. -->
-      <div slot="header" class="hdr-badge-inline-wrap">
-        <bui-progress-bar tone="header" label="9. Get Your Proposal" id="contact-header-progress" value="82" show-value="false"></bui-progress-bar>
-        <span class="hdr-badge hdr-badge-inline" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span>
+      <div slot="header">
+        <bui-progress-bar tone="header" label="9. Get Your Proposal" id="contact-header-progress" value="82"></bui-progress-bar>
+        <div class="step-status-row"><span class="hdr-badge" role="status"><span class="hdr-badge__dot" aria-hidden="true"></span><span class="hdr-badge__text"></span></span></div>
       </div>
       <div class="step-intro">
-        <p class="body-step-kicker">Step 9 of 9</p>
         <h2>Your proposal is coming together</h2>
         <p>Enter your info below to unlock it instantly — no waiting on an email.</p>
 
