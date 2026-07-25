@@ -607,6 +607,15 @@
   @media (prefers-reduced-motion: reduce) {
     #brichaus-assessment .report-progress__spinner { animation: none; }
   }
+  /* "Still to do" checklist icon (see refreshContactContinue()) — a static,
+     rust-filled circle, deliberately NOT a spinner: this row means "we're
+     waiting on you," not "we're processing something." */
+  #brichaus-assessment .report-progress__icon.is-todo {
+    background: #C1633F;
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 700;
+  }
   #brichaus-assessment .recognition-panel {
     margin-top: var(--bui-space-4);
     padding: var(--bui-space-4);
@@ -1716,9 +1725,17 @@
             <span class="report-progress__icon">&#10003;</span>
             <span>Operational workload scored</span>
           </div>
-          <div class="report-progress__row is-active">
-            <span class="report-progress__spinner" aria-hidden="true"></span>
-            <span>Waiting for your confirmation…</span>
+          <!-- Was a spinning "Waiting for your confirmation…" — read as the
+               system processing something, not as a prompt to act (visitors
+               reported sitting on this screen for minutes without realizing
+               the form below needed filling in). A static, rust "still to
+               do" icon + an instruction that names the action replaces the
+               spinner; refreshContactContinue() below flips both to the
+               same done state as the rows above once the form is actually
+               complete. -->
+          <div class="report-progress__row is-active" id="contact-progress-row">
+            <span class="report-progress__icon is-todo" id="contact-progress-icon" aria-hidden="true">&#9660;</span>
+            <span id="contact-progress-text">Add your info below to finish</span>
           </div>
         </div>
 
@@ -1739,7 +1756,10 @@
       </div>
       <div slot="footer" class="step-footer">
         <bui-button variant="secondary" data-back="review">Back</bui-button>
-        <bui-button id="contact-continue" variant="primary" disabled>Get My Proposal</bui-button>
+        <!-- Label doubles as the "why is this disabled" explanation, same
+             pattern as Step 1's footer button and Step 3's rent gate — see
+             refreshContactContinue(). -->
+        <bui-button id="contact-continue" variant="primary" disabled>Fill In Your Info to Continue</bui-button>
       </div>
     </bui-card>
   </section>
@@ -2202,6 +2222,9 @@
   var contactEmailInput = document.getElementById('contact-email-input');
   var contactPhoneInput = document.getElementById('contact-phone-input');
   var contactContinue = document.getElementById('contact-continue');
+  var contactProgressRow = document.getElementById('contact-progress-row');
+  var contactProgressIcon = document.getElementById('contact-progress-icon');
+  var contactProgressText = document.getElementById('contact-progress-text');
   var termsFieldEl = null; // resolved once by whenFieldReady below, reused on each visit to the contact step
 
   var checklist = document.getElementById('checklist');
@@ -3817,6 +3840,18 @@
     var phoneOk = isValidPhone(state.contact.phone);
     var ready = !!state.contact.firstName && emailOk && phoneOk && termsOk;
     contactContinue.toggleAttribute('disabled', !ready);
+    var btnEl = contactContinue.querySelector('.bui-btn');
+    if (btnEl) btnEl.textContent = ready ? 'Get My Proposal' : 'Fill In Your Info to Continue';
+    // The checklist's third row tracks the same "ready" state as the button
+    // — flips to the same done treatment as the two rows above it instead
+    // of staying stuck on "still to do" once the form is actually complete.
+    if (contactProgressRow) {
+      contactProgressRow.classList.toggle('is-active', !ready);
+      contactProgressRow.classList.toggle('is-done', ready);
+      contactProgressIcon.className = ready ? 'report-progress__icon' : 'report-progress__icon is-todo';
+      contactProgressIcon.innerHTML = ready ? '&#10003;' : '&#9660;';
+      contactProgressText.textContent = ready ? 'Your info is in' : 'Add your info below to finish';
+    }
   }
 
   // Masks registered BEFORE the state listeners below, so by the time
