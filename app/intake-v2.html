@@ -2007,8 +2007,29 @@
   // would otherwise land mid-scroll on the next screen — most noticeable on
   // the 4 sequential driver questions, which re-render in place via
   // renderDriverStep() and never call showStep() at all between them.
+  //
+  // Two guards on top of that:
+  //
+  //   booted  — this widget is embedded partway down the homepage, below the
+  //             hero. Startup calls showStep('location'), so without this the
+  //             page would scroll straight past the hero to the assessment on
+  //             every single load. Nothing scrolls until the visitor actually
+  //             navigates a step.
+  //
+  //   queued  — several handlers pair a render*() with showStep() and both
+  //             scroll (renderDriverStep + showStep('driver'), likewise for
+  //             review). Coalescing per frame collapses that into one scroll,
+  //             and running it in the rAF means it happens after the step's
+  //             DOM has been updated rather than before.
+  var booted = false;
+  var scrollQueued = false;
   function scrollToTop() {
-    root.scrollIntoView({ behavior: window.BUI.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    if (!booted || scrollQueued) return;
+    scrollQueued = true;
+    requestAnimationFrame(function () {
+      scrollQueued = false;
+      root.scrollIntoView({ behavior: window.BUI.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    });
   }
 
   function currency(n) {
@@ -3814,6 +3835,8 @@
    * Startup
    * =================================================================== */
   showStep('location');
+  // Every scrollToTop() from here on is a real navigation, not page load.
+  booted = true;
 })();
 </script>
 </body>
