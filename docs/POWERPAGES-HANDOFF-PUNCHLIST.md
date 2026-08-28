@@ -65,6 +65,11 @@ Two staff-facing Power Pages web templates, both **Published** and functional. L
 - Decide which is authoritative, then make both sides agree. If the % goes into the management agreement, round the rate *first* and derive the dollar figure from the rounded value.
 - Done when: `monthlyFee` is reproducible from the displayed % and unit/rent inputs, to the cent.
 
+> **Decided 2026-08-28: the rounded percentage is authoritative.** It is the
+> figure that goes into the management agreement, so the dollar amount is
+> derived from it. The Proposal Engine now does this (§7.3); the n8n write path
+> still has to follow, and until it does the widget flags the divergence.
+
 **1.2 Fee components don't reconcile to the final rate**
 - Stored: base `6.00`, adjustment `0.50`, lease protect `1.25`, inspection `0.39`, eviction `0.21`, pet `0.21`, leasing `0.00`.
 - All four coverage flags are `false`, yet the coverage components carry non-zero values. No simple sum reaches `6.2516` (base + adjustment = 6.50).
@@ -75,6 +80,11 @@ Two staff-facing Power Pages web templates, both **Published** and functional. L
 - Stored `cr55d_score_operationalintensity` = `0.75`. Straight average of the four scores (0.5, 1.0, 1.0, 1.5) = `1.00`.
 - `0.75` equals the average of Tenant Friction + Turnover Pressure alone — Maintenance and Compliance appear to be excluded. Compliance is the only above-normal score on this record, so the exclusion is material.
 - Confirm the weighting is deliberate and document it, or fix it.
+
+> **Resolved — not a defect. See §7.5.** The OIA is the **product** of the four
+> multipliers, not their mean. `0.5 x 1.0 x 1.0 x 1.5 = 0.75` exactly. All four
+> inputs are included; the match against "the average of the first two" is a
+> coincidence of these particular values.
 
 ### P1 — Owner-facing output
 
@@ -143,6 +153,15 @@ Two staff-facing Power Pages web templates, both **Published** and functional. L
 4. 2.1 (quick test, no code).
 5. 2.2 cleanup of dead site settings.
 
+**As of 2026-08-28 this order has moved on.** 1.3 is closed (§7.5) and 2.3 is
+done (§7.4). 1.1 is decided and its display half shipped (§7.3), leaving its
+write path — still best paired with 1.2, as the original note says. So the
+live queue is: **1.1 write path + 1.2**, then **1.5**, then **1.4** (which
+§7.2 downgrades from owner-facing to internal), then 2.1 and 2.2.
+
+All of the remaining P1 work is inside n8n, which this session could not
+reach — see §7.6 for what that needs.
+
 ---
 
 ## 6. Where each item actually lives
@@ -155,9 +174,9 @@ it has.
 
 | Item | System of record | Fixable from this repo? |
 |---|---|---|
-| 1.1 fee rounding | n8n write path + Power Automate **Fee Calc** flow | Display half only (both templates render the pair) |
+| 1.1 fee rounding | n8n write path + Power Automate **Fee Calc** flow | Display half **done** (§7.3); write path still n8n |
 | 1.2 fee components | n8n / Fee Calc flow | No |
-| 1.3 OIA weighting | n8n OIA scoring | No |
+| 1.3 OIA weighting | n8n OIA scoring | **Closed — not a defect** (§7.5) |
 | 1.4 empty narrative | n8n generate/recalculate core | No — and see §7.2 |
 | 1.5 `new_owner_contact` | n8n `internal-proposal-recalculate` | No |
 | 2.1 deep link + sign-in | Power Pages / Entra config | No — live sign-in test |
@@ -176,10 +195,10 @@ the Power Automate **Fee Calc** flow directly.
 
 ### 7.1 Stored values could not be re-checked
 
-The Dataverse MCP server errored on every query this session (protocol
-mismatch — malformed tool results). **No figure in §3 was independently
-verified**; the arithmetic below is reasoning about the numbers as written in
-the punchlist, not a fresh read of the record.
+The Dataverse MCP server errored on every call this session (protocol
+mismatch — malformed tool results; see §7.6). **No figure in §3 was
+independently verified**; the arithmetic below is reasoning about the numbers
+as written in the punchlist, not a fresh read of the record.
 
 ### 7.2 1.4's stated impact contradicts the code
 
@@ -220,34 +239,42 @@ over the first.
 Reordering note: §5 puts 1.4 after 1.5. Nothing owner-facing is broken by it,
 which supports leaving it there or later.
 
-### 7.3 1.1 has a display half in both templates
+### 7.3 1.1 — rounded % made authoritative in the Proposal Engine
 
-Independent of which figure wins, three render sites currently print a rounded
-percentage beside a dollar amount derived from the unrounded rate:
+Decision recorded 2026-08-28: **the rounded percentage wins.** It is the number
+that goes into the management agreement, so the dollar figure has to be derived
+from it rather than from the unrounded rate.
 
-- `powerpages/web-templates/proposal-engine.html` — `prefillFromExisting()`
-  prints `(feeCalcResponse * 100).toFixed(2) + '%'` next to `monthlyFee` as
-  stored. On the test record that is exactly the reported symptom: **6.25%**
-  beside **$800.20**.
-- Same file, `onGenerate()` — same pairing on the fresh response.
-- `powerpages/web-templates/property-lookup.html` — the Fee column prints
-  `cr55d_proposedmgmtfee.toFixed(2) + '%'`.
+Three render sites printed a rounded percentage beside a dollar amount derived
+from the unrounded rate:
 
-`app/proposal.html:1555-1565` is the one consistent site: it shows the rate to
-one decimal and back-computes gross monthly rent from `monthlyFee / feeRate`
-using the unrounded rate, so its three numbers always reconcile with each other.
+- `proposal-engine.html` `prefillFromExisting()` — `(feeCalcResponse * 100).toFixed(2)`
+  beside `monthlyFee` as stored. On the test record, exactly the reported
+  symptom: **6.25%** beside **$800.20**.
+- Same file, `onGenerate()` — the same pairing on the fresh response.
+- `property-lookup.html` — the Fee column prints `cr55d_proposedmgmtfee` to two
+  decimals and shows no dollar figure, so it is already consistent with this
+  decision. **Unchanged.**
 
-These are left unchanged pending the authority decision, because the two
-answers need opposite fixes. If the **rounded %** is authoritative, the widget
-should derive and display the dollar figure from it — but that would then
-disagree with the `monthlyFee` stored in Dataverse until the n8n write path is
-fixed too, so the two changes have to ship together. If the **dollar amount**
-is authoritative, the fix is local to the templates: show enough precision that
-the pair reconciles, or label the percentage as rounded.
+Both Proposal Engine sites now go through one `renderFee()` helper that rounds
+the rate first and applies the *rounded* rate to gross monthly rent (rent per
+unit x units, the two inputs on screen). On the test record that reads 6.25% and
+$800.00 on $12,800 gross — reproducible to the cent from what staff can see,
+which is §3's own done-condition.
 
-Note that §3's own done-condition — "`monthlyFee` is reproducible from the
-displayed % and unit/rent inputs, to the cent" — only holds under the first
-reading.
+`app/proposal.html:1555-1565` was already self-consistent by a different route:
+it shows the rate to one decimal and back-computes gross from
+`monthlyFee / feeRate` using the unrounded rate, so its three numbers reconcile
+with each other. Left alone — it is the owner-facing page, and changing it is
+part of the n8n write-path change, not this one.
+
+**The write path is still unfixed**, so `monthlyFee` in Dataverse continues to
+come from the unrounded rate and will disagree with the widget by cents. That is
+a real divergence between the screen and the record, so `renderFee()` surfaces
+it rather than hiding it: when the stored figure differs from the derived one by
+half a cent or more, the fee block shows what the record says and by how much it
+is off. The note disappears on its own once the n8n side rounds first too — no
+follow-up edit needed to retire it.
 
 ### 7.4 2.3 addressed
 
@@ -262,3 +289,60 @@ has since moved.
 
 A cache hit renders through the same `showRows()` path as a live read, so it is
 indistinguishable on screen.
+
+### 7.5 1.3 — the OIA is a product, not a mean
+
+Closed as not-a-defect. The operational intensity figure is the **product** of
+the four driver multipliers:
+
+```
+0.5 (Tenant Friction) x 1.0 (Turnover Pressure) x 1.0 (Maintenance Burden) x 1.5 (Compliance) = 0.75
+```
+
+which is the stored `cr55d_score_operationalintensity` exactly. §3's reading —
+that the value equals the mean of the first two drivers, so Maintenance and
+Compliance must be excluded — is a coincidence of these particular values: with
+the middle two at 1.0 they are multiplicative identities and drop out of sight
+without dropping out of the calculation. Compliance's 1.5 *is* included; it is
+what lifts 0.5 to 0.75.
+
+This is consistent with the rest of the pipeline, which has always called these
+multipliers rather than scores — `docs/INTAKE-INTEGRATION-CONTRACT.md:48-49`:
+"The driver **multiplier** scale is fixed: Minimal=0.5, Standard=1.0,
+Active=1.5, Intense=2.0."
+
+Worth noting for anyone re-deriving it later: a product over four multipliers
+spans 0.0625 to 16, not the 0.5-2.0 of its inputs, so any band thresholds
+consuming it have to be on the product's scale. Nothing to change; recorded so
+this doesn't get re-raised as a bug.
+
+### 7.6 Connector status — why the n8n items can't be worked from here
+
+Both blockers are connector-side, and only one of them is fixable by the user.
+
+**n8n — needs authentication.** The connector is installed on the account but
+reports `installState: "unknown"`, is absent from this chat's tool surface
+(`enabledInChat: false`), and appears in Claude Code's needs-auth cache
+alongside Canva. So its tools never loaded and the workflows behind 1.1's write
+path, 1.2, 1.4 and 1.5 are unreachable. **This is the one worth fixing** —
+authenticating the n8n connector and enabling it in chat is what turns the
+remaining P1 items from "specify and hand off" into "fix directly."
+
+**Dataverse — a server-side bug, nothing to reconnect.** The connector is fully
+`connected: true` and `enabledInChat: true`; its tools load fine. Every
+`tools/call` fails identically, on `describe` as well as `read_query`, with:
+
+> missing required `resultType` — servers implementing protocol revision
+> 2026-07-28 MUST include it
+
+That is the response envelope being malformed regardless of which tool is
+called, so it is a protocol-compliance bug in Microsoft's hosted Dataverse MCP
+server, not an auth or configuration problem. There is no local `mcpServers`
+entry to pin to an earlier revision (it is a managed claude.ai connector), and
+re-authenticating will not change the envelope. It clears when Microsoft ships
+a compliant server.
+
+Reads of the record are still reachable another way in the meantime: the live
+`internal-property-lookup` and `getCachedProposal` webhooks both read Dataverse
+and answer over plain HTTPS. That costs an n8n execution per call (§2.3), so it
+is a deliberate fallback rather than a default.
