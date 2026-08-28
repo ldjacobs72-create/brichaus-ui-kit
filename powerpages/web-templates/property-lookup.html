@@ -235,21 +235,68 @@
 
   var searchSeq = 0;
 
+  // Short-lived result cache. Every search here costs one n8n execution, and
+  // a type-ahead box re-asks the same question constantly: backspacing a
+  // character and retyping it, clearing and re-entering an address, or
+  // pausing mid-word long enough to fire and then finishing the same term
+  // all replay a query that was just answered. Caching those replays is the
+  // cheapest reduction available without making the box feel less live.
+  //
+  // TTL is deliberately short. These rows carry the proposed fee, and a
+  // recalculation through the Proposal Engine changes it — so a cached row
+  // is only safe while it's near-certainly still current. 60s covers the
+  // keystroke-level repetition this is aimed at and nothing longer; anyone
+  // returning to a search after that gets a fresh read.
+  var CACHE_TTL_MS = 60000;
+  var CACHE_MAX = 25;
+  var cache = Object.create(null);
+  var cacheKeys = [];
+
+  function cacheGet(q) {
+    var hit = cache[q];
+    if (!hit) return null;
+    if (Date.now() - hit.at > CACHE_TTL_MS) { cacheDrop(q); return null; }
+    return hit.rows;
+  }
+
+  function cacheDrop(q) {
+    delete cache[q];
+    var i = cacheKeys.indexOf(q);
+    if (i !== -1) cacheKeys.splice(i, 1);
+  }
+
+  function cachePut(q, rows) {
+    if (!cache[q]) cacheKeys.push(q);
+    cache[q] = { rows: rows, at: Date.now() };
+    while (cacheKeys.length > CACHE_MAX) cacheDrop(cacheKeys[0]);
+  }
+
+  // Renders a result set — shared by the live and cached paths so a cache hit
+  // is indistinguishable on screen from a fresh read.
+  function showRows(rows, q) {
+    if (!rows.length) {
+      hide('results-table');
+      $('lookup-status').textContent = 'No properties match "' + q + '".';
+      return;
+    }
+    renderRows(rows);
+    show('results-table');
+    $('lookup-status').textContent = rows.length + ' result' + (rows.length === 1 ? '' : 's') +
+      (rows.length === 25 ? ' (showing first 25 — refine your search)' : '') + '.';
+  }
+
   function runSearch(q) {
     var mySeq = ++searchSeq;
+
+    var cached = cacheGet(q);
+    if (cached) { showRows(cached, q); return; }
 
     $('lookup-status').textContent = 'Searching…';
     postJson(CONFIG.LOOKUP_URL, { query: q }).then(function (data) {
       if (mySeq !== searchSeq) return; // superseded by a newer keystroke
       var rows = (data && data.value) || [];
-      if (!rows.length) {
-        hide('results-table');
-        $('lookup-status').textContent = 'No properties match "' + q + '".';
-        return;
-      }
-      renderRows(rows);
-      show('results-table');
-      $('lookup-status').textContent = rows.length + ' result' + (rows.length === 1 ? '' : 's') + (rows.length === 25 ? ' (showing first 25 — refine your search)' : '') + '.';
+      cachePut(q, rows);
+      showRows(rows, q);
     }).catch(function (err) {
       if (mySeq !== searchSeq) return;
       hide('results-table');
