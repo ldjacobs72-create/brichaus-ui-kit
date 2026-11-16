@@ -12,6 +12,17 @@
     root.setAttribute('data-bh-init', '1');
 
     var MODEL = CFG.model;
+
+    /* Pricing rule check (see config.js): fin steps down, full never does. */
+    [['fin', 1], ['full', -1]].forEach(function (r) {
+      var st = MODEL[r[0]].steps;
+      for (var i = 1; i < st.length; i++) {
+        if ((st[i].rate - st[i - 1].rate) * r[1] > 0) {
+          console.warn('[bh-hoa] Pricing rule broken: ' + r[0] + ' rate ' +
+            (r[1] > 0 ? 'rises' : 'drops') + ' at units above ' + st[i - 1].upto);
+        }
+      }
+    });
     var money = function (n) { return '$' + n.toLocaleString('en-US'); };
     function el(tag, cls, text) {
       var e = document.createElement(tag);
@@ -71,18 +82,18 @@
     function price(t, u) {
       var m = MODEL[t];
       if (u > m.steps[m.steps.length - 1].upto) return { fee: null, rate: 'Above published rates', setup: m.setup };
-      var fee = m.base, prev = m.cover, marginal = 0;
+      var fee = m.base, prev = m.cover, marginal = 0, bandFrom = 0, bandTo = 0;
       for (var i = 0; i < m.steps.length; i++) {
         var s = m.steps[i];
         if (u > prev) {
           fee += (Math.min(u, s.upto) - prev) * s.rate;
-          if (u <= s.upto) marginal = s.rate;
+          if (u <= s.upto) { marginal = s.rate; bandFrom = prev + 1; bandTo = s.upto; }
           prev = s.upto;
         }
       }
       fee = Math.round(fee / 5) * 5;
       var rate = marginal
-        ? (t === 'fin' ? 'Base $' + m.base : 'Minimum $' + m.base) + ' · $' + String(marginal.toFixed(2)).replace(/\.00$/, '') + ' per unit above ' + m.cover
+        ? (t === 'fin' ? 'Base $' + m.base : 'Minimum $' + m.base) + ' · $' + String(marginal.toFixed(2)).replace(/\.00$/, '') + ' per unit for units ' + bandFrom + '\u2013' + bandTo
         : (t === 'fin' ? 'Base rate' : 'Account minimum') + ' · covers the first ' + m.cover + ' units';
       return { fee: fee, rate: rate, setup: m.setup };
     }
@@ -107,6 +118,8 @@
       ['fin', 'full'].forEach(function (t) {
         var q = price(t, u); p[t] = q; var c = cards[t];
         c.setAttribute('aria-selected', String(t === track));
+        var per = c.querySelector('.ct-fee small');
+        if (per) per.style.display = q.fee === null ? 'none' : '';
         if (q.fee === null) {
           c.querySelector('[data-f="fee"]').textContent = 'By proposal';
           c.querySelector('[data-f="meta"]').textContent = '';
