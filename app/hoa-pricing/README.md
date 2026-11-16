@@ -22,16 +22,20 @@ Marginal-rate: `base` covers the first `cover` units; each unit above is
 billed at the rate of the step it falls in; result rounded to nearest $5.
 Fee never decreases as units increase. Above the last step → "By proposal".
 
+Track Two (v1.2.0) uses a reduced starter rate for units 11–24, then
+steps down from unit 25. Its rates are **not** strictly descending, so page
+copy must not claim the rate "steps down as the community grows".
+
 ## Changing a price
 
 1. Edit `config.js` on GitHub (pencil icon) → commit with a clear note.
-2. **Releases → Draft a new release** → new tag (e.g. `v1.2.0`) → Publish.
-3. In GHL, open the Custom HTML element and change `@v1.1.0` to `@v1.2.0`
+2. **Releases → Draft a new release** → new tag (e.g. `v1.3.0`) → Publish.
+3. In GHL, open the Custom HTML element and change `@v1.2.0` to `@v1.3.0`
    in all 3 URLs. Save and publish the page.
 4. Add a line to `/CHANGELOG.md`.
 
 Test before step 3: open
-`https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.2.0/app/hoa-pricing/config.js`
+`https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.3.0/app/hoa-pricing/config.js`
 and confirm it shows your change.
 
 ## Changing page copy

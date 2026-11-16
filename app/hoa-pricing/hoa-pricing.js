@@ -71,18 +71,18 @@
     function price(t, u) {
       var m = MODEL[t];
       if (u > m.steps[m.steps.length - 1].upto) return { fee: null, rate: 'Above published rates', setup: m.setup };
-      var fee = m.base, prev = m.cover, marginal = 0;
+      var fee = m.base, prev = m.cover, marginal = 0, bandFrom = 0, bandTo = 0;
       for (var i = 0; i < m.steps.length; i++) {
         var s = m.steps[i];
         if (u > prev) {
           fee += (Math.min(u, s.upto) - prev) * s.rate;
-          if (u <= s.upto) marginal = s.rate;
+          if (u <= s.upto) { marginal = s.rate; bandFrom = prev + 1; bandTo = s.upto; }
           prev = s.upto;
         }
       }
       fee = Math.round(fee / 5) * 5;
       var rate = marginal
-        ? (t === 'fin' ? 'Base $' + m.base : 'Minimum $' + m.base) + ' · $' + String(marginal.toFixed(2)).replace(/\.00$/, '') + ' per unit above ' + m.cover
+        ? (t === 'fin' ? 'Base $' + m.base : 'Minimum $' + m.base) + ' · $' + String(marginal.toFixed(2)).replace(/\.00$/, '') + ' per unit for units ' + bandFrom + '\u2013' + bandTo
         : (t === 'fin' ? 'Base rate' : 'Account minimum') + ' · covers the first ' + m.cover + ' units';
       return { fee: fee, rate: rate, setup: m.setup };
     }

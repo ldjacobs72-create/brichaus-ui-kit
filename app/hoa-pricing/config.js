@@ -17,7 +17,8 @@ window.BH_HOA_CONFIG = {
      cover  : units included in the base
      setup  : one-time onboarding fee (also shown in Schedule of Fees)
      steps  : each unit above `cover` is billed at the rate of the step
-              it falls in. `upto` is inclusive. Above the last step's
+              it falls in. `upto` is inclusive. Rates may rise or fall between
+              steps. Above the last step's
               `upto`, the calculator shows "By proposal".
      Fees are rounded to the nearest $5.
   -------------------------------------------------------------------- */
@@ -32,11 +33,12 @@ window.BH_HOA_CONFIG = {
       ]
     },
     full: {
-      base: 650, cover: 24, setup: 1500,
+      base: 650, cover: 10, setup: 1500,
       steps: [
-        { upto: 60,  rate: 22 },
-        { upto: 120, rate: 18 },
-        { upto: 200, rate: 15 }
+        { upto: 24,  rate: 12.75 },  // starter band: 19 units = $765
+        { upto: 60,  rate: 16 },
+        { upto: 120, rate: 15 },
+        { upto: 200, rate: 14 }      // large HOAs stay within 10% of v1.1.0
       ]
     }
   },
