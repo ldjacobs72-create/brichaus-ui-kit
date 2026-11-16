@@ -957,12 +957,39 @@
       showPanel('report');
       return;
     }
-    fetch(CONFIG.CONTACT_RECOGNITION_URL, {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
-    })
-      .then(function (res) { return res.ok ? res.json() : { recognized: false }; })
+    // Fresh-submission wait. A visitor arriving straight from the assessment
+    // funnel carries ?email= (handoffEmail). When the instant sessionStorage
+    // handoff above isn't available (different origin, e.g. GHL preview on
+    // link.brichausgroup.com; private mode; blocked storage), this page falls
+    // back to recognize — but the pipeline answers the funnel BEFORE it links
+    // the GHL contact to the property (~2-5s later). Without a wait, a brand-
+    // new visitor always lands on "couldn't find a proposal". So for funnel
+    // arrivals only, retry recognize until the link exists, up to
+    // FRESH_WAIT_MS, before giving up. Other visitors are unaffected.
+    var FRESH_WAIT_MS = 20000;
+    var FRESH_RETRY_MS = 2000;
+    var waitStarted = Date.now();
+
+    function recognize() {
+      return fetch(CONFIG.CONTACT_RECOGNITION_URL, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action: 'recognize', googlePlaceId: placeId })
+      }).then(function (res) { return res.ok ? res.json() : { recognized: false }; });
+    }
+
+    function recognizeWithWait() {
+      return recognize().then(function (data) {
+        var recognized = !!(data && data.recognized);
+        if (recognized || !handoffEmail || internalPreview) return data;
+        if (Date.now() - waitStarted + FRESH_RETRY_MS > FRESH_WAIT_MS) return data;
+        document.getElementById('loading-status-text').textContent = 'Finalizing your proposal…';
+        return new Promise(function (resolve) { setTimeout(resolve, FRESH_RETRY_MS); })
+          .then(recognizeWithWait);
+      });
+    }
+
+    recognizeWithWait()
       .then(function (data) {
         if (!data || !data.recognized) {
           if (internalPreview) { loadProposal(); return; }
