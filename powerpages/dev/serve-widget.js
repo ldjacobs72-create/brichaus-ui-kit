@@ -35,7 +35,8 @@ const PORT = Number(argVal('--port') || process.env.PORT || 8000);
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const WIDGET = path.join(REPO_ROOT, 'powerpages/web-templates/proposal-engine.html');
-const CDN_PREFIX = 'https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@main/';
+// Matches any pinned ref (@v1.2.0, @main, @<sha>) so local rewrite survives version bumps.
+const CDN_PREFIX = /https:\/\/cdn\.jsdelivr\.net\/gh\/ldjacobs72-create\/brichaus-ui-kit@[^/]+\//g;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -51,7 +52,7 @@ function serveWidgetHtml(res) {
   catch (e) { res.writeHead(500); res.end('Cannot read widget: ' + e.message); return; }
 
   // Point the CDN component tags at this server's /core and /components routes.
-  html = html.split(CDN_PREFIX).join('/');
+  html = html.replace(CDN_PREFIX, '/');
 
   // Inject the Maps key (in memory only, never written back to the file).
   // On Power Pages, Liquid evaluates the {{ settings["google_maps_key"] }}
