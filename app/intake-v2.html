@@ -333,6 +333,21 @@
     border: none;
     overflow: hidden;
   }
+  #brichaus-assessment .units-over-limit {
+    margin: var(--bui-space-3) 0 0;
+    padding: var(--bui-space-3);
+    border: 1px solid var(--bui-color-border);
+    border-radius: var(--bui-radius-md);
+    background: var(--bui-color-bg);
+    font-size: var(--bui-font-size-sm);
+    color: var(--bui-color-text);
+  }
+  #brichaus-assessment .units-over-limit a {
+    color: var(--bui-color-accent);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
   #brichaus-assessment .booking-fallback {
     margin: var(--bui-space-3) 0 0;
     font-size: var(--bui-font-size-sm);
@@ -381,17 +396,6 @@
     font-size: 10px;
     line-height: 1.45;
     color: var(--bui-color-text-faint);
-  }
-  #brichaus-assessment .demo-banner {
-    background: var(--bui-color-warning-bg);
-    color: var(--bui-color-warning);
-    border: 1px solid var(--bui-color-warning);
-    border-radius: var(--bui-radius-sm);
-    font-size: var(--bui-font-size-sm);
-    font-weight: 600;
-    padding: var(--bui-space-2) var(--bui-space-3);
-    margin-bottom: var(--bui-space-4);
-    text-align: center;
   }
   #brichaus-assessment .address-verifying {
     display: flex;
@@ -1212,7 +1216,8 @@
              Number of Units + Vacant Units + auto-calculated Vacancy Rate
              + Confirm & Continue. -->
         <div id="unit-count-field" class="hidden" style="margin-top: var(--bui-space-4);">
-          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" placeholder="e.g. 8"></bui-input>
+          <bui-input id="unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" max="50" placeholder="e.g. 8"></bui-input>
+          <p class="units-over-limit hidden" id="units-over-limit">Properties over <span class="units-max">50</span> units are priced on a call, not online. <a class="units-over-limit__book" href="#" target="_blank" rel="noopener">Schedule a meeting</a> and we&rsquo;ll walk through it with you.</p>
         </div>
         <div id="unit-number-field" class="hidden" style="margin-top: var(--bui-space-4);">
           <bui-input id="unit-number-input" label="Unit Number" placeholder="e.g. 4B"></bui-input>
@@ -1399,7 +1404,8 @@
         </div>
 
         <div id="review-unit-count-field" class="hidden review-fact-edit">
-          <bui-input id="review-unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2"></bui-input>
+          <bui-input id="review-unit-count-input" label="Number of Units" type="number" inputmode="numeric" min="2" max="50"></bui-input>
+          <p class="units-over-limit hidden" id="review-units-over-limit">Properties over <span class="units-max">50</span> units are priced on a call, not online. <a class="units-over-limit__book" href="#" target="_blank" rel="noopener">Schedule a meeting</a> and we&rsquo;ll walk through it with you.</p>
         </div>
 
         <div class="review-fact-edit">
@@ -1570,7 +1576,21 @@
     </bui-card>
   </section>
 
-
+  <!-- ============ STEP: fee unavailable (scoring failed — never a placeholder fee) ============ -->
+  <section data-step="unavailable" class="hidden">
+    <bui-card variant="elevated" padding="sm" class="loading-card">
+      <div class="step-body-pad" style="text-align: center;">
+        <h2 style="margin: 0 0 8px; font-size: 1.3rem;">Your proposal isn&rsquo;t ready yet</h2>
+        <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          We couldn&rsquo;t calculate your management fee just now, so we&rsquo;re not
+          showing you a number. Your answers are still here. Try again in a minute,
+          or book a call and we&rsquo;ll walk you through it.
+        </p>
+        <bui-button id="unavailable-retry" variant="slate">Try Again</bui-button>
+        <p class="booking-fallback"><a id="unavailable-book" href="#" target="_blank" rel="noopener">Book a call instead</a></p>
+      </div>
+    </bui-card>
+  </section>
 
 </div>
 
@@ -1584,8 +1604,9 @@
   var CONFIG = {
     // Production webhook URL for the n8n "PropScore: Main Pipeline" workflow
     // (GHL webhook -> normalize -> OIA scoring -> RentCast/Dataverse ->
-    // Power Automate fee calc -> assembled response). Leave blank to run
-    // this page in demo mode with an illustrative, clearly-labeled fee.
+    // Power Automate fee calc -> assembled response). Required: there is no
+    // demo mode. Without a real computed fee the visitor sees the
+    // "unavailable" step — this page never shows a placeholder fee.
     WEBHOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-scoring',
 
     // Lightweight n8n webhook that does just the RentCast market-rent
@@ -1677,6 +1698,14 @@
     // proposal.html's Schedule your consultation.
     BOOKING_URL: 'https://api.leadconnectorhq.com/widget/booking/s2N572QXrgVZKGzRCsya',
 
+    // Input limits for anything that reaches pricing. Units above MAX_UNITS
+    // are not priced online: the visitor is sent to book a meeting instead.
+    // Rent is per unit per month; outside this range Continue stays disabled.
+    MIN_UNITS: 2,
+    MAX_UNITS: 50,
+    MIN_RENT: 300,
+    MAX_RENT: 50000,
+
     // Poll endpoint for the two-phase report. When the assessment POST sets
     // AsyncReport:true, the pipeline returns the deterministic answer (fee,
     // band, market, comps, operational profile) in ~5-8s and generates the AI
@@ -1718,6 +1747,29 @@
     }
     return headers;
   }
+
+  // Validation for the two pricing inputs. unitStatus returns 'ok', 'empty',
+  // 'low' (below MIN_UNITS) or 'high' (above MAX_UNITS → book a meeting).
+  // Whole numbers only: "8.5" or "-3" is never a valid unit count.
+  function unitStatus(raw) {
+    var str = String(raw == null ? '' : raw).trim();
+    if (str === '') return 'empty';
+    if (!/^\d+$/.test(str)) return 'low';
+    var n = parseInt(str, 10);
+    if (n < CONFIG.MIN_UNITS) return 'low';
+    if (n > CONFIG.MAX_UNITS) return 'high';
+    return 'ok';
+  }
+  function rentStatus(raw) {
+    var str = String(raw == null ? '' : raw).trim();
+    if (str === '') return 'empty';
+    var n = Number(str);
+    if (!isFinite(n)) return 'bad';
+    return (n >= CONFIG.MIN_RENT && n <= CONFIG.MAX_RENT) ? 'ok' : 'bad';
+  }
+  var RENT_ERROR = 'Enter a monthly rent per unit between $' + CONFIG.MIN_RENT.toLocaleString('en-US') +
+    ' and $' + CONFIG.MAX_RENT.toLocaleString('en-US') + '.';
+  var UNITS_LOW_ERROR = 'Enter a whole number of units, ' + CONFIG.MIN_UNITS + ' or more.';
 
   // Resolve the PROPOSAL_PAGE_URL custom value. If GHL interpolated it, use it;
   // if not (raw file, or the custom value is unset — the placeholder still
@@ -1868,6 +1920,7 @@
     review: root.querySelector('[data-step="review"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
+    unavailable: root.querySelector('[data-step="unavailable"]'),
   };
 
   // The property-type choice-group (+ its per-card follow-up fields) lives
@@ -1944,6 +1997,53 @@
   var reviewUnitCountInput = document.getElementById('review-unit-count-input');
   var reviewRentInput = document.getElementById('review-rent-input');
   var reviewContinue = document.getElementById('review-continue');
+  var unitsOverLimit = document.getElementById('units-over-limit');
+  var reviewUnitsOverLimit = document.getElementById('review-units-over-limit');
+
+  // Over-limit notices link to the consultation calendar.
+  Array.prototype.forEach.call(root.querySelectorAll('.units-over-limit__book'), function (a) {
+    if (CONFIG.BOOKING_URL) a.href = CONFIG.BOOKING_URL;
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.units-max'), function (el) {
+    el.textContent = String(CONFIG.MAX_UNITS);
+  });
+
+  // Shared feedback for a unit-count field: inline error for too-low /
+  // non-whole values, the book-a-meeting notice for over MAX_UNITS.
+  function applyUnitFeedback(input, notice, status) {
+    if (status === 'low') input.setAttribute('error', UNITS_LOW_ERROR);
+    else input.removeAttribute('error');
+    notice.classList.toggle('hidden', status !== 'high');
+  }
+
+  // Snapshot step: Continue only with a valid rent.
+  function refreshSnapshotGate() {
+    var status = rentStatus(rentInput.value);
+    if (status === 'bad') rentInput.setAttribute('error', RENT_ERROR);
+    else rentInput.removeAttribute('error');
+    if (status === 'ok') snapshotContinue.removeAttribute('disabled');
+    else snapshotContinue.setAttribute('disabled', '');
+    return status === 'ok';
+  }
+
+  // Review step: Continue only with a valid rent and (multifamily) a unit
+  // count within limits. Over MAX_UNITS shows the book-a-meeting notice.
+  function refreshReviewGate() {
+    var rentState = rentStatus(reviewRentInput.value);
+    if (rentState === 'bad') reviewRentInput.setAttribute('error', RENT_ERROR);
+    else reviewRentInput.removeAttribute('error');
+    var unitsState = 'ok';
+    if (state.propertyType === 'multi') {
+      unitsState = unitStatus(reviewUnitCountInput.value);
+      applyUnitFeedback(reviewUnitCountInput, reviewUnitsOverLimit, unitsState);
+    } else {
+      reviewUnitsOverLimit.classList.add('hidden');
+    }
+    var ok = rentState === 'ok' && unitsState === 'ok';
+    if (ok) reviewContinue.removeAttribute('disabled');
+    else reviewContinue.setAttribute('disabled', '');
+    return ok;
+  }
   var reviewDriverRows = {
     tenant: document.getElementById('review-driver-tenant'),
     turnover: document.getElementById('review-driver-turnover'),
@@ -1967,7 +2067,6 @@
   var buildProgress = document.getElementById('build-progress');
   var loadingDetail = document.getElementById('loading-detail');
 
-  var demoBanner = document.getElementById('demo-banner');
   var reportAddress = document.getElementById('report-address');
   var heroFee = document.getElementById('hero-fee');
   var heroFeeSub = document.getElementById('hero-fee-sub');
@@ -2000,6 +2099,8 @@
     Object.keys(sections).forEach(function (key) {
       sections[key].classList.toggle('hidden', key !== name);
     });
+    if (name === 'snapshot') refreshSnapshotGate();
+    if (name === 'review') refreshReviewGate();
     scrollToTop();
   }
 
@@ -2082,9 +2183,11 @@
   // valid answer (not vacant). Also keeps the auto-calculated Vacancy Rate
   // readout current — display only, never typed.
   function refreshPropertyTypeControls() {
+    var status = unitStatus(unitCountInput.value);
     var units = parseInt(unitCountInput.value, 10) || 0;
-    var unitsOk = units >= 2;
+    var unitsOk = status === 'ok';
     ptypeConfirmMultiBtn.disabled = !unitsOk;
+    applyUnitFeedback(unitCountInput, unitsOverLimit, status);
 
     // Vacant Units can never exceed the building's unit count.
     if (unitsOk) {
@@ -2278,7 +2381,7 @@
   // Snapshot, so the ordering dependency is preserved.
   function commitPropertyDetails() {
     state.propertyType = propertyTypeChoiceGroup.value;
-    state.unitCount = state.propertyType === 'multi' ? (parseInt(unitCountInput.value, 10) || 2) : 1;
+    state.unitCount = state.propertyType === 'multi' ? parseInt(unitCountInput.value, 10) : 1;
     state.vacantUnits = state.propertyType === 'multi'
       ? Math.min(state.unitCount, Math.max(0, parseInt(vacantUnitsInput.value, 10) || 0))
       : (vacantToggle.checked ? 1 : 0);
@@ -3055,7 +3158,9 @@
   // The market read (rent-vs-market marker position) depends on the entered
   // rent, so recompute it live as the visitor types.
   ['bui-input', 'bui-change'].forEach(function (evtName) {
-    rentInput.addEventListener(evtName, function () { renderSnapshotPreview(); });
+    rentInput.addEventListener(evtName, function () { renderSnapshotPreview(); refreshSnapshotGate(); });
+    reviewRentInput.addEventListener(evtName, refreshReviewGate);
+    reviewUnitCountInput.addEventListener(evtName, refreshReviewGate);
   });
 
   compsViewall.addEventListener('click', function () {
@@ -3072,6 +3177,7 @@
   });
 
   snapshotContinue.addEventListener('bui-click', function () {
+    if (!refreshSnapshotGate()) return;
     // Not mirrored to a native field — n8n writes rent to the Property
     // record directly after search+update. Unit count
     // was already committed on the Property Type step.
@@ -3343,6 +3449,7 @@
     if (isMulti) reviewUnitCountInput.value = state.unitCount || 2;
 
     reviewRentInput.value = state.rentPerUnit || '';
+    refreshReviewGate();
 
     DRIVER_STEPS.forEach(function (step) {
       var value = state.drivers[step.key] || 'normal';
@@ -3361,8 +3468,9 @@
   });
 
   reviewContinue.addEventListener('bui-click', function () {
+    if (!refreshReviewGate()) return;
     if (state.propertyType === 'multi') {
-      state.unitCount = parseInt(reviewUnitCountInput.value, 10) || 2;
+      state.unitCount = parseInt(reviewUnitCountInput.value, 10);
     }
     state.rentPerUnit = parseFloat(reviewRentInput.value) || 0;
     // state.drivers already kept live in sync by each choice-group's bui-change above.
@@ -3719,20 +3827,38 @@
       }
     }, 220);
 
-    var finish = function (webhookResult, isDemo) {
+    var stopLoading = function () {
       settled = true;
       clearInterval(timer);
       if (reassuranceTimer) clearInterval(reassuranceTimer);
+      loadingDetail.textContent = '';
+    };
+
+    // No placeholder fee, ever. Anything short of a real computed fee rate
+    // from the pipeline (failed call, non-2xx, or a 200 without a usable
+    // feeCalcResponse) goes to the "unavailable" step instead of a number.
+    var finish = function (webhookResult) {
+      var rate = webhookResult ? parseFloat(webhookResult.feeCalcResponse) : NaN;
+      if (!isFinite(rate) || rate <= 0) {
+        console.error('[brichaus-assessment] No computed fee in pipeline response — showing unavailable step.', webhookResult);
+        showUnavailable();
+        return;
+      }
+      stopLoading();
       checklist.current = CHECKLIST_STEPS + 1;
       buildProgress.setAttribute('value', '100');
-      loadingDetail.textContent = '';
-      state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
-      handOffToProposal(webhookResult, !!isDemo);
+      state.result = { demandScore: demandScore, band: band, webhook: webhookResult };
+      handOffToProposal(webhookResult, rate);
+    };
+
+    var showUnavailable = function () {
+      stopLoading();
+      showStep('unavailable');
     };
 
     if (!CONFIG.WEBHOOK_URL) {
-      console.warn('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — rendering results in demo mode.');
-      setTimeout(function () { finish(null, true); }, 2600);
+      console.error('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — cannot compute a fee.');
+      showUnavailable();
       return;
     }
 
@@ -3745,10 +3871,10 @@
         if (!res.ok) throw new Error('Webhook responded with status ' + res.status);
         return res.json();
       })
-      .then(function (data) { finish(data, false); })
+      .then(function (data) { finish(data); })
       .catch(function (err) {
-        console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
-        finish(null, true);
+        console.error('[brichaus-assessment] Webhook call failed:', err);
+        showUnavailable();
       });
   }
 
@@ -3768,27 +3894,15 @@
   // one-shot handoff is consumed) still skips the email gate. The AI narrative
   // is intentionally not carried — it's internal (call scripts/follow-up),
   // generated and stored server-side, never shown on the customer proposal.
-  function handOffToProposal(webhook, isDemo) {
+  // Only ever called with a real computed fee rate (see finish() above).
+  function handOffToProposal(webhook, feeRate) {
     var placeId = state.address.placeId;
     var grossMonthly = state.rentPerUnit * state.unitCount;
-
-    // Fee: same computation the inline report used to do — a real fee RATE
-    // from the pipeline (feeCalcResponse, e.g. 0.06), else an illustrative
-    // band-based placeholder for demo mode / a failed webhook.
-    var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
-    var feePct, monthlyFee;
-    if (!isNaN(feeRate)) {
-      feePct = feeRate * 100;
-      monthlyFee = grossMonthly * feeRate;
-    } else {
-      var demoBandPct = { 'VERY LOW': 4, LOW: 5, NORMAL: 6, ELEVATED: 7, HIGH: 8, SEVERE: 9.5 };
-      feePct = demoBandPct[state.result.band.label] || 6;
-      monthlyFee = grossMonthly * (feePct / 100);
-    }
+    var monthlyFee = grossMonthly * feeRate;
 
     // proposal.html's renderProposal() reads report.operationalProfile.band
-    // for the workload hero. In demo / failed-webhook mode there's no server
-    // profile, so surface at least the client band label.
+    // for the workload hero. If the pipeline response lacks a profile,
+    // surface at least the client-side band label (a label, not a fee).
     var report = (webhook && webhook.report) || {};
     if (!report.operationalProfile) {
       report = { operationalProfile: { band: state.result.band.label } };
@@ -3801,7 +3915,7 @@
       // property name; contactFullName drives the "Prepared for:" line.
       formattedAddress: state.address.formattedAddress || '',
       contactFullName: ((state.contact.firstName || '') + ' ' + (state.contact.lastName || '')).trim(),
-      feeCalcResponse: !isNaN(feeRate) ? webhook.feeCalcResponse : (feePct / 100),
+      feeCalcResponse: webhook.feeCalcResponse,
       monthlyFee: monthlyFee,
       leasingFeePct: (webhook && webhook.leasingFeePct != null) ? webhook.leasingFeePct : 0,
       report: report
@@ -3830,6 +3944,15 @@
       (placeId ? '?placeId=' + encodeURIComponent(placeId) : '') +
       (placeId && state.contact.email ? '&email=' + encodeURIComponent(state.contact.email) : '');
   }
+
+  // "Unavailable" step: retry re-runs the same submission; booking opens the
+  // consultation calendar.
+  root.querySelector('#unavailable-retry').addEventListener('bui-click', function () {
+    startAssessment();
+  });
+  var unavailableBook = root.querySelector('#unavailable-book');
+  if (CONFIG.BOOKING_URL) unavailableBook.href = CONFIG.BOOKING_URL;
+  else unavailableBook.parentNode.classList.add('hidden');
 
   /* =====================================================================
    * Startup
