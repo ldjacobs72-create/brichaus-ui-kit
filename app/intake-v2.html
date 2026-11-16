@@ -382,17 +382,6 @@
     line-height: 1.45;
     color: var(--bui-color-text-faint);
   }
-  #brichaus-assessment .demo-banner {
-    background: var(--bui-color-warning-bg);
-    color: var(--bui-color-warning);
-    border: 1px solid var(--bui-color-warning);
-    border-radius: var(--bui-radius-sm);
-    font-size: var(--bui-font-size-sm);
-    font-weight: 600;
-    padding: var(--bui-space-2) var(--bui-space-3);
-    margin-bottom: var(--bui-space-4);
-    text-align: center;
-  }
   #brichaus-assessment .address-verifying {
     display: flex;
     align-items: center;
@@ -1570,7 +1559,21 @@
     </bui-card>
   </section>
 
-
+  <!-- ============ STEP: fee unavailable (scoring failed — never a placeholder fee) ============ -->
+  <section data-step="unavailable" class="hidden">
+    <bui-card variant="elevated" padding="sm" class="loading-card">
+      <div class="step-body-pad" style="text-align: center;">
+        <h2 style="margin: 0 0 8px; font-size: 1.3rem;">Your proposal isn&rsquo;t ready yet</h2>
+        <p style="margin: 0 0 var(--bui-space-4); color: var(--bui-color-text-muted); font-size: var(--bui-font-size-md);">
+          We couldn&rsquo;t calculate your management fee just now, so we&rsquo;re not
+          showing you a number. Your answers are still here. Try again in a minute,
+          or book a call and we&rsquo;ll walk you through it.
+        </p>
+        <bui-button id="unavailable-retry" variant="slate">Try Again</bui-button>
+        <p class="booking-fallback"><a id="unavailable-book" href="#" target="_blank" rel="noopener">Book a call instead</a></p>
+      </div>
+    </bui-card>
+  </section>
 
 </div>
 
@@ -1584,8 +1587,9 @@
   var CONFIG = {
     // Production webhook URL for the n8n "PropScore: Main Pipeline" workflow
     // (GHL webhook -> normalize -> OIA scoring -> RentCast/Dataverse ->
-    // Power Automate fee calc -> assembled response). Leave blank to run
-    // this page in demo mode with an illustrative, clearly-labeled fee.
+    // Power Automate fee calc -> assembled response). Required: there is no
+    // demo mode. Without a real computed fee the visitor sees the
+    // "unavailable" step — this page never shows a placeholder fee.
     WEBHOOK_URL: 'https://brichaus.app.n8n.cloud/webhook/ghl-property-scoring',
 
     // Lightweight n8n webhook that does just the RentCast market-rent
@@ -1868,6 +1872,7 @@
     review: root.querySelector('[data-step="review"]'),
     contact: root.querySelector('[data-step="contact"]'),
     loading: root.querySelector('[data-step="loading"]'),
+    unavailable: root.querySelector('[data-step="unavailable"]'),
   };
 
   // The property-type choice-group (+ its per-card follow-up fields) lives
@@ -1967,7 +1972,6 @@
   var buildProgress = document.getElementById('build-progress');
   var loadingDetail = document.getElementById('loading-detail');
 
-  var demoBanner = document.getElementById('demo-banner');
   var reportAddress = document.getElementById('report-address');
   var heroFee = document.getElementById('hero-fee');
   var heroFeeSub = document.getElementById('hero-fee-sub');
@@ -3719,20 +3723,38 @@
       }
     }, 220);
 
-    var finish = function (webhookResult, isDemo) {
+    var stopLoading = function () {
       settled = true;
       clearInterval(timer);
       if (reassuranceTimer) clearInterval(reassuranceTimer);
+      loadingDetail.textContent = '';
+    };
+
+    // No placeholder fee, ever. Anything short of a real computed fee rate
+    // from the pipeline (failed call, non-2xx, or a 200 without a usable
+    // feeCalcResponse) goes to the "unavailable" step instead of a number.
+    var finish = function (webhookResult) {
+      var rate = webhookResult ? parseFloat(webhookResult.feeCalcResponse) : NaN;
+      if (!isFinite(rate) || rate <= 0) {
+        console.error('[brichaus-assessment] No computed fee in pipeline response — showing unavailable step.', webhookResult);
+        showUnavailable();
+        return;
+      }
+      stopLoading();
       checklist.current = CHECKLIST_STEPS + 1;
       buildProgress.setAttribute('value', '100');
-      loadingDetail.textContent = '';
-      state.result = { demandScore: demandScore, band: band, webhook: webhookResult, isDemo: !!isDemo };
-      handOffToProposal(webhookResult, !!isDemo);
+      state.result = { demandScore: demandScore, band: band, webhook: webhookResult };
+      handOffToProposal(webhookResult, rate);
+    };
+
+    var showUnavailable = function () {
+      stopLoading();
+      showStep('unavailable');
     };
 
     if (!CONFIG.WEBHOOK_URL) {
-      console.warn('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — rendering results in demo mode.');
-      setTimeout(function () { finish(null, true); }, 2600);
+      console.error('[brichaus-assessment] CONFIG.WEBHOOK_URL not set — cannot compute a fee.');
+      showUnavailable();
       return;
     }
 
@@ -3745,10 +3767,10 @@
         if (!res.ok) throw new Error('Webhook responded with status ' + res.status);
         return res.json();
       })
-      .then(function (data) { finish(data, false); })
+      .then(function (data) { finish(data); })
       .catch(function (err) {
-        console.error('[brichaus-assessment] Webhook call failed, falling back to demo estimate:', err);
-        finish(null, true);
+        console.error('[brichaus-assessment] Webhook call failed:', err);
+        showUnavailable();
       });
   }
 
@@ -3768,27 +3790,15 @@
   // one-shot handoff is consumed) still skips the email gate. The AI narrative
   // is intentionally not carried — it's internal (call scripts/follow-up),
   // generated and stored server-side, never shown on the customer proposal.
-  function handOffToProposal(webhook, isDemo) {
+  // Only ever called with a real computed fee rate (see finish() above).
+  function handOffToProposal(webhook, feeRate) {
     var placeId = state.address.placeId;
     var grossMonthly = state.rentPerUnit * state.unitCount;
-
-    // Fee: same computation the inline report used to do — a real fee RATE
-    // from the pipeline (feeCalcResponse, e.g. 0.06), else an illustrative
-    // band-based placeholder for demo mode / a failed webhook.
-    var feeRate = webhook ? parseFloat(webhook.feeCalcResponse) : NaN;
-    var feePct, monthlyFee;
-    if (!isNaN(feeRate)) {
-      feePct = feeRate * 100;
-      monthlyFee = grossMonthly * feeRate;
-    } else {
-      var demoBandPct = { 'VERY LOW': 4, LOW: 5, NORMAL: 6, ELEVATED: 7, HIGH: 8, SEVERE: 9.5 };
-      feePct = demoBandPct[state.result.band.label] || 6;
-      monthlyFee = grossMonthly * (feePct / 100);
-    }
+    var monthlyFee = grossMonthly * feeRate;
 
     // proposal.html's renderProposal() reads report.operationalProfile.band
-    // for the workload hero. In demo / failed-webhook mode there's no server
-    // profile, so surface at least the client band label.
+    // for the workload hero. If the pipeline response lacks a profile,
+    // surface at least the client-side band label (a label, not a fee).
     var report = (webhook && webhook.report) || {};
     if (!report.operationalProfile) {
       report = { operationalProfile: { band: state.result.band.label } };
@@ -3801,7 +3811,7 @@
       // property name; contactFullName drives the "Prepared for:" line.
       formattedAddress: state.address.formattedAddress || '',
       contactFullName: ((state.contact.firstName || '') + ' ' + (state.contact.lastName || '')).trim(),
-      feeCalcResponse: !isNaN(feeRate) ? webhook.feeCalcResponse : (feePct / 100),
+      feeCalcResponse: webhook.feeCalcResponse,
       monthlyFee: monthlyFee,
       leasingFeePct: (webhook && webhook.leasingFeePct != null) ? webhook.leasingFeePct : 0,
       report: report
@@ -3830,6 +3840,15 @@
       (placeId ? '?placeId=' + encodeURIComponent(placeId) : '') +
       (placeId && state.contact.email ? '&email=' + encodeURIComponent(state.contact.email) : '');
   }
+
+  // "Unavailable" step: retry re-runs the same submission; booking opens the
+  // consultation calendar.
+  root.querySelector('#unavailable-retry').addEventListener('bui-click', function () {
+    startAssessment();
+  });
+  var unavailableBook = root.querySelector('#unavailable-book');
+  if (CONFIG.BOOKING_URL) unavailableBook.href = CONFIG.BOOKING_URL;
+  else unavailableBook.parentNode.classList.add('hidden');
 
   /* =====================================================================
    * Startup

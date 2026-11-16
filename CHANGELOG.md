@@ -3,6 +3,7 @@
 One line per release. GHL embeds reference these tags.
 
 ## Unreleased
+- intake-v2: removed the placeholder fee entirely (band-based fallback and demo mode). A failed call, an error response, or a response without a real computed fee now shows an "unavailable" step with Try Again and Book a Call — never a number.
 - Power Pages web templates pinned to `@v1.2.0` (were `@main`). No code change: kit files identical. Local dev server now rewrites any pinned version.
 - README rewritten at the top: real repo map, CDN/version rules, release steps, pin table.
 
