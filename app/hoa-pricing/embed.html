@@ -1,0 +1,186 @@
+<!-- =====================================================================
+  HOA PRICING — GHL EMBED
+  Paste this whole file into a GHL Custom HTML/Code element.
+  Copy (headlines, cards, calendar) lives here. Prices live in config.js.
+  To ship a new version: change @v1.1.0 below (3 places) to the new tag.
+====================================================================== -->
+<div class="bh-hoa">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.1.0/app/hoa-pricing/hoa-pricing.css">
+
+<!-- SCOPE -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Scope</p>
+    <h2>Choose where the line sits.</h2>
+    <p>The same functions exist in every association. The only question is which side of
+    the table they sit on. Tap a track to see how responsibility is assigned.</p>
+ 
+    <div class="tracks" role="tablist" aria-label="Service track">
+      <button class="track" data-t="fin" role="tab" aria-selected="true">
+        <div class="tl">Track One</div>
+        <div class="tn">Accounting &amp; Compliance</div>
+        <div class="td">Financial reconciliation, reporting, and statutory disclosures. The board keeps 100% operations.</div>
+      </button>
+      <button class="track" data-t="full" role="tab" aria-selected="false">
+        <div class="tl">Track Two</div>
+        <div class="tn">Full-Service Management</div>
+        <div class="td">Everything in Track One, plus vendors, maintenance, enforcement, and owners.</div>
+      </button>
+    </div>
+ 
+    <div class="ledger" id="bh-ledger">
+      <div class="lhead"><span>Function</span><span>Board</span><span>Brichaus</span></div>
+    </div>
+ 
+    <div class="legend">
+      <span><i class="a"></i>Board</span>
+      <span><i class="b"></i>Brichaus</span>
+      <span><i class="c"></i>Non-delegable</span>
+    </div>
+    <p class="fine">Gold rows are non-delegable. A management company can prepare a budget,
+    but only the board can adopt one &mdash; we don&rsquo;t blur that line, and neither does
+    the Corporations Code.</p>
+  </div>
+</section>
+ 
+<!-- FEE -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Fee</p>
+    <h2>Published rates. No per-request pricing.</h2>
+    <p>A base covers the association&rsquo;s fixed work. Every unit above it is priced at a
+    published rate that steps down as the community grows. One more door never costs
+    more than that door&rsquo;s rate.</p>
+ 
+    <div class="calc">
+      <div class="calc-in">
+        <span class="clabel" id="bh-ulabel">Units in the association</span>
+        <div class="stepper">
+          <button class="step" type="button" id="bh-minus" aria-label="Fewer units">&minus;</button>
+          <div class="units"><span id="bh-u">4</span><small>doors</small></div>
+          <button class="step" type="button" id="bh-plus" aria-label="More units">+</button>
+        </div>
+        <input type="range" id="bh-units" min="4" max="200" value="4" step="1" aria-labelledby="bh-ulabel">
+        <p style="font-size:12.5px;margin:2px 0 0" id="bh-range"></p>
+        <p style="font-size:14px;margin-top:18px;margin-bottom:0" id="bh-scope"></p>
+      </div>
+      <div class="calc-out">
+        <div class="cmp" role="tablist" aria-label="Fee by track">
+          <button class="ct" data-t="fin" role="tab" aria-selected="true">
+            <span class="ct-l">Track One</span>
+            <span class="ct-n">Accounting &amp; Compliance</span>
+            <span class="ct-fee"><span data-f="fee">&mdash;</span><small>/ mo</small></span>
+            <span class="ct-meta" data-f="meta"></span>
+            <span class="ct-rate" data-f="rate"></span>
+            <span class="ct-setup" data-f="setup"></span>
+          </button>
+          <button class="ct" data-t="full" role="tab" aria-selected="false">
+            <span class="ct-l">Track Two</span>
+            <span class="ct-n">Full-Service Management</span>
+            <span class="ct-fee"><span data-f="fee">&mdash;</span><small>/ mo</small></span>
+            <span class="ct-meta" data-f="meta"></span>
+            <span class="ct-rate" data-f="rate"></span>
+            <span class="ct-setup" data-f="setup"></span>
+          </button>
+        </div>
+        <p class="delta" id="bh-delta"></p>
+        <p style="font-size:13px;margin-top:14px;margin-bottom:0">Twelve-month term.
+        Sixty-day termination either way. Annual prepayment reduces the monthly fee by 5%.</p>
+      </div>
+    </div>
+  </div>
+</section>
+ 
+<!-- BASELINE -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Baseline</p>
+    <h2>What the number assumes.</h2>
+    <p>The rate above is priced against an association in ordinary condition. Our
+    conversation isn&rsquo;t a sales call &mdash; it&rsquo;s how we confirm that assumption
+    holds, and tell you plainly where it doesn&rsquo;t, before anyone signs anything.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="num">01</div>
+        <h3>Ledger condition</h3>
+        <p>The baseline assumes operating and reserve funds are separated, the prior year
+        is reconciled, and records can be handed over intact.</p>
+        <p><span class="ifnot">If it doesn&rsquo;t hold</span>Cleanup is quoted once as
+        onboarding scope, with a defined endpoint. It never becomes part of your rate.</p>
+      </div>
+      <div class="card">
+        <div class="num">02</div>
+        <h3>Delinquency load</h3>
+        <p>The baseline assumes delinquency in the ordinary range and a collection policy
+        the board is prepared to enforce.</p>
+        <p><span class="ifnot">If it doesn&rsquo;t hold</span>We show you the aging before
+        engagement and say what recovery will actually take &mdash; including when the
+        answer is counsel rather than us.</p>
+      </div>
+      <div class="card">
+        <div class="num">03</div>
+        <h3>Structural exposure</h3>
+        <p>The baseline assumes no active litigation, no open reserve deficiency, and no
+        overdue elevated-element or inspection obligations.</p>
+        <p><span class="ifnot">If it doesn&rsquo;t hold</span>We tell you what it adds to
+        the work and whether we&rsquo;re the right firm for it. Sometimes we aren&rsquo;t,
+        and you&rsquo;ll hear that first.</p>
+      </div>
+    </div>
+    <p class="fine">Anything that differs from the baseline is put in writing before
+    engagement. We would rather lose the account at the conversation than discover the
+    condition in month three.</p>
+  </div>
+</section>
+ 
+<!-- SCHEDULE OF FEES -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Schedule of fees</p>
+    <h2>What isn&rsquo;t in the monthly fee.</h2>
+    <p>Published, fixed, and disclosed before engagement. Items marked <em>included</em>
+    carry no additional charge under Full-Service Management.</p>
+    <div class="tbl">
+    <table>
+      <thead><tr><th>Service</th><th>Track One</th><th>Track Two</th></tr></thead>
+      <tbody id="bh-fees"><!-- rows built from config.js --></tbody>
+    </table>
+    </div>
+    <p class="fine">Included meetings: two per year under Track One (budget and annual);
+    monthly or as governed under Track Two. Bank, merchant, postage, and printing costs
+    are association expenses at cost &mdash; we do not mark them up. Legal, audit, insurance,
+    and vendor work is contracted by the association directly.</p>
+  </div>
+</section>
+ 
+<!-- CALENDAR -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Calendar</p>
+    <h2>The dates that don&rsquo;t move.</h2>
+    <p>Under Track One, these are the deliverables we own. The board keeps the community;
+    we keep the calendar.</p>
+    <div class="tbl">
+    <table>
+      <thead><tr><th>Deliverable</th><th>Authority</th><th>Timing</th></tr></thead>
+      <tbody>
+        <tr><td class="svc">Board review of balance sheet, income statement, A/R aging, and reconciliations</td><td class="n" data-label="Authority">&sect;5500</td><td class="n" data-label="Timing">Monthly</td></tr>
+        <tr><td class="svc">Annual Budget Report delivered to members</td><td class="n" data-label="Authority">&sect;5300</td><td class="n" data-label="Timing">30&ndash;90 days pre-fiscal year</td></tr>
+        <tr><td class="svc">Annual Policy Statement delivered to members</td><td class="n" data-label="Authority">&sect;5310</td><td class="n" data-label="Timing">30&ndash;90 days pre-fiscal year</td></tr>
+        <tr><td class="svc">Independent accountant&rsquo;s review of financial statements</td><td class="n" data-label="Authority">&sect;5305</td><td class="n" data-label="Timing">Annual, if income &gt; $75,000</td></tr>
+        <tr><td class="svc">Reserve funding disclosure and study currency</td><td class="n" data-label="Authority">&sect;5550</td><td class="n" data-label="Timing">Annual / 3-year cycle</td></tr>
+        <tr><td class="svc">Statement of Information filed with the Secretary of State</td><td class="n" data-label="Authority">&sect;5405</td><td class="n" data-label="Timing">Annual / on change</td></tr>
+        <tr><td class="svc">Federal and California association returns</td><td class="n" data-label="Authority">1120-H / FTB 100</td><td class="n" data-label="Timing">Annual</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="fine">Statutory references are provided for orientation and are not legal
+    advice. Associations should confirm obligations with counsel against their own
+    governing documents.</p>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.1.0/app/hoa-pricing/config.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.1.0/app/hoa-pricing/hoa-pricing.js"></script>
+</div>
