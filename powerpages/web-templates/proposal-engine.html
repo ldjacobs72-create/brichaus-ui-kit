@@ -98,6 +98,7 @@
   #bui-internal-create .fee-result { margin-bottom: 16px; }
   #bui-internal-create .fee-result__pct { font-size: 1.75rem; font-weight: 700; color: var(--bui-color-text); line-height: 1.2; }
   #bui-internal-create .fee-result__dollar { font-size: var(--bui-font-size-sm); color: var(--bui-color-text-muted); }
+  #bui-internal-create .fee-result__mismatch { margin-top: 8px; padding: 8px 12px; border-radius: var(--bui-radius-sm); background: #fff4e5; color: #7a4a00; border: 1px solid #f0c987; font-size: var(--bui-font-size-sm); font-weight: 600; }
   #bui-internal-create .existing-banner { margin-top: 10px; padding: 8px 12px; border-radius: var(--bui-radius-sm); font-weight: 600; }
   #bui-internal-create .existing-banner[data-tone="unclaimed"] { background: var(--bui-color-bg); color: var(--bui-color-text); border: 1px solid var(--bui-color-border); }
   #bui-internal-create .existing-banner[data-tone="claimed"] { background: #fff4e5; color: #7a4a00; border: 1px solid #f0c987; }
@@ -210,6 +211,9 @@
     <div id="fee-result" class="fee-result hidden">
       <div class="fee-result__pct" id="fee-pct"></div>
       <div class="fee-result__dollar" id="fee-dollar"></div>
+      <!-- Shown only when the backend's own dollar figure disagrees with the
+           one derived from the displayed percentage — see renderFee(). -->
+      <div class="fee-result__mismatch hidden" id="fee-mismatch"></div>
     </div>
     <div class="bar">
       <bui-button id="generate-btn" variant="primary">Generate Proposal</bui-button>
@@ -356,6 +360,75 @@
 
   function fillLeasingOptions() {
     fillSelectOptions('f-leasing', LEASING_PCTS.map(function (p) { return { value: String(p), label: p + '%' }; }), '50');
+  }
+
+  // Fee display. Punchlist 1.1 (owner decision, 2026-08-28): the ROUNDED
+  // percentage is authoritative. It is the figure that goes into the
+  // management agreement, so the dollar amount has to be derived FROM it
+  // rather than from the unrounded rate behind it. Printing 6.25% beside a
+  // $800.20 computed off 0.0625155251453331 puts two different fees on one
+  // screen — 6.25% of $12,800 is $800.00.
+  var FEE_DECIMALS = 2;
+
+  // The rate as staff actually read it off the screen (and as it is
+  // contracted), rather than as it is stored.
+  function displayedFeeRate(rawRate) {
+    var pct = Number(rawRate) * 100;
+    if (!isFinite(pct)) return null;
+    return Number(pct.toFixed(FEE_DECIMALS)) / 100;
+  }
+
+  function currency(n) {
+    return '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Renders the percentage/dollar pair so both always describe the SAME fee:
+  // the percentage rounded to what's displayed, and the dollar figure being
+  // that rounded rate applied to gross monthly rent (rent per unit x units).
+  //
+  // `storedMonthly` is what the backend actually returned and saved. The n8n
+  // write path still derives it from the unrounded rate, so it can disagree
+  // with the figure shown here — that is a genuine divergence between this
+  // screen and the Dataverse record, so it is surfaced instead of being
+  // papered over or silently preferred. The note disappears on its own once
+  // the write path rounds first too.
+  //
+  // Without a usable gross rent there is nothing to derive from, so the
+  // stored figure is shown as-is and no claim is made about the pair.
+  function renderFee(rawRate, grossMonthly, storedMonthly, suffix) {
+    var rate = displayedFeeRate(rawRate);
+    if (rate === null) { hide('fee-result'); return; }
+
+    $('fee-pct').textContent = (rate * 100).toFixed(FEE_DECIMALS) + '% management fee' + (suffix || '');
+
+    var gross = Number(grossMonthly);
+    var mismatch = $('fee-mismatch');
+    if (isFinite(gross) && gross > 0) {
+      var derived = rate * gross;
+      $('fee-dollar').textContent = currency(derived) + '/mo on ' + currency(gross) + ' gross monthly rent';
+      var stored = Number(storedMonthly);
+      if (isFinite(stored) && Math.abs(stored - derived) >= 0.005) {
+        mismatch.textContent = 'Saved record says ' + currency(stored) + '/mo — ' +
+          currency(Math.abs(stored - derived)) + ' off the fee shown here. The stored figure still ' +
+          'comes from the unrounded rate; the percentage above is the contracted one.';
+        mismatch.classList.remove('hidden');
+      } else {
+        mismatch.classList.add('hidden');
+      }
+    } else if (storedMonthly != null && isFinite(Number(storedMonthly))) {
+      $('fee-dollar').textContent = currency(storedMonthly) + '/mo';
+      mismatch.classList.add('hidden');
+    } else {
+      $('fee-dollar').textContent = '';
+      mismatch.classList.add('hidden');
+    }
+    show('fee-result');
+  }
+
+  // Gross monthly rent as the form currently states it — the two inputs the
+  // displayed fee has to be reproducible from.
+  function grossMonthlyFromForm() {
+    return (Number($('f-rent').value) || 0) * (Number($('f-units').value) || 0);
   }
 
   // Auto-derive coverage from the current scores (same thresholds as the
@@ -531,9 +604,10 @@
     $('c-pet').checked = !!data.pet;
 
     if (data.monthlyFee != null && data.feeCalcResponse != null) {
-      $('fee-pct').textContent = (Number(data.feeCalcResponse) * 100).toFixed(2) + '% management fee (current)';
-      $('fee-dollar').textContent = '$' + Number(data.monthlyFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/mo';
-      show('fee-result');
+      // Gross comes from the form, which was just prefilled from this same
+      // response — so the fee on screen is reproducible from the rent and
+      // unit count on screen.
+      renderFee(data.feeCalcResponse, grossMonthlyFromForm(), data.monthlyFee, ' (current)');
     }
   }
 
@@ -592,10 +666,10 @@
       // the widget (or open the public proposal page) just to see the
       // number the backend actually calculated.
       if (res && res.feeRate != null) {
-        var monthly = res.monthlyFee != null ? res.monthlyFee : (res.feeRate * (res.rentValue || 0) * (res.unitCount || 1));
-        $('fee-pct').textContent = (res.feeRate * 100).toFixed(2) + '% management fee';
-        $('fee-dollar').textContent = '$' + Number(monthly).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/mo';
-        show('fee-result');
+        // Prefer the gross the backend actually calculated on; fall back to
+        // the form, which is what was submitted.
+        var gross = (Number(res.rentValue) || 0) * (Number(res.unitCount) || 0);
+        renderFee(res.feeRate, gross > 0 ? gross : grossMonthlyFromForm(), res.monthlyFee, '');
       }
       // &internal=1 lets proposal.html show this record even though it has
       // no contact yet (unclaimed) — see the matching comment in
