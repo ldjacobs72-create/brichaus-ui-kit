@@ -3,6 +3,7 @@
 One line per release. GHL embeds reference these tags.
 
 ## Unreleased
+- proposal.html: visitors arriving from the assessment funnel (`?email=`) now wait up to 20s ("Finalizing your proposal…", recognize retried every 2s) for the pipeline to link the new contact, instead of landing on "couldn't find a proposal". Covers cases where the instant sessionStorage handoff isn't available (GHL preview on link.brichausgroup.com, private mode, blocked storage).
 - intake-v2: rent per unit must be $300–$50,000 and units a whole number from 2 to 50 before Continue enables (Property Type, Snapshot and Review steps). Over 50 units shows a "priced on a call" notice with a Schedule a meeting link instead of pricing online. Limits live in `CONFIG` (`MIN_UNITS`, `MAX_UNITS`, `MIN_RENT`, `MAX_RENT`).
 - intake-v2: removed the placeholder fee entirely (band-based fallback and demo mode). A failed call, an error response, or a response without a real computed fee now shows an "unavailable" step with Try Again and Book a Call — never a number.
 - Power Pages web templates pinned to `@v1.2.0` (were `@main`). No code change: kit files identical. Local dev server now rewrites any pinned version.
