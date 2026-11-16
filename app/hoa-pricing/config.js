@@ -13,12 +13,20 @@ window.BH_HOA_CONFIG = {
   units: { min: 4, max: 200, start: 4 },
 
   /* ---- Monthly fee model (marginal-rate) ---------------------------
+     PRICING RULE
+       fin  (Accounting & Compliance): per-unit rate STEPS DOWN with
+            scale. Each step's rate must be <= the step before it.
+       full (Full-Service Management): per-unit rate NEVER steps down.
+            Management hours rise with every door. Each step's rate
+            must be >= the step before it.
+     hoa-pricing.js warns in the browser console if a change breaks
+     this rule.
+
      base   : monthly fee covering the first `cover` units
      cover  : units included in the base
      setup  : one-time onboarding fee (also shown in Schedule of Fees)
      steps  : each unit above `cover` is billed at the rate of the step
-              it falls in. `upto` is inclusive. Rates may rise or fall between
-              steps. Above the last step's
+              it falls in. `upto` is inclusive. Above the last step's
               `upto`, the calculator shows "By proposal".
      Fees are rounded to the nearest $5.
   -------------------------------------------------------------------- */
@@ -36,9 +44,7 @@ window.BH_HOA_CONFIG = {
       base: 650, cover: 10, setup: 1500,
       steps: [
         { upto: 24,  rate: 12.75 },  // starter band: 19 units = $765
-        { upto: 60,  rate: 16 },
-        { upto: 120, rate: 15 },
-        { upto: 200, rate: 14 }      // large HOAs stay within 10% of v1.1.0
+        { upto: 200, rate: 16 }      // flat from unit 25: no scale discount
       ]
     }
   },

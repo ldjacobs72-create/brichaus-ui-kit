@@ -12,6 +12,17 @@
     root.setAttribute('data-bh-init', '1');
 
     var MODEL = CFG.model;
+
+    /* Pricing rule check (see config.js): fin steps down, full never does. */
+    [['fin', 1], ['full', -1]].forEach(function (r) {
+      var st = MODEL[r[0]].steps;
+      for (var i = 1; i < st.length; i++) {
+        if ((st[i].rate - st[i - 1].rate) * r[1] > 0) {
+          console.warn('[bh-hoa] Pricing rule broken: ' + r[0] + ' rate ' +
+            (r[1] > 0 ? 'rises' : 'drops') + ' at units above ' + st[i - 1].upto);
+        }
+      }
+    });
     var money = function (n) { return '$' + n.toLocaleString('en-US'); };
     function el(tag, cls, text) {
       var e = document.createElement(tag);

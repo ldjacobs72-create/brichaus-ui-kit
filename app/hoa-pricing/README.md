@@ -22,9 +22,13 @@ Marginal-rate: `base` covers the first `cover` units; each unit above is
 billed at the rate of the step it falls in; result rounded to nearest $5.
 Fee never decreases as units increase. Above the last step → "By proposal".
 
-Track Two (v1.2.0) uses a reduced starter rate for units 11–24, then
-steps down from unit 25. Its rates are **not** strictly descending, so page
-copy must not claim the rate "steps down as the community grows".
+**Pricing rule:**
+- **Track One (Accounting):** per-unit rate steps down with scale.
+- **Track Two (Full Service):** per-unit rate never steps down, because
+  management hours rise with every door. Per-door cost still falls slightly
+  as the base spreads over more units.
+
+The browser console warns if `config.js` breaks either rule.
 
 ## Changing a price
 
