@@ -2,6 +2,10 @@
 
 One line per release. GHL embeds reference these tags.
 
+## Unreleased
+- Power Pages web templates pinned to `@v1.2.0` (were `@main`). No code change: kit files identical. Local dev server now rewrites any pinned version.
+- README rewritten at the top: real repo map, CDN/version rules, release steps, pin table.
+
 ## v1.2.0
 - Pricing rule: Track One per-unit rate steps down with scale; Track Two never does (management hours rise with every door). Console warning if config breaks it.
 - HOA Track Two repriced: $650 covers the first 10 units (was 24), matching Track One; $16 per unit after that (19 units = $795). Published to 120 units; 121+ by proposal.

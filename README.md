@@ -1,48 +1,86 @@
 # Brichaus UI Kit
 
-A dependency-free component kit for Brichaus Group's GoHighLevel-hosted
-funnels, landing pages, and portals. Every file is a plain `<script>`
-include — no bundler, no npm install, nothing to build. Copy files into a
-GHL embed and they work.
+Brichaus Group's front-end code for GoHighLevel pages and Power Pages:
+a dependency-free component kit, the apps built on it, and the docs that
+connect them to n8n and Dataverse. Every file is a plain `<script>`
+include. No bundler, no npm install, nothing to build.
 
-## What's in here
+## Repo map
 
 ```
-/ui-kit
-  /core
-    core.js              — load this in full, on every page, always
-  /components
-    button.js
-    input.js              — also handles prefix/suffix affixes (currency, icon)
-    select.js
-    modal.js
-    card.js               — elevated/outlined/flat/tinted/info variants
-    stepper.js
-    score-gauge.js        — numeric ring gauge
-    alert.js              — also exposes BUI.toast()
-    progress-bar.js       — linear header bar, segmented counter, continuous track
-    choice-card.js        — bui-choice-group + bui-choice-card (driver-selection cards)
-    dial-gauge.js         — semicircular needle gauge, categorical readout
-    loading.js            — bui-spinner, bui-skeleton, bui-dots, bui-checklist
-    address-input.js      — Google Places address autocomplete, own styled dropdown
-  /integrations
-    ghl-bridge.js         — GHL-specific field sync; not part of the portability
-                            contract below, load only where you need it
-  /examples
-    example-page.html     — minimal 3-component demo, opens directly in a browser
-    funnel-example.html   — fuller "Property Intelligence Report" funnel step
-  README.md
+core/core.js            — load first, on every page that uses the kit
+components/             — one self-contained file per component (see reference below)
+  button.js  input.js  select.js  modal.js  card.js  stepper.js
+  score-gauge.js  dial-gauge.js  alert.js  progress-bar.js
+  choice-card.js  counter.js  toggle.js  loading.js  address-input.js
+integrations/
+  ghl-bridge.js         — GHL field sync; load only where a page writes GHL fields
+app/                    — live pages built on the kit
+  intake-v2.html        — PropScore owner intake (GHL homepage widget)
+  proposal.html         — PropScore proposal / report page
+  hoa-pricing/          — HOA scope ledger, fee calculator, schedule of fees
+                          (all prices in config.js; see its README)
+powerpages/             — Power Pages web templates + setup notes
+docs/                   — pipeline map, Dataverse config tables + seed CSVs,
+                          integration contract, runbooks
+examples/               — standalone demos; open directly in a browser
+archive/                — retired pages, kept for reference only
+CHANGELOG.md            — one entry per release
 ```
+
+## How live pages load this code
+
+Pages never host a copy of the kit. They load files from GitHub through
+the jsDelivr CDN, **pinned to a release tag**:
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.2.0/core/core.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.2.0/components/button.js"></script>
+```
+
+Rules:
+
+- **Always pin to a tag (`@v1.2.0`), never `@main`.** A page on `@main`
+  changes the moment anything merges, and jsDelivr can serve a stale copy
+  of `@main` for up to ~12 hours, so a page can end up with old and new
+  files mixed.
+- **A merge does not change any live page.** Pages change only when you
+  publish a new tag *and* bump the `@version` in that page's embed.
+- **Never put secrets in these files.** The repo is public and everything
+  here runs in the visitor's browser. Anything sensitive belongs in n8n
+  or Power Automate.
+
+### Releasing a change
+
+1. Merge the change to `main`.
+2. **Releases → Draft a new release** → new tag (`v1.3.0`, etc.) from
+   `main` → Publish.
+3. Check it's live: open the file's jsDelivr URL with the new tag.
+4. Bump `@version` in the page embeds that should get it (GHL Custom
+   HTML element, Power Pages web template). Pages you don't bump keep
+   running the old version, which is safe.
+5. Add a line to `CHANGELOG.md`.
+
+### What each page is pinned to
+
+| Page | Pinned to |
+|---|---|
+| `app/hoa-pricing/` (GHL) | `v1.2.0` |
+| `powerpages/web-templates/*` | `v1.2.0` |
+| `app/intake-v2.html`, `app/proposal.html` | commit `b333e50` (same kit code as `v1.2.0`; move to a tag next time either page changes) |
+
+Update this table when you bump a page.
 
 ## The include pattern
 
 Every page loads `core.js`, then only the component files that page
-actually uses:
+actually uses. Paths below are relative to the repo root; on a live page
+each one is a pinned jsDelivr URL as shown above.
 
 ```html
-<script src="/core/core.js"></script>
-<script src="/components/button.js"></script>
-<script src="/components/modal.js"></script>
+<script src="core/core.js"></script>
+<script src="components/button.js"></script>
+<script src="components/modal.js"></script>
 ```
 
 That's it. There's no manifest, no registry to update, no import graph to
@@ -107,9 +145,8 @@ keep in sync. Rules that make this safe:
    `score-gauge.js` for the pattern), and/or check
    `BUI.prefersReducedMotion()` in JS before starting a transition.
 
-Copy this file plus `core.js` into any other project's `/ui-kit` folder
-and it works immediately — that's the portability test every component
-should pass.
+Load this file plus `core.js` on any page and it works immediately —
+that's the portability test every component should pass.
 
 ## Overriding design tokens per project
 
@@ -121,7 +158,7 @@ to override them, in increasing order of control:
 variable wins the cascade tie-break:
 
 ```html
-<script src="/core/core.js"></script>
+<script src="core/core.js"></script>
 <style>
   :root {
     --bui-color-accent: #2C4A9C;
@@ -139,7 +176,7 @@ custom field, a query param, a client's brand config object):
 <script>
   window.BUI_TOKENS = { '--bui-color-accent': '#2C4A9C' };
 </script>
-<script src="/core/core.js"></script>
+<script src="core/core.js"></script>
 ```
 
 Any `--bui-*` variable defined in `core/core.js`'s `DEFAULT_TOKENS`
