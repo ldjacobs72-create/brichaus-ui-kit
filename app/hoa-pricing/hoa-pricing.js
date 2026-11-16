@@ -118,6 +118,8 @@
       ['fin', 'full'].forEach(function (t) {
         var q = price(t, u); p[t] = q; var c = cards[t];
         c.setAttribute('aria-selected', String(t === track));
+        var per = c.querySelector('.ct-fee small');
+        if (per) per.style.display = q.fee === null ? 'none' : '';
         if (q.fee === null) {
           c.querySelector('[data-f="fee"]').textContent = 'By proposal';
           c.querySelector('[data-f="meta"]').textContent = '';

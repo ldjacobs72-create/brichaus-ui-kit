@@ -25,8 +25,10 @@ Fee never decreases as units increase. Above the last step → "By proposal".
 **Pricing rule:**
 - **Track One (Accounting):** per-unit rate steps down with scale.
 - **Track Two (Full Service):** per-unit rate never steps down, because
-  management hours rise with every door. Per-door cost still falls slightly
-  as the base spreads over more units.
+  management hours rise with every door. Per-door cost still falls as the
+  base spreads over more units. Published to 120 units; above that,
+  amenities and complexity drive hours more than unit count, so it's
+  quoted by proposal.
 
 The browser console warns if `config.js` breaks either rule.
 

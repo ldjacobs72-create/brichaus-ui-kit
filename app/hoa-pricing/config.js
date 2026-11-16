@@ -43,8 +43,7 @@ window.BH_HOA_CONFIG = {
     full: {
       base: 650, cover: 10, setup: 1500,
       steps: [
-        { upto: 24,  rate: 12.75 },  // starter band: 19 units = $765
-        { upto: 200, rate: 16 }      // flat from unit 25: no scale discount
+        { upto: 120, rate: 16 }      // flat, no scale discount. 121+ = by proposal
       ]
     }
   },
