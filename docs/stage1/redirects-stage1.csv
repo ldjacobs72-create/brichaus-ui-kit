@@ -1,0 +1,15 @@
+old_path,new_path,type,add_when,notes
+/about-us,/about,301,Same day /about publishes,Rebuilt About page
+/about-us/,/about,301,Same day /about publishes,Slash variant (HighLevel treats it as a separate address)
+/connect,/contact,301,Same day /contact publishes,Contact pages consolidated
+/connect/,/contact,301,Same day /contact publishes,Slash variant
+/connect/larryjacobs,/contact,301,Same day /contact publishes,Was a booking page not a bio so /contact is correct
+/connect/larryjacobs/,/contact,301,Same day /contact publishes,Slash variant
+/book-now,/contact,301,Same day /contact publishes,Already canonicalised to /connect
+/book-now/,/contact,301,Same day /contact publishes,Slash variant
+/hoa-community-services,/hoa-management,301,Same day the new /hoa-management publishes,Fee schedule moves to /hoa-management/services-fees
+/hoa-community-services/,/hoa-management,301,Same day the new /hoa-management publishes,Slash variant
+/our-services/association-management,/hoa-management,301,Stage 1,Already returns 404; redirect recovers any external links
+/our-services/association-management/,/hoa-management,301,Stage 1,Slash variant
+/insights/author/6aaf2432c2d748b99c15d04c,/about/larry-jacobs,301,Only if still served after renaming the author record,Author record shows as Brichaus Media
+/insights/author/6a3c72f4308c73c197bff11c,/about/larry-jacobs,301,Only if still served after renaming the author record,Second author record shows as Property Manager (not in the doc's map)

@@ -1,7 +1,12 @@
 /* =====================================================================
    HOA PRICING — LOGIC
    Reads window.BH_HOA_CONFIG (config.js). Do not put prices here.
-   Requires the markup in embed.html. Safe to load twice.
+   Every section is optional, so one page can carry the scope ledger
+   (/hoa-management) and another the calculator and fee table
+   (/hoa-management/services-fees). Safe to load twice.
+   [data-bh-from="fin|full"] anywhere inside .bh-hoa is filled with that
+   track's starting monthly fee, and [data-bh-cover] with the units the
+   base covers, so hub copy never hard-codes a price.
    ===================================================================== */
 (function () {
   function init() {
@@ -33,7 +38,7 @@
 
     /* ---- Responsibility ledger ---------------------------------- */
     var ledger = root.querySelector('#bh-ledger');
-    var rows = CFG.ledger.map(function (item) {
+    var rows = !ledger ? [] : CFG.ledger.map(function (item) {
       var d = el('div', 'lrow' + (item.fixed ? ' fixed' : ''));
       var fn = el('span', 'fn', item.f);
       if (item.c) fn.appendChild(el('span', 'code', item.c));
@@ -46,7 +51,6 @@
       return { bd: bd, bh: bh, tag: tag, data: item };
     });
 
-    var track = 'fin';
     function paintLedger() {
       rows.forEach(function (r) {
         var who = r.data[track];
@@ -99,8 +103,31 @@
     }
     window.BH_HOA_PRICE = price; // exposed for testing in the browser console
 
+    /* ---- Starting prices ([data-bh-from]) ----------------------- */
+    root.querySelectorAll('[data-bh-from]').forEach(function (n) {
+      var m = MODEL[n.getAttribute('data-bh-from')];
+      if (m) n.textContent = money(m.base);
+    });
+    root.querySelectorAll('[data-bh-cover]').forEach(function (n) {
+      var m = MODEL[n.getAttribute('data-bh-cover')];
+      if (m) n.textContent = m.cover;
+    });
+
     /* ---- Calculator UI ------------------------------------------ */
     var slider = root.querySelector('#bh-units');
+    var track = 'fin';
+    function setTrack(t) {
+      track = t;
+      root.querySelectorAll('.track').forEach(function (b) {
+        b.setAttribute('aria-selected', String(b.dataset.t === t));
+      });
+      paintLedger(); if (slider) paintCalc();
+    }
+    root.querySelectorAll('.track,.ct').forEach(function (btn) {
+      btn.addEventListener('click', function () { setTrack(btn.dataset.t); });
+    });
+    paintLedger();
+    if (!slider) return;
     slider.min = CFG.units.min; slider.max = CFG.units.max; slider.value = CFG.units.start;
     var range = root.querySelector('#bh-range');
     if (range) range.textContent = CFG.units.min + ' — ' + CFG.units.max + ' units · larger communities by proposal';
@@ -149,18 +176,7 @@
     root.querySelector('#bh-minus').addEventListener('click', function () { nudge(-1); });
     root.querySelector('#bh-plus').addEventListener('click', function () { nudge(1); });
 
-    function setTrack(t) {
-      track = t;
-      root.querySelectorAll('.track').forEach(function (b) {
-        b.setAttribute('aria-selected', String(b.dataset.t === t));
-      });
-      paintLedger(); paintCalc();
-    }
-    root.querySelectorAll('.track,.ct').forEach(function (btn) {
-      btn.addEventListener('click', function () { setTrack(btn.dataset.t); });
-    });
-
-    paintLedger(); paintCalc();
+    paintCalc();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -1,0 +1,86 @@
+<!-- =====================================================================
+  BRICHAUS SITE SHELL — HEADER  (Stage 1 menu)
+  GHL: paste into a Custom HTML element inside a GLOBAL section at the top
+  of every page. Section padding 0, full width. Remove the old GHL nav.
+
+  PUBLISHING RULE (Master SEO doc, Section 2): a link goes in this menu
+  only when its page is live with real content. Lines marked
+  "STAGE 2" / "STAGE 3" are ready to un-comment when that page publishes.
+  Property Management and Markets point at today's live URLs until
+  their Stage 3 rebuild; swap each href on the day its redirect goes in.
+  To ship a new version: change @v1.3.0 below (2 places) to the new tag.
+====================================================================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.3.0/app/site-shell/shell.css">
+
+<div class="bh-shell">
+<a class="bh-skip" href="#main">Skip to content</a>
+<header class="bh-header">
+  <div class="bar">
+    <a class="bh-logo" href="/">
+      <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_160/u_https://assets.cdn.filesafe.space/195jr5VOr3L0pctl1Lf0/media/79ddc981-9687-48ee-b20d-5110d8cf8e67.png" width="52" height="52" alt="">
+      <span><b>Bric</b>haus Group</span>
+    </a>
+
+    <button class="bh-menu-btn" type="button" aria-expanded="false" aria-controls="bh-nav" aria-label="Open menu">
+      <span class="bars" aria-hidden="true"></span>Menu
+    </button>
+
+    <nav class="bh-nav" id="bh-nav" aria-label="Main">
+      <ul>
+        <li>
+          <button class="bh-top" type="button" aria-expanded="false" aria-controls="bh-p-services">Services <span class="chev" aria-hidden="true"></span></button>
+          <div class="bh-panel mega" id="bh-p-services" style="--cols:2">
+            <div>
+              <h3>Property Management</h3>
+              <ul>
+                <li><a class="hub" href="/management">Property Management Overview</a></li><!-- STAGE 3: /property-management -->
+                <li><a href="/residential-management">Residential Property Management</a></li><!-- STAGE 3: /property-management/residential -->
+                <li><a href="/lender-services">Lender &amp; REO Services</a></li><!-- STAGE 3: /property-management/lender-services -->
+              </ul>
+            </div>
+            <div>
+              <h3>HOA Management</h3>
+              <ul>
+                <li><a class="hub" href="/hoa-management">HOA Management Overview</a></li>
+                <!-- STAGE 2: <li><a href="/hoa-management/full-service">Full-Service HOA Management</a></li> -->
+                <!-- STAGE 2: <li><a href="/hoa-management/accounting-compliance">Accounting &amp; Compliance <small>For self-managed boards</small></a></li> -->
+                <!-- STAGE 2: <li><a href="/hoa-management/changing-management-companies">Changing Management Companies</a></li> -->
+                <li><a href="/hoa-management/services-fees">Services &amp; Fees</a></li>
+              </ul>
+            </div>
+            <!-- STAGE 3: add this column and set --cols:3 on the panel above
+            <div>
+              <h3>Brokerage &amp; Advisory</h3>
+              <ul>
+                <li><a class="hub" href="/brokerage-advisory">Brokerage &amp; Advisory Overview</a></li>
+              </ul>
+            </div>
+            -->
+          </div>
+        </li>
+        <li>
+          <a class="bh-top" href="/market-areas-served">Markets</a><!-- STAGE 3: href /markets -->
+          <!-- STAGE 2/3: when a second market page is live, replace the link above with this dropdown
+          <button class="bh-top" type="button" aria-expanded="false" aria-controls="bh-p-markets">Markets <span class="chev" aria-hidden="true"></span></button>
+          <div class="bh-panel" id="bh-p-markets">
+            <ul>
+              <li><a class="hub" href="/markets">Markets Overview</a></li>
+              <li><a href="/markets/san-fernando-valley">San Fernando Valley</a></li>
+              <li><a href="/hoa-management-san-fernando-valley">HOA Management in the San Fernando Valley</a></li>
+            </ul>
+          </div>
+          -->
+        </li>
+        <li><a class="bh-top" href="/insights">Insights</a></li>
+        <li><a class="bh-top" href="/about">About</a></li>
+      </ul>
+      <a class="bh-btn" href="/contact">Schedule a Conversation</a>
+      <div class="bh-drawer-extra"><a href="tel:+16265905111">Call Brichaus &middot; (626) 590-5111</a></div>
+    </nav>
+  </div>
+</header>
+</div>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.3.0/app/site-shell/shell.js" defer></script>
