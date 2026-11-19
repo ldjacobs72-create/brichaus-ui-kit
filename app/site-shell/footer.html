@@ -1,0 +1,58 @@
+<!-- =====================================================================
+  BRICHAUS SITE SHELL — FOOTER  (Stage 1 links)
+  GHL: paste into a Custom HTML element inside a GLOBAL section at the
+  bottom of every page. Section padding 0, full width. Remove the old footer.
+  Needs shell.css (loaded by header.html). Same publishing rule as the
+  header: STAGE lines are un-commented when their page goes live.
+====================================================================== -->
+<div class="bh-shell">
+<footer class="bh-footer">
+  <div class="cols">
+    <div>
+      <h2>Services</h2>
+      <ul>
+        <li><a href="/management">Property Management</a></li><!-- STAGE 3: /property-management -->
+        <li><a href="/hoa-management">HOA Management</a></li>
+        <!-- STAGE 3: <li><a href="/brokerage-advisory">Brokerage &amp; Advisory</a></li> -->
+        <li><a href="/lender-services">Lender &amp; REO Services</a></li><!-- STAGE 3: /property-management/lender-services -->
+      </ul>
+    </div>
+    <div>
+      <h2>Markets</h2>
+      <ul>
+        <li><a href="/market-areas-served">Markets Overview</a></li><!-- STAGE 3: /markets -->
+        <!-- STAGE 3: <li><a href="/markets/san-fernando-valley">San Fernando Valley</a></li> -->
+        <!-- STAGE 2: <li><a href="/hoa-management-san-fernando-valley">San Fernando Valley HOA Management</a></li> -->
+      </ul>
+    </div>
+    <div>
+      <h2>Resources</h2>
+      <ul>
+        <li><a href="/insights">Insights</a></li>
+        <!-- STAGE 2/3: <li><a href="/insights/category/hoa">HOA Board Resources</a></li> -->
+        <li><a href="/hoa-management/services-fees">HOA Services &amp; Fees</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Brichaus</h2>
+      <address>
+        <ul>
+          <li><a href="tel:+16265905111">(626) 590-5111</a></li>
+          <li><a href="mailto:larry@brichausgroup.com">larry@brichausgroup.com</a></li>
+          <li><a href="/about">About Brichaus</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li>Encino, California</li>
+        </ul>
+      </address>
+    </div>
+  </div>
+  <div class="legal">
+    <div>
+      <p>Brichaus Group, Inc. &middot; California DRE Corporate License #02247407 &middot; Larry Jacobs, Broker and Designated Officer &middot; DRE #01224649</p>
+      <p>&copy; <span data-bh-year>2026</span> Brichaus Group, Inc., dba Brichaus Properties and Brichaus Management
+        &nbsp; <a href="/privacy-policy">Privacy</a><a href="/terms-and-conditions">Terms</a></p>
+    </div>
+  </div>
+</footer>
+</div>
+<script>document.querySelectorAll('[data-bh-year]').forEach(function(n){n.textContent=new Date().getFullYear()});</script>

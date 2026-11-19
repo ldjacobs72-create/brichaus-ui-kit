@@ -20,6 +20,8 @@ app/                    — live pages built on the kit
   proposal.html         — PropScore proposal / report page
   hoa-pricing/          — HOA scope ledger, fee calculator, schedule of fees
                           (all prices in config.js; see its README)
+  site-shell/           — sitewide header, footer, breadcrumbs, page styles
+  site-pages/           — page bodies for GHL, one file per URL
 powerpages/             — Power Pages web templates + setup notes
 docs/                   — pipeline map, Dataverse config tables + seed CSVs,
                           integration contract, runbooks

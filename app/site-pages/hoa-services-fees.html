@@ -1,0 +1,159 @@
+<!-- =====================================================================
+  PAGE: /hoa-management/services-fees     (Stage 1 — the only page with the full HOA fee schedule)
+  GHL page settings
+    Path:              hoa-management/services-fees
+    SEO title:         HOA Management Services & Fees | Brichaus Group
+    Meta description:  Published HOA management fees by association size for both tracks, plus onboarding and every additional fee, disclosed before engagement. Price your HOA.
+    Canonical:         https://brichausgroup.com/hoa-management/services-fees
+  Paste this whole file into one Custom HTML element (full width, padding 0).
+  Every price on this page comes from hoa-pricing/config.js.
+====================================================================== -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.3.0/app/hoa-pricing/hoa-pricing.css">
+
+<nav class="bh-shell bh-crumbs" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="/">Home</a></li>
+    <li><a href="/hoa-management">HOA Management</a></li>
+    <li><span aria-current="page">Services &amp; Fees</span></li>
+  </ol>
+</nav>
+
+<main id="main" class="bh-page bh-hoa">
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">HOA Management</p>
+    <h1>HOA management services and fees</h1>
+    <p class="lede">Published rates, no per-request pricing. Choose your association's size to see the monthly fee for each track, then the fixed fees for work outside it.</p>
+    <p class="trust"><span>Encino-based</span><span>California licensed real estate broker</span><span>Founder-led</span></p>
+    <div class="actions">
+      <a class="bh-btn" href="/contact">Schedule a Conversation</a>
+      <a class="bh-btn ghost" href="/hoa-management#scope">Compare what each track covers</a>
+    </div>
+  </div>
+</section>
+
+<section id="fees">
+  <div class="wrap">
+    <p class="eyebrow">Monthly fee</p>
+    <h2>Published rates. No per-request pricing.</h2>
+    <p>A base covers the association&rsquo;s fixed work. Above it, accounting rates step down as the association grows. Full-service rates don&rsquo;t, because management hours rise with every door. One more door never costs more than that door&rsquo;s rate. Full-service pricing is published to 120 units; larger communities are quoted by proposal.</p>
+    <div class="calc">
+      <div class="calc-in">
+        <span class="clabel" id="bh-ulabel">Units in the association</span>
+        <div class="stepper">
+          <button class="step" type="button" id="bh-minus" aria-label="Fewer units">&minus;</button>
+          <div class="units"><span id="bh-u" aria-live="polite">4</span><small>doors</small></div>
+          <button class="step" type="button" id="bh-plus" aria-label="More units">+</button>
+        </div>
+        <input type="range" id="bh-units" min="4" max="200" value="4" step="1" aria-labelledby="bh-ulabel">
+        <p style="font-size:12.5px;margin:2px 0 0" id="bh-range"></p>
+        <p style="font-size:14px;margin-top:18px;margin-bottom:0" id="bh-scope"></p>
+      </div>
+      <div class="calc-out">
+        <div class="cmp" role="tablist" aria-label="Fee by track">
+          <button class="ct" data-t="fin" role="tab" aria-selected="true">
+            <span class="ct-l">Track One</span>
+            <span class="ct-n">Accounting &amp; Compliance</span>
+            <span class="ct-fee"><span data-f="fee">&mdash;</span><small>/ mo</small></span>
+            <span class="ct-meta" data-f="meta"></span>
+            <span class="ct-rate" data-f="rate"></span>
+            <span class="ct-setup" data-f="setup"></span>
+          </button>
+          <button class="ct" data-t="full" role="tab" aria-selected="false">
+            <span class="ct-l">Track Two</span>
+            <span class="ct-n">Full-Service Management</span>
+            <span class="ct-fee"><span data-f="fee">&mdash;</span><small>/ mo</small></span>
+            <span class="ct-meta" data-f="meta"></span>
+            <span class="ct-rate" data-f="rate"></span>
+            <span class="ct-setup" data-f="setup"></span>
+          </button>
+        </div>
+        <p class="delta" id="bh-delta" aria-live="polite"></p>
+        <p style="font-size:13px;margin-top:14px;margin-bottom:0">Twelve-month term. Sixty-day termination either way. Annual prepayment reduces the monthly fee by 5%.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="baseline">
+  <div class="wrap">
+    <p class="eyebrow">Baseline</p>
+    <h2>What the number assumes.</h2>
+    <p>The rate above is priced against an association in ordinary condition. Our conversation isn&rsquo;t a sales call. It&rsquo;s how we confirm that assumption holds, and tell you plainly where it doesn&rsquo;t, before anyone signs anything.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="num">01</div>
+        <h3>Ledger condition</h3>
+        <p>The baseline assumes operating and reserve funds are separated, the prior year is reconciled, and records can be handed over intact.</p>
+        <p><span class="ifnot">If it doesn&rsquo;t hold</span>Cleanup is quoted once as onboarding scope, with a defined endpoint. It never becomes part of your rate.</p>
+      </div>
+      <div class="card">
+        <div class="num">02</div>
+        <h3>Delinquency load</h3>
+        <p>The baseline assumes delinquency in the ordinary range and a collection policy the board is prepared to enforce.</p>
+        <p><span class="ifnot">If it doesn&rsquo;t hold</span>We show you the aging before engagement and say what recovery will actually take, including when the answer is counsel rather than us.</p>
+      </div>
+      <div class="card">
+        <div class="num">03</div>
+        <h3>Structural exposure</h3>
+        <p>The baseline assumes no active litigation, no open reserve deficiency, and no overdue elevated-element or inspection obligations.</p>
+        <p><span class="ifnot">If it doesn&rsquo;t hold</span>We tell you what it adds to the work and whether we&rsquo;re the right firm for it. Sometimes we aren&rsquo;t, and you&rsquo;ll hear that first.</p>
+      </div>
+    </div>
+    <p class="fine">Anything that differs from the baseline is put in writing before engagement. We would rather lose the account at the conversation than discover the condition in month three.</p>
+  </div>
+</section>
+
+<section id="schedule">
+  <div class="wrap">
+    <p class="eyebrow">Schedule of fees</p>
+    <h2>What isn&rsquo;t in the monthly fee.</h2>
+    <p>Published, fixed, and disclosed before engagement. Items marked <em>included</em> carry no additional charge under Full-Service Management.</p>
+    <div class="tbl">
+    <table>
+      <thead><tr><th>Service</th><th>Track One</th><th>Track Two</th></tr></thead>
+      <tbody id="bh-fees"><!-- rows built from config.js --></tbody>
+    </table>
+    </div>
+    <p class="fine">Included meetings: two per year under Track One (budget and annual); monthly or as governed under Track Two. Bank, merchant, postage, and printing costs are association expenses at cost; we do not mark them up. Legal, audit, insurance, and vendor work is contracted by the association directly.</p>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <p class="eyebrow">Next step</p>
+    <h2>Confirm the number for your association.</h2>
+    <p>Tell me the unit count, how the association is run today, and what the board wants handled differently. I&rsquo;ll tell you whether the published rate holds.</p>
+    <a class="bh-btn" href="/contact">Schedule a Conversation</a>
+  </div>
+</section>
+
+<section>
+  <div class="wrap xlinks">
+    <div>
+      <h3>Related</h3>
+      <ul>
+        <li><a href="/hoa-management">HOA management overview</a></li>
+        <li><a href="/hoa-management#scope">Who does what under each track</a></li>
+      </ul>
+    </div>
+    <!-- STAGE 2: Related → /hoa-management/full-service, /hoa-management/accounting-compliance -->
+  </div>
+</section>
+
+</main>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://brichausgroup.com/"},
+    {"@type": "ListItem", "position": 2, "name": "HOA Management", "item": "https://brichausgroup.com/hoa-management"},
+    {"@type": "ListItem", "position": 3, "name": "Services & Fees", "item": "https://brichausgroup.com/hoa-management/services-fees"}
+  ]
+}
+</script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.3.0/app/hoa-pricing/config.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/ldjacobs72-create/brichaus-ui-kit@v1.3.0/app/hoa-pricing/hoa-pricing.js"></script>

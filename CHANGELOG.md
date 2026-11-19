@@ -3,6 +3,12 @@
 One line per release. GHL embeds reference these tags.
 
 ## Unreleased
+
+## v1.3.0 (Stage 1 of the site architecture plan)
+- Add `app/site-shell/`: sitewide header (mega-menu + accessible mobile accordion), footer with DRE license line, breadcrumbs, shared page components. Links are plain HTML anchors; menu items are added stage by stage.
+- Add `app/site-pages/`: /hoa-management, /hoa-management/services-fees, /about, /about/larry-jacobs, /contact, each with SEO title, description, canonical and JSON-LD.
+- hoa-pricing.js: every section is optional (ledger-only hub page, calculator-only fees page). New `[data-bh-from]` and `[data-bh-cover]` fill starting fee and base units from config.js.
+- Add `docs/stage1/`: redirect list and go-live runbook.
 - proposal.html: visitors arriving from the assessment funnel (`?email=`) now wait up to 20s ("Finalizing your proposal…", recognize retried every 2s) for the pipeline to link the new contact, instead of landing on "couldn't find a proposal". Covers cases where the instant sessionStorage handoff isn't available (GHL preview on link.brichausgroup.com, private mode, blocked storage).
 - intake-v2: rent per unit must be $300–$50,000 and units a whole number from 2 to 50 before Continue enables (Property Type, Snapshot and Review steps). Over 50 units shows a "priced on a call" notice with a Schedule a meeting link instead of pricing online. Limits live in `CONFIG` (`MIN_UNITS`, `MAX_UNITS`, `MIN_RENT`, `MAX_RENT`).
 - intake-v2: removed the placeholder fee entirely (band-based fallback and demo mode). A failed call, an error response, or a response without a real computed fee now shows an "unavailable" step with Try Again and Book a Call — never a number.

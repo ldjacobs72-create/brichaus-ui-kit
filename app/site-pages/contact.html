@@ -1,0 +1,93 @@
+<!-- =====================================================================
+  PAGE: /contact        (Stage 1 — replaces /connect, /connect/larryjacobs, /book-now)
+  GHL page settings
+    Path:              contact
+    SEO title:         Schedule a Conversation | Brichaus Group
+    Meta description:  Book a call with Larry Jacobs or send a message about property management, HOA management, brokerage or lender services. Replies within one business day.
+    Canonical:         https://brichausgroup.com/contact
+
+  BUILD (fastest route: duplicate the current /connect page, which already
+  has the working calendar and form, then change its path to "contact"):
+    Section 1  Custom HTML  ← PART A below
+    Section 2  GHL Calendar element: existing booking widget
+               s2N572QXrgVZKGzRCsya (same one on the homepage).
+               Calendar settings → confirmation redirect: /booking-confirmed
+    Section 3  GHL Form element: the existing contact form with the
+               "Select your business line" dropdown.
+               Form settings → On submit: redirect to /thank-you
+               Make "business line" REQUIRED.
+               FIX: the consent text links Privacy Policy and Terms of
+               Service to https://www.example.com. Point them to
+               /privacy-policy and /terms-and-conditions.
+    Section 4  Custom HTML  ← PART B below
+====================================================================== -->
+
+<!-- ======================= PART A (top) ======================= -->
+<main id="main" class="bh-page">
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Contact</p>
+    <h1>Schedule a conversation</h1>
+    <p class="lede">Start with the property or association. Tell me what you own, how it is managed today and what you want handled differently.</p>
+    <p class="trust"><span>Encino-based</span><span>California licensed real estate broker</span><span>Founder-led</span></p>
+    <div class="grid three">
+      <div>
+        <div class="label">Book a time</div>
+        <h3>30-minute call</h3>
+        <p>Pick a time below. You get my undivided attention, I come prepared, and neither of us loses a day to phone tag.</p>
+      </div>
+      <div>
+        <div class="label">Prefer to write</div>
+        <h3>Send a message</h3>
+        <p>Use the form below and choose HOA, property management, brokerage, or lender, servicer or receiver. I reply within one business day.</p>
+      </div>
+      <div>
+        <div class="label">Direct</div>
+        <h3>Call or email</h3>
+        <p><a class="text" href="tel:+16265905111">(626) 590-5111</a><br><a class="text" href="mailto:larry@brichausgroup.com">larry@brichausgroup.com</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ======================= PART B (bottom) ======================= -->
+<div class="bh-page">
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Office</p>
+    <h2>Brichaus Group, Inc.</h2>
+    <dl class="facts">
+      <dt>Address</dt><dd>16501 Ventura Blvd, Suite 400<br>Encino, CA 91436</dd>
+      <dt>Phone</dt><dd><a class="text" href="tel:+16265905111">(626) 590-5111</a></dd>
+      <dt>Email</dt><dd><a class="text" href="mailto:larry@brichausgroup.com">larry@brichausgroup.com</a></dd>
+      <dt>License</dt><dd>California DRE Corporate License #02247407</dd>
+    </dl>
+    <p class="note" style="margin-top:18px">Meetings at the office are by appointment.</p>
+  </div>
+</section>
+</div>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": ["LocalBusiness", "RealEstateAgent"],
+  "@id": "https://brichausgroup.com/contact#business",
+  "name": "Brichaus Group",
+  "legalName": "Brichaus Group, Inc.",
+  "parentOrganization": {"@id": "https://brichausgroup.com/#org"},
+  "url": "https://brichausgroup.com/",
+  "telephone": "+1-626-590-5111",
+  "email": "larry@brichausgroup.com",
+  "image": "https://assets.cdn.filesafe.space/195jr5VOr3L0pctl1Lf0/media/6a619e51ab5cbf799a4d287e.png",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "16501 Ventura Blvd, Suite 400",
+    "addressLocality": "Encino",
+    "addressRegion": "CA",
+    "postalCode": "91436",
+    "addressCountry": "US"
+  },
+  "areaServed": {"@type": "AdministrativeArea", "name": "San Fernando Valley, Los Angeles County, California"},
+  "knowsAbout": ["Property management", "HOA management", "Real estate brokerage"]
+}
+</script>
