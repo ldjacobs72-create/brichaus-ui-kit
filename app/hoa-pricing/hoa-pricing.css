@@ -1,9 +1,13 @@
 .bh-hoa{
-  --bg:#F5F4F0; --charcoal:#2A2724; --rust:#9C3F2C;
-  --navy:#4A5A72; --gold:#C7A252; --panel:#FFFFFF;
-  --rule:rgba(42,39,36,.14); --hair:rgba(42,39,36,.07); --muted:rgba(42,39,36,.62);
-  --display:'Playfair Display',Georgia,serif;
-  --body:'Montserrat',-apple-system,Segoe UI,sans-serif;
+  /* Brand system updated 19 Nov 2026: navy + gold, Cormorant + Karla.
+     Variable names kept so the rest of this file is unchanged:
+     --charcoal = ink/dark surface, --rust = primary accent (now navy),
+     --navy = Track One marker (now gold). */
+  --bg:#FDFCFB; --charcoal:#1B2B44; --rust:#1B2B44;
+  --navy:#B6915E; --gold:#B6915E; --panel:#FFFFFF;
+  --rule:#E7E4E1; --hair:rgba(26,26,27,.07); --muted:#52525B;
+  --display:'Cormorant',Georgia,serif;
+  --body:'Karla',-apple-system,Segoe UI,sans-serif;
   --pad:20px;
   background:var(--bg); color:var(--charcoal);
   font-family:var(--body); font-weight:400; line-height:1.62; font-size:16px;
@@ -112,8 +116,8 @@
 }
 .bh-hoa .ct::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .22s ease}
 .bh-hoa .ct[aria-selected="true"]{background:rgba(245,244,240,.07);opacity:1}
-.bh-hoa .ct[data-t="fin"][aria-selected="true"]::after{background:#8FA3BF}
-.bh-hoa .ct[data-t="full"][aria-selected="true"]::after{background:#C9614A}
+.bh-hoa .ct[data-t="fin"][aria-selected="true"]::after{background:#B6915E}
+.bh-hoa .ct[data-t="full"][aria-selected="true"]::after{background:#E7E4E1}
 .bh-hoa .ct:focus-visible{outline:2px solid var(--gold);outline-offset:-4px}
 .bh-hoa .ct-l{
   display:block;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
