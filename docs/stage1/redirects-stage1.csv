@@ -13,3 +13,5 @@ old_path,new_path,type,add_when,notes
 /our-services/association-management/,/hoa-management,301,Stage 1,Slash variant
 /insights/author/6aaf2432c2d748b99c15d04c,/about/larry-jacobs,301,Only if still served after renaming the author record,Author record shows as Brichaus Media
 /insights/author/6a3c72f4308c73c197bff11c,/about/larry-jacobs,301,Only if still served after renaming the author record,Second author record shows as Property Manager (not in the doc's map)
+/terms-and-conditions-page,/terms-and-conditions,301,Launch day,Duplicate of /terms-and-conditions (both return 200 today)
+/terms-and-conditions-page/,/terms-and-conditions,301,Launch day,Slash variant

@@ -70,24 +70,57 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": ["LocalBusiness", "RealEstateAgent"],
-  "@id": "https://brichausgroup.com/contact#business",
-  "name": "Brichaus Group",
-  "legalName": "Brichaus Group, Inc.",
-  "parentOrganization": {"@id": "https://brichausgroup.com/#org"},
-  "url": "https://brichausgroup.com/",
-  "telephone": "+1-626-590-5111",
-  "email": "larry@brichausgroup.com",
-  "image": "https://assets.cdn.filesafe.space/195jr5VOr3L0pctl1Lf0/media/6a619e51ab5cbf799a4d287e.png",
-  "address": {
-    "@type": "PostalAddress",
-    "streetAddress": "16501 Ventura Blvd, Suite 400",
-    "addressLocality": "Encino",
-    "addressRegion": "CA",
-    "postalCode": "91436",
-    "addressCountry": "US"
-  },
-  "areaServed": {"@type": "AdministrativeArea", "name": "San Fernando Valley, Los Angeles County, California"},
-  "knowsAbout": ["Property management", "HOA management", "Real estate brokerage"]
+  "@graph": [
+    {
+      "@type": [
+        "LocalBusiness",
+        "RealEstateAgent"
+      ],
+      "@id": "https://brichausgroup.com/contact#business",
+      "name": "Brichaus Group",
+      "legalName": "Brichaus Group, Inc.",
+      "parentOrganization": {
+        "@id": "https://brichausgroup.com/#org"
+      },
+      "url": "https://brichausgroup.com/",
+      "telephone": "+1-626-590-5111",
+      "email": "larry@brichausgroup.com",
+      "image": "https://assets.cdn.filesafe.space/195jr5VOr3L0pctl1Lf0/media/6a619e51ab5cbf799a4d287e.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "16501 Ventura Blvd, Suite 400",
+        "addressLocality": "Encino",
+        "addressRegion": "CA",
+        "postalCode": "91436",
+        "addressCountry": "US"
+      },
+      "areaServed": {
+        "@type": "AdministrativeArea",
+        "name": "San Fernando Valley, Los Angeles County, California"
+      },
+      "knowsAbout": [
+        "Property management",
+        "HOA management",
+        "Real estate brokerage"
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://brichausgroup.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Contact",
+          "item": "https://brichausgroup.com/contact"
+        }
+      ]
+    }
+  ]
 }
 </script>
