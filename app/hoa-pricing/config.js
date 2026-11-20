@@ -58,7 +58,7 @@ window.BH_HOA_CONFIG = {
     { service: 'CPA review coordination when income exceeds $75,000', ref: '(§5305)',      fin: '$250 + CPA', full: '$250 + CPA' },
     { service: 'Reserve study coordination and update cycle',                              fin: '$250 + vendor', full: 'Included + vendor' },
     { service: 'Escrow demand & resale disclosure package',      ref: '(§4525)',           fin: '$375 to seller', full: '$375 to seller' },
-    { service: 'Delinquency notice cycle and lien referral, per account',                  fin: 175,  full: 'Included' },
+    { service: 'Delinquency notice cycle and lien referral, per account',                  fin: 'Agreed with the board', full: 'Included' },
     { service: 'Membership vote or special assessment administration',                     fin: 850,  full: 850 },
     { service: 'Board meeting attendance beyond the included cadence',                     fin: 275,  full: 275 },
     { service: 'Capital project administration, as % of contract value',                   fin: '—',  full: '8%' }
@@ -77,7 +77,8 @@ window.BH_HOA_CONFIG = {
     { f: 'Annual Budget Report preparation and delivery',     c: '§5300',     fin: 'bh', full: 'bh' },
     { f: 'Annual Policy Statement preparation and delivery',  c: '§5310',     fin: 'bh', full: 'bh' },
     { f: 'Reserve funding disclosure and study coordination', c: '§5550',     fin: 'bh', full: 'bh' },
-    { f: 'Delinquency notices, payment plans, lien referral',                 fin: 'bh', full: 'bh' },
+    { f: 'Delinquency reporting to the board',                                fin: 'bh', full: 'bh' },
+    { f: 'Delinquency notices, payment plans, lien referral',                 fin: 'bd', full: 'bh' },
     { f: 'Escrow demands and resale disclosure packages',     c: '§4525',     fin: 'bh', full: 'bh' },
     { f: 'Tax return and CPA review coordination',            c: '§5305',     fin: 'bh', full: 'bh' },
     { f: 'Vendor contracting and insurance certificate tracking',             fin: 'bd', full: 'bh' },
