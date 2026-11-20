@@ -131,17 +131,21 @@
     document.documentElement.setAttribute('data-bh-track', '1');
     document.addEventListener('submit', remember, true);
     document.addEventListener('click', function (e) {
-      var b = e.target.closest && e.target.closest('button[type="submit"], .form-builder button, button.btn-submit');
-      if (b) remember();
+      /* Only the contact form's own submit button. The booking widget's
+         time slots are also type="submit" and must not trigger this. */
+      var b = e.target.closest && e.target.closest('button.button-element, .form-builder button, button.btn-submit');
+      if (b && !b.closest('.calendars-container, .booking-widget, [class*="calendar"]')) remember();
     }, true);
   }
   function remember() {
+    /* Read the form's business-line field only. The booking widget on
+       /contact has its own dropdown (time zone) that must be ignored. */
     var v = '';
-    var sel = document.querySelector('.multiselect__single');
-    if (sel) v = sel.textContent.trim();
+    var hidden = document.querySelector('input[name="JX06gcQGN6gFbfrDACmv"]');
+    if (hidden && hidden.value) v = hidden.value.trim();
     if (!v) {
-      var hidden = document.querySelector('input[name="JX06gcQGN6gFbfrDACmv"]');
-      if (hidden && hidden.value) v = hidden.value.trim();
+      var sel = document.querySelector('.multi_select_form .multiselect__single');
+      if (sel) v = sel.textContent.trim();
     }
     try { if (v) sessionStorage.setItem('bh_inquiry_type', v); } catch (err) {}
   }
