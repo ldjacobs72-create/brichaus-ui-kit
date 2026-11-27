@@ -3,6 +3,7 @@
 One line per release. GHL embeds reference these tags.
 
 ## Unreleased
+- core.js tokens moved to brand v1.0 (Navy & Gold): Karla body font (Cormorant loaded for headings), accent #B6915E with navy text on gold, navy #1B2B44 replaces slate/charcoal, warm background #FDFCFB, ink #1A1A1B, muted #52525B, hairline #E7E4E1. Danger stays #9C3F2C for now.
 
 ## v1.3.0 (Stage 1 of the site architecture plan)
 - Add `app/site-shell/`: sitewide header (mega-menu + accessible mobile accordion), footer with DRE license line, breadcrumbs, shared page components. Links are plain HTML anchors; menu items are added stage by stage.

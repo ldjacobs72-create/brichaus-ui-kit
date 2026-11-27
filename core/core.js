@@ -20,36 +20,36 @@
    * tag that redeclares the same --bui-* variables on :root (see README).
    * ------------------------------------------------------------------- */
   var DEFAULT_TOKENS = {
-    '--bui-font-family': "'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+    '--bui-font-family': "'Karla', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
 
-    /* Gold — conversion-moment CTAs ("Generate My Report", "Schedule Consultation"). */
-    '--bui-color-accent': '#C08A2E',
-    '--bui-color-accent-hover': '#A6752A',
-    '--bui-color-accent-contrast': '#FFFFFF',
-    '--bui-color-accent-bg': '#F4EAE6',
-    '--bui-color-accent-bg-border': '#E4D3CB',
+    /* Gold (#B6915E, brand v1.0) — conversion-moment CTAs ("Generate My Report", "Schedule Consultation"). */
+    '--bui-color-accent': '#B6915E',
+    '--bui-color-accent-hover': '#A07E4F',
+    '--bui-color-accent-contrast': '#1B2B44',
+    '--bui-color-accent-bg': '#F4F1EE',
+    '--bui-color-accent-bg-border': '#E7E4E1',
     '--bui-color-accent-light': '#E0A94A',
 
-    /* Slate — forward-navigation default (step headers, "Continue" buttons),
+    /* Navy (#1B2B44, brand v1.0) — forward-navigation default (step headers, "Continue" buttons),
      * distinct from the Gold conversion accent above. */
-    '--bui-color-slate': '#4A5A72',
-    '--bui-color-slate-hover': '#3E4C61',
-    '--bui-color-slate-light': '#6E8299',
+    '--bui-color-slate': '#1B2B44',
+    '--bui-color-slate-hover': '#13203A',
+    '--bui-color-slate-light': '#24364F',
     '--bui-color-slate-contrast': '#FFFFFF',
 
-    /* Charcoal — kept from the original brand pass; still the text/dark-surface color. */
-    '--bui-color-surface-dark': '#211E1C',
-    '--bui-color-surface-dark-hover': '#332E2B',
+    /* Navy dark surface (brand v1.0). */
+    '--bui-color-surface-dark': '#1B2B44',
+    '--bui-color-surface-dark-hover': '#13203A',
 
-    '--bui-color-bg': '#F4F5F7',
+    '--bui-color-bg': '#FDFCFB',
     '--bui-color-surface': '#FFFFFF',
-    '--bui-color-border': '#E3E6EB',
+    '--bui-color-border': '#E7E4E1',
     '--bui-color-border-strong': '#D7DCE3',
 
-    '--bui-color-text': '#211E1C',
-    '--bui-color-text-muted': '#6B7480',
+    '--bui-color-text': '#1A1A1B',
+    '--bui-color-text-muted': '#52525B',
     '--bui-color-text-faint': '#9AA2AD',
-    '--bui-color-text-on-dark': '#F7F6F4',
+    '--bui-color-text-on-dark': '#FDFCFB',
 
     /* Brick — was the original accent; now the error/high-intensity semantic color. */
     '--bui-color-danger': '#9C3F2C',
@@ -59,7 +59,7 @@
     '--bui-color-warning-bg': '#FBEEE1',
     '--bui-color-success': '#33623A',
     '--bui-color-success-bg': '#E9F1EA',
-    '--bui-color-info': '#4A5A72',
+    '--bui-color-info': '#1B2B44',
     '--bui-color-info-bg': '#EDF1F6',
 
     '--bui-radius-sm': '6px',
@@ -132,7 +132,7 @@
 
     var stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap';
+    stylesheet.href = 'https://fonts.googleapis.com/css2?family=Cormorant:wght@500;600;700&family=Karla:wght@400;500;600;700&display=swap';
     stylesheet.setAttribute('data-bui-font', '');
 
     document.head.appendChild(preconnect1);
