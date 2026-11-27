@@ -65,8 +65,8 @@
     min-height: 100vh;
     background-color: #ffffff;
     background-image:
-      repeating-linear-gradient(0deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
-      repeating-linear-gradient(90deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(0deg, rgba(27, 43, 68, 0.035) 0, rgba(27, 43, 68, 0.035) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(90deg, rgba(27, 43, 68, 0.035) 0, rgba(27, 43, 68, 0.035) 1px, transparent 1px, transparent 56px),
       radial-gradient(circle at 50% 0%, #ffffff 0%, #eef0f3 100%);
     background-attachment: fixed;
   }
@@ -200,8 +200,8 @@
     padding: 9px 14px;
     border: none;
     border-radius: 8px;
-    background: #C1633F;
-    color: #fff;
+    background: var(--bui-color-accent);
+    color: var(--bui-color-accent-contrast);
     font-family: var(--bui-font-family);
     font-size: 13px;
     font-weight: 700;
@@ -209,7 +209,7 @@
     transition: background-color 150ms ease;
   }
   #brichaus-assessment .driver-confirm-btn:hover,
-  #brichaus-assessment .ptype-confirm-btn:hover:not(:disabled) { background: #AC5333; }
+  #brichaus-assessment .ptype-confirm-btn:hover:not(:disabled) { background: var(--bui-color-accent-hover); }
   #brichaus-assessment .ptype-confirm-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   /* Selecting a driver option flips that one card to reveal the same
      nuanced reference text the final report uses (see DRIVER_REFERENCE).
@@ -239,22 +239,22 @@
 
   /* ===== Premium visual pass: header/progress bar, Continue button ===== */
   #brichaus-assessment .bui-progress[data-tone="header"] {
-    background: #4C5768;
+    background: var(--bui-color-slate);
   }
   #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__row {
     padding: 18px 56px;
   }
   #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__value {
-    color: #B7BEC9;
+    color: rgba(253, 252, 251, 0.74);
     font-size: 13px;
     font-weight: 400;
   }
   #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__track {
     height: 6px;
-    background: #3E4756;
+    background: var(--bui-color-slate-light);
   }
   #brichaus-assessment .bui-progress[data-tone="header"] .bui-progress__fill {
-    background: #C1633F;
+    background: var(--bui-color-accent);
   }
 
   /* "Continue" is always variant="slate" (see button.js's own variant
@@ -267,20 +267,20 @@
     border-radius: 10px;
     font-weight: 700;
     font-size: 16px;
-    background: #C1633F;
-    border-color: #C1633F;
-    color: #FFFFFF;
-    box-shadow: 0 4px 14px rgba(193, 99, 63, 0.35);
+    background: var(--bui-color-accent);
+    border-color: var(--bui-color-accent);
+    color: var(--bui-color-accent-contrast);
+    box-shadow: 0 4px 14px rgba(182, 145, 94, 0.35);
     transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   }
   #brichaus-assessment .bui-btn[data-variant="slate"]:hover:not(:disabled) {
-    background: #AC5333;
-    border-color: #AC5333;
+    background: var(--bui-color-accent-hover);
+    border-color: var(--bui-color-accent-hover);
     transform: translateY(-1px);
   }
   #brichaus-assessment .bui-btn[data-variant="slate"]:disabled {
-    background: #DCDFE4;
-    border-color: #DCDFE4;
+    background: #E7E4E1;
+    border-color: #E7E4E1;
     color: #9AA0AA;
     box-shadow: none;
     opacity: 1;
@@ -304,7 +304,7 @@
     transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
   }
   #brichaus-assessment #property-type-choice-group .bui-choice-card[aria-checked="true"] {
-    border: 2px solid #4C5768;
+    border: 2px solid var(--bui-color-slate);
     background: #EEF1F5;
     box-shadow: 0 8px 20px rgba(20, 24, 32, 0.10);
   }
@@ -313,7 +313,7 @@
     right: 12px;
     width: 24px;
     height: 24px;
-    background: #4C5768;
+    background: var(--bui-color-slate);
     font-size: 13px;
   }
 
@@ -411,7 +411,7 @@
     height: 14px;
     border-radius: 50%;
     border: 2px solid var(--bui-color-border);
-    border-top-color: #C1633F;
+    border-top-color: var(--bui-color-accent);
     animation: bui-address-verifying-spin 700ms linear infinite;
   }
   @keyframes bui-address-verifying-spin {
@@ -461,7 +461,7 @@
     height: 14px;
     border-radius: 50%;
     border: 2px solid var(--bui-color-border);
-    border-top-color: #C1633F;
+    border-top-color: var(--bui-color-accent);
     animation: bui-address-verifying-spin 700ms linear infinite;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -654,21 +654,21 @@
     margin-top: var(--bui-space-4);
     padding: var(--bui-space-4) var(--bui-space-5);
     border-radius: var(--bui-radius-md);
-    background: #1c2230; color: #fff;
+    background: #13203A; color: #fff;
   }
   #brichaus-assessment .revenue-hero__orb {
     position: absolute; top: -40px; right: -30px; width: 150px; height: 150px;
-    border-radius: 50%; background: #3f4c60; opacity: 0.45; pointer-events: none;
+    border-radius: 50%; background: #24364F; opacity: 0.45; pointer-events: none;
   }
   #brichaus-assessment .revenue-hero__kicker {
     position: relative; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
-    color: #9aa4b0; margin-bottom: 6px;
+    color: rgba(253, 252, 251, 0.62); margin-bottom: 6px;
   }
   #brichaus-assessment .revenue-hero__amount {
     position: relative; font-size: 2.6rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
   }
   #brichaus-assessment .revenue-hero__sub {
-    position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4;
+    position: relative; margin-top: 8px; font-size: 12.5px; color: rgba(253, 252, 251, 0.74);
   }
   #brichaus-assessment .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
 
@@ -681,7 +681,7 @@
   #brichaus-assessment .rvm-title { font-weight: 650; font-size: 14px; }
   #brichaus-assessment .rvm-verdict { font-size: 12.5px; font-weight: 700; }
   #brichaus-assessment .rvm-verdict[data-tone="accent"] { color: var(--bui-color-accent); }
-  #brichaus-assessment .rvm-verdict[data-tone="danger"] { color: #b5583f; }
+  #brichaus-assessment .rvm-verdict[data-tone="danger"] { color: var(--bui-color-danger); }
   #brichaus-assessment .rvm-verdict[data-tone="slate"] { color: var(--bui-color-text-muted); }
   #brichaus-assessment .rvm-track {
     position: relative; height: 8px; border-radius: 999px; background: #eceef2; margin: 6px 0;
@@ -820,7 +820,7 @@
      with a quieter "Management Proposal" line beneath it. */
   #brichaus-assessment .report-address {
     font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
-    color: #2B2F36; margin: 0 0 2px;
+    color: var(--bui-color-text); margin: 0 0 2px;
   }
   #brichaus-assessment .report-subtitle {
     font-size: 1.05rem; font-weight: 600;
