@@ -4,7 +4,10 @@ One line per release. GHL embeds reference these tags.
 
 ## Unreleased
 
-## v1.3.0 (Stage 1 of the site architecture plan)
+## v1.4.0 (brand v1.0)
+- core.js tokens moved to brand v1.0 (Navy & Gold): Karla body font (Cormorant loaded for headings), accent #B6915E with navy text on gold, navy #1B2B44 replaces slate/charcoal, warm background #FDFCFB, ink #1A1A1B, muted #52525B, hairline #E7E4E1. Danger stays #9C3F2C as an approved exception to the rust-only-in-logo rule.
+
+## v1.3.0 (Stage 1 of the site architecture plan; never tagged, ships in v1.4.0)
 - Add `app/site-shell/`: sitewide header (mega-menu + accessible mobile accordion), footer with DRE license line, breadcrumbs, shared page components. Links are plain HTML anchors; menu items are added stage by stage.
 - Add `app/site-pages/`: /hoa-management, /hoa-management/services-fees, /about, /about/larry-jacobs, /contact, each with SEO title, description, canonical and JSON-LD.
 - hoa-pricing.css / embed.html: restyled to the updated brand system (navy #1B2B44 + gold #B6915E, Cormorant + Karla). Track markers: gold (Track One), navy/ivory (Track Two).
