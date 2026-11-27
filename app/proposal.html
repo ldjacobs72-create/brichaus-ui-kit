@@ -43,8 +43,8 @@
     min-height: 100vh;
     background-color: #ffffff;
     background-image:
-      repeating-linear-gradient(0deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
-      repeating-linear-gradient(90deg, rgba(76, 87, 104, 0.035) 0, rgba(76, 87, 104, 0.035) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(0deg, rgba(27, 43, 68, 0.035) 0, rgba(27, 43, 68, 0.035) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(90deg, rgba(27, 43, 68, 0.035) 0, rgba(27, 43, 68, 0.035) 1px, transparent 1px, transparent 56px),
       radial-gradient(circle at 50% 0%, #ffffff 0%, #eef0f3 100%);
     background-attachment: fixed;
   }
@@ -64,7 +64,7 @@
     margin: 0 auto;
     max-width: 520px;
     font-size: 16px;
-    color: #6B7280;
+    color: var(--bui-color-text-muted);
   }
   #brichaus-proposal .bui-card { overflow: hidden; }
   #brichaus-proposal .bui-card[data-variant="elevated"] {
@@ -110,20 +110,20 @@
     border-radius: 10px;
     font-weight: 700;
     font-size: 16px;
-    background: #C1633F;
-    border-color: #C1633F;
-    color: #FFFFFF;
-    box-shadow: 0 4px 14px rgba(193, 99, 63, 0.35);
+    background: var(--bui-color-accent);
+    border-color: var(--bui-color-accent);
+    color: var(--bui-color-accent-contrast);
+    box-shadow: 0 4px 14px rgba(182, 145, 94, 0.35);
     transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   }
   #brichaus-proposal .bui-btn[data-variant="slate"]:hover:not(:disabled) {
-    background: #AC5333;
-    border-color: #AC5333;
+    background: var(--bui-color-accent-hover);
+    border-color: var(--bui-color-accent-hover);
     transform: translateY(-1px);
   }
   #brichaus-proposal .bui-btn[data-variant="slate"]:disabled {
-    background: #DCDFE4;
-    border-color: #DCDFE4;
+    background: #E7E4E1;
+    border-color: #E7E4E1;
     color: #9AA0AA;
     box-shadow: none;
     opacity: 1;
@@ -274,7 +274,7 @@
   }
   #brichaus-proposal .report-address {
     font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em;
-    color: #2B2F36; margin: 0 0 2px;
+    color: var(--bui-color-text); margin: 0 0 2px;
   }
   #brichaus-proposal .report-locality {
     font-size: 1.02rem; font-weight: 600;
@@ -289,26 +289,26 @@
     margin-top: var(--bui-space-4);
     padding: var(--bui-space-4) var(--bui-space-5);
     border-radius: var(--bui-radius-md);
-    background: #1c2230; color: #fff;
+    background: #13203A; color: #fff;
   }
   #brichaus-proposal .revenue-hero__orb {
     position: absolute; top: -40px; right: -30px; width: 150px; height: 150px;
-    border-radius: 50%; background: #3f4c60; opacity: 0.45; pointer-events: none;
+    border-radius: 50%; background: #24364F; opacity: 0.45; pointer-events: none;
   }
   #brichaus-proposal .revenue-hero__kicker {
     position: relative; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
-    color: #9aa4b0; margin-bottom: 6px;
+    color: rgba(253, 252, 251, 0.62); margin-bottom: 6px;
   }
   #brichaus-proposal .revenue-hero__amount {
     position: relative; font-size: 2.6rem; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
     font-family: 'Cormorant', Georgia, serif;
   }
-  #brichaus-proposal .revenue-hero__sub { position: relative; margin-top: 8px; font-size: 12.5px; color: #c3cad4; }
+  #brichaus-proposal .revenue-hero__sub { position: relative; margin-top: 8px; font-size: 12.5px; color: rgba(253, 252, 251, 0.74); }
   #brichaus-proposal .revenue-hero__total { color: var(--bui-color-accent); font-weight: 700; }
   /* Fee basis line — names the OIA band the fee is based on (same
      data-tone vocabulary as the driver badges in the See Details popup). */
   #brichaus-proposal .revenue-hero__basis {
-    position: relative; margin-top: 6px; padding-top: 6px; font-size: 11.5px; color: #c3cad4; line-height: 1.4;
+    position: relative; margin-top: 6px; padding-top: 6px; font-size: 11.5px; color: rgba(253, 252, 251, 0.74); line-height: 1.4;
   }
   #brichaus-proposal .revenue-hero__basis::before {
     content: ""; position: absolute; top: 0; left: 0; width: 28px; height: 1px; background: rgba(255,255,255,0.18);
@@ -326,7 +326,7 @@
     position: relative; margin-top: 10px;
     background: none; border: none; padding: 0; cursor: pointer;
     font-family: var(--bui-font-family); font-size: 11.5px; font-weight: 700;
-    letter-spacing: 0.03em; text-decoration: underline; color: #c3cad4;
+    letter-spacing: 0.03em; text-decoration: underline; color: rgba(253, 252, 251, 0.74);
   }
   #brichaus-proposal .revenue-hero__details-btn:hover { color: var(--bui-color-accent-light); }
   #brichaus-proposal .revenue-hero__details-btn:focus-visible { outline: none; box-shadow: var(--bui-focus-ring); border-radius: 2px; }
