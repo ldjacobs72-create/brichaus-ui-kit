@@ -67,9 +67,10 @@ Rules:
 
 | Page | Pinned to |
 |---|---|
-| `app/hoa-pricing/` (GHL) | `v1.2.0` |
-| `powerpages/web-templates/*` | `v1.2.0` |
-| `app/intake-v2.html`, `app/proposal.html` | commit `b333e50` (same kit code as `v1.2.0`; move to a tag next time either page changes) |
+| `app/hoa-pricing/` (GHL) | live site: commit `ee85149` (no `core.js`; no bump needed) |
+| `powerpages/web-templates/*` | `v1.4.0` |
+| `app/intake-v2.html`, `app/proposal.html` | `v1.4.0` |
+| `app/site-shell/`, `app/site-pages/` (live site) | commit `1acc383` / `ee85149` (no `core.js`; no bump needed) |
 
 Update this table when you bump a page.
 
